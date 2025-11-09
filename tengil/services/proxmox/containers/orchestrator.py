@@ -1,11 +1,12 @@
 """High-level container orchestration (combines lifecycle, mounts, discovery)."""
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
 from tengil.core.logger import get_logger
 from .lifecycle import ContainerLifecycle
 from .mounts import MountManager
 from .discovery import ContainerDiscovery
 from .templates import TemplateManager
+from tengil.services.post_install import PostInstallManager
 
 logger = get_logger(__name__)
 
@@ -19,6 +20,7 @@ class ContainerOrchestrator:
         self.mounts = MountManager(mock=mock)
         self.discovery = ContainerDiscovery(mock=mock)
         self.templates = TemplateManager(mock=mock)
+        self.post_install = PostInstallManager(mock=mock)
 
     # ==================== Delegation Methods ====================
     # Delegate to subsystems for backward compatibility
@@ -178,6 +180,21 @@ class ContainerOrchestrator:
                         # Start container
                         if self.lifecycle.start_container(created_vmid):
                             logger.info(f"✓ Started container {created_vmid}")
+                            
+                            # Run post-install if specified
+                            post_install = container_spec.get('post_install')
+                            if post_install:
+                                logger.info(f"Running post-install tasks for container {created_vmid}...")
+                                
+                                # Wait for container to boot
+                                if self.post_install.wait_for_container_boot(created_vmid, timeout=30):
+                                    if self.post_install.run_post_install(created_vmid, post_install):
+                                        logger.info(f"✓ Post-install completed for container {created_vmid}")
+                                    else:
+                                        logger.warning(f"Post-install failed for container {created_vmid}")
+                                        # Continue anyway - user can fix manually
+                                else:
+                                    logger.warning(f"Container {created_vmid} boot timeout, skipping post-install")
                         else:
                             logger.warning(f"Container {created_vmid} created but failed to start")
 

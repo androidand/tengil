@@ -1,0 +1,248 @@
+# Tengil + External Tools: Leverage Existing Ecosystems
+#
+# Tengil focuses on its strengths:
+# ✅ ZFS dataset management (declarative, optimized)
+# ✅ Container creation & mounting (automated)
+# ✅ Infrastructure as code (reproducible)
+#
+# For apps, Tengil integrates with existing tools:
+# 🔧 tteck scripts - 200+ pre-built app installers
+# 🐳 Docker + Portainer - Container management
+# 📦 pct exec - Run commands in containers
+#
+# Tengil = orchestration glue, not reimplementation
+
+version: 2
+mode: converged-nas
+
+pools:
+  tank:
+    type: zfs
+    description: "Media and application storage"
+    
+    datasets:
+      # Media server using tteck's Jellyfin installer
+      media:
+        profile: media
+        containers:
+          - name: jellyfin
+            auto_create: true
+            template: debian-12-standard
+            mount: /media
+            readonly: true
+            resources:
+              memory: 4096
+              cores: 4
+              disk: 32G
+            network:
+              ip: dhcp
+            post_install: tteck/jellyfin
+            # Tengil runs tteck's script after container creation
+            # Script installs Jellyfin automatically
+      
+      # Docker host with Portainer for web UI management
+      containers:
+        profile: appdata
+        containers:
+          - name: docker-host
+            auto_create: true
+            template: debian-12-standard
+            mount: /appdata
+            resources:
+              memory: 8192
+              cores: 4
+              disk: 64G
+            network:
+              ip: 192.168.1.50/24
+              gateway: 192.168.1.1
+            post_install:
+              - docker           # Installs Docker
+              - portainer        # Installs Portainer (web UI on port 9000)
+            # After apply, manage Docker apps via Portainer UI
+      
+      # Photo library using tteck's Immich installer
+      photos:
+        profile: photos
+        containers:
+          - name: immich
+            auto_create: true
+            template: debian-12-standard
+            mount: /photos
+            resources:
+              memory: 8192
+              cores: 6
+              disk: 64G
+            network:
+              ip: 192.168.1.100/24
+              gateway: 192.168.1.1
+            post_install: tteck/immich
+            # tteck script handles multi-container Docker Compose setup
+      
+      # Home automation - bare install, user configures via UI
+      homeassistant:
+        profile: appdata
+        containers:
+          - name: homeassistant
+            auto_create: true
+            template: debian-12-standard
+            mount: /config
+            resources:
+              memory: 2048
+              cores: 2
+            network:
+              bridge: vmbr0
+              ip: dhcp
+            post_install: tteck/homeassistant
+      
+      # Downloads folder with custom setup
+      downloads:
+        profile: downloads
+        containers:
+          - name: qbittorrent
+            auto_create: true
+            template: debian-12-standard
+            mount: /downloads
+            resources:
+              memory: 1024
+              cores: 2
+            network:
+              ip: dhcp
+            post_install:
+              - docker
+              - |
+                # Custom docker-compose setup
+                mkdir -p /opt/qbittorrent
+                cat > /opt/qbittorrent/docker-compose.yml <<EOF
+                version: "3"
+                services:
+                  qbittorrent:
+                    image: linuxserver/qbittorrent:latest
+                    ports:
+                      - "8081:8080"
+                      - "6881:6881"
+                    environment:
+                      PUID: 1000
+                      PGID: 1000
+                    volumes:
+                      - /downloads:/downloads
+                      - /config:/config
+                EOF
+                cd /opt/qbittorrent
+                docker-compose up -d
+          
+          # Mount to existing manually-configured container
+          - name: old-downloader
+            mount: /downloads
+            readonly: false
+            # No auto_create, no post_install - existing container
+
+# ============================================================================
+# Post-Install Options
+# ============================================================================
+#
+# Tengil integrates with existing tools via post_install hooks
+#
+# Built-in installers:
+#   post_install: docker           # Installs Docker + Docker Compose
+#   post_install: portainer        # Installs Portainer (requires docker)
+#   post_install: [docker, portainer]  # Install both
+#
+# tteck Proxmox Helper Scripts (200+ apps):
+#   post_install: tteck/jellyfin       # Jellyfin media server
+#   post_install: tteck/immich         # Immich photo library
+#   post_install: tteck/homeassistant  # Home Assistant
+#   post_install: tteck/nextcloud      # Nextcloud
+#   post_install: tteck/pihole         # Pi-hole DNS
+#   post_install: tteck/adguard        # AdGuard Home
+#   post_install: tteck/wireguard      # WireGuard VPN
+#   # See: https://tteck.github.io/Proxmox/
+#
+# Custom shell commands:
+#   post_install: |
+#     apt-get update
+#     apt-get install -y nginx
+#     systemctl enable nginx
+#
+# ============================================================================
+# How It Works
+# ============================================================================
+#
+# 1. Tengil creates LXC container
+# 2. Mounts ZFS datasets
+# 3. Runs post_install via `pct exec`
+# 4. Tracks completion in state (idempotent)
+#
+# ============================================================================
+# tteck Script Integration
+# ============================================================================
+#
+# tteck scripts are community-maintained installers that:
+# - Install app dependencies
+# - Configure services
+# - Set up systemd units
+# - Apply best practices
+#
+# Tengil downloads and runs them inside the container
+# No need to reinvent - leverage the community!
+#
+# Available apps: https://github.com/tteck/Proxmox
+#
+# ============================================================================
+# Docker + Portainer Workflow
+# ============================================================================
+#
+# Create Docker host container:
+#
+#   - name: docker-host
+#     auto_create: true
+#     template: debian-12-standard
+#     post_install: [docker, portainer]
+#     mount: /appdata
+#
+# Then:
+# 1. Visit http://container-ip:9000 (Portainer UI)
+# 2. Deploy apps using Portainer's app templates
+# 3. Or use docker-compose via SSH
+#
+# Tengil manages infrastructure, Portainer manages apps
+#
+# ============================================================================
+# Mix and Match
+# ============================================================================
+#
+# You can combine approaches:
+#
+# datasets:
+#   shared:
+#     containers:
+#       - name: jellyfin
+#         post_install: tteck/jellyfin    # tteck installer
+#       - name: docker-apps
+#         post_install: [docker, portainer]  # Docker host
+#       - name: custom
+#         post_install: |                 # Custom script
+#           apt-get install -y nginx
+#       - name: manual
+#         # No post_install - SSH in and configure yourself
+#
+# ============================================================================
+# State Tracking
+# ============================================================================
+#
+# Tengil tracks completed post_install actions in state.json:
+#
+#   {
+#     "containers": {
+#       "100": {
+#         "post_install_completed": ["docker", "portainer"],
+#         "post_install_timestamp": "2025-11-09T..."
+#       }
+#     }
+#   }
+#
+# Subsequent `tg apply` runs skip completed installs (idempotent)
+#
+# To force re-run:
+#   tg apply --force-reinstall
+#
+

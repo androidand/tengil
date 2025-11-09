@@ -16,11 +16,12 @@ Rule your Proxmox homelab with an iron fist through declarative YAML configurati
    - Creates and starts containers
    - Mounts datasets into containers
    - Configures Samba/NFS shares
+   - Runs post-install tasks (Docker, Portainer, tteck scripts)
    - Tracks everything in state
 
 **What you still configure yourself:**
-- Apps inside containers (Jellyfin, Nextcloud, etc.) - install them normally after containers exist
-- Network settings, firewall rules - use Proxmox UI or manual config
+- Complex apps - Tengil installs Docker/Portainer, you manage apps via UI
+- Network settings, firewall rules - use Proxmox UI or manual config  
 - Backups - use Proxmox Backup Server or your own solution
 - VMs - Tengil only handles LXC containers, not VMs
 
@@ -29,6 +30,7 @@ Rule your Proxmox homelab with an iron fist through declarative YAML configurati
 - **Reproducibility** - blow it away, run `tg apply`, back to working state
 - **No scattered pct commands** - everything declarative
 - **Safe operations** - diff before apply, idempotent, never destroys data
+- **Integration** - works with existing tools (tteck, Docker, Portainer)
 
 ## Why?
 
@@ -111,11 +113,13 @@ Tengil brings **order and control** to your infrastructure:
 - **Container auto-creation**: Automatically create LXC containers from templates
 - **Template management**: Auto-download missing LXC templates
 - **Container lifecycle**: Start/stop containers automatically
+- **Post-install automation**: Install Docker, Portainer, or tteck scripts
 - **Bind mount management**: Auto-configure container access via pct
 - **Container discovery**: Query 100+ available LXC templates (`tg discover`)
 - **Smart recommendations**: Match apps to actual Proxmox templates (`tg suggest`)
 - **Share configuration**: Samba and NFS with proper permissions
 - **Proxmox integration**: Register ZFS storage automatically
+- **External tool integration**: tteck scripts, Docker, Portainer
 - **Idempotent operations**: Safe to run multiple times
 - **Multi-pool support**: Manage multiple ZFS pools from one config
 
@@ -189,6 +193,24 @@ datasets:
 2. Container created with specified resources
 3. Container started
 4. Dataset mounted to container
+5. Post-install tasks executed (if specified)
+
+**Post-install options:**
+```yaml
+# Install Docker and Portainer for web UI management
+post_install: [docker, portainer]
+
+# Run tteck community script (200+ apps available)
+post_install: tteck/jellyfin
+
+# Custom shell commands
+post_install: |
+  apt-get update
+  apt-get install -y nginx
+  systemctl enable nginx
+```
+
+Available tteck scripts: jellyfin, immich, homeassistant, nextcloud, pihole, adguard, wireguard, plex, sonarr, radarr, and many more. See: https://tteck.github.io/Proxmox/
 
 **Mount to existing containers:**
 
