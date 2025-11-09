@@ -6,6 +6,16 @@
 # - tank: Large SATA RAID (bulk media + backups)
 #
 # ============================================================================
+# PHASE 1 vs PHASE 2 BEHAVIOR
+# ============================================================================
+#
+# This example shows Phase 1 behavior (mount to existing containers).
+# For Phase 2 (automatic container creation), see: phase2-auto-create.yml
+#
+# Phase 1 (this file):  Containers must exist, Tengil mounts datasets
+# Phase 2 (other file): Tengil creates containers automatically
+#
+# ============================================================================
 # PREREQUISITES - Must exist BEFORE running 'tg apply'
 # ============================================================================
 #
@@ -18,6 +28,8 @@
 #      --net0 name=eth0,bridge=vmbr0,ip=dhcp
 #
 #    Repeat for each container mentioned below (jellyfin, nextcloud, etc.)
+#
+#    OR use Phase 2 auto-create instead (see phase2-auto-create.yml)
 #
 # 3. List containers to verify:
 #    pct list

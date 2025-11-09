@@ -84,6 +84,18 @@ class ProxmoxManager:
         """Check if container already has a mount for the given host path."""
         return self.containers.container_has_mount(vmid, host_path)
 
+    def create_container(self, spec: Dict, storage: str = 'local-lvm') -> Optional[int]:
+        """Create a new LXC container."""
+        return self.containers.create_container(spec, storage)
+
+    def start_container(self, vmid: int) -> bool:
+        """Start a container."""
+        return self.containers.start_container(vmid)
+
+    def stop_container(self, vmid: int) -> bool:
+        """Stop a container."""
+        return self.containers.stop_container(vmid)
+
     def get_next_free_mountpoint(self, vmid: int) -> int:
         """Find the next available mount point number for a container."""
         return self.containers.get_next_free_mountpoint(vmid)

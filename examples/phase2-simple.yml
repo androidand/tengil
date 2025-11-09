@@ -1,0 +1,78 @@
+# Phase 2: Auto-Create Containers - Simple Example
+#
+# Tengil automatically:
+# - Downloads missing templates
+# - Creates containers
+# - Starts containers
+# - Creates datasets
+# - Mounts datasets to containers
+#
+# Just run: tg apply
+
+version: 2
+
+pools:
+  tank:
+    type: zfs
+    datasets:
+      # Media server with auto-created Jellyfin
+      media:
+        profile: media
+        containers:
+          - name: jellyfin
+            auto_create: true
+            template: debian-12-standard
+            mount: /media
+            readonly: true
+            resources:
+              memory: 2048
+              cores: 2
+              disk: 16G
+            network:
+              ip: dhcp
+
+      # Photo library with auto-created Immich
+      photos:
+        profile: photos
+        containers:
+          - name: immich
+            auto_create: true
+            template: debian-12-standard
+            mount: /photos
+            resources:
+              memory: 4096
+              cores: 4
+              disk: 32G
+            network:
+              ip: 192.168.1.100/24
+              gateway: 192.168.1.1
+
+      # Downloads
+      downloads:
+        profile: downloads
+        containers:
+          - name: qbittorrent
+            auto_create: true
+            template: debian-12-standard
+            mount: /downloads
+            resources:
+              memory: 1024
+              cores: 2
+        shares:
+          smb:
+            name: Downloads
+            browseable: yes
+
+# Mix with existing containers:
+# containers:
+#   - name: jellyfin
+#     auto_create: true      # Tengil creates it
+#     template: debian-12-standard
+#   - name: plex
+#     mount: /media          # Mount to existing container
+
+# Available templates:
+# - debian-12-standard
+# - ubuntu-22.04-standard
+# - ubuntu-24.04-standard
+# Run: pveam available

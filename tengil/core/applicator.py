@@ -101,27 +101,73 @@ class ChangeApplicator:
     
     def _setup_containers(self, dataset_full_name: str, dataset_name: str, 
                          dataset_config: Dict, pool_name: str):
-        """Setup container mounts for a dataset."""
+        """Setup container mounts for a dataset (includes Phase 2 auto-creation)."""
         if 'containers' not in dataset_config:
             return
         
-        self.console.print(f"  [cyan]→[/cyan] Configuring container mounts...")
+        self.console.print(f"  [cyan]→[/cyan] Configuring containers...")
         results = self.proxmox.setup_container_mounts(dataset_name, dataset_config, pool_name)
         
-        # Track successful mounts
-        success_count = sum(1 for _, success in results if success)
-        for vmid, success in results:
+        # Process results (vmid, success, message)
+        success_count = 0
+        created_count = 0
+        
+        for vmid, success, message in results:
             if success and vmid > 0:
-                # Find mount point from config
+                # Check if this was a creation or just a mount
+                is_creation = "created" in message.lower()
+                
+                if is_creation:
+                    created_count += 1
+                    self.console.print(f"    [green]✓[/green] Container {vmid}: {message}")
+                else:
+                    self.console.print(f"    [green]✓[/green] Container {vmid}: {message}")
+                
+                # Find container spec from config for state tracking
                 for container in dataset_config['containers']:
                     if isinstance(container, dict):
-                        mount_path = container.get('mount', f"/{dataset_name}")
-                        self.state.mark_mount_managed(vmid, mount_path, dataset_full_name, created=True)
+                        container_vmid = container.get('vmid')
+                        container_name = container.get('name', '')
+                        
+                        # Match by vmid or name
+                        if container_vmid == vmid or (container_name and vmid):
+                            mount_path = container.get('mount', f"/{dataset_name}")
+                            template = container.get('template', '')
+                            
+                            # Track mount
+                            self.state.mark_mount_managed(vmid, mount_path, dataset_full_name, created=True)
+                            
+                            # Track container if it was created
+                            if is_creation:
+                                self.state.mark_container_managed(
+                                    vmid=vmid,
+                                    name=container_name,
+                                    template=template,
+                                    created=True,
+                                    mounts=[mount_path]
+                                )
+                            elif not self.state.is_managed_container(vmid):
+                                # Mark as managed but not created by us
+                                self.state.mark_container_managed(
+                                    vmid=vmid,
+                                    name=container_name,
+                                    template=template or "unknown",
+                                    created=False,
+                                    mounts=[mount_path]
+                                )
+                            break
+                
+                success_count += 1
+            else:
+                self.console.print(f"    [yellow]⚠[/yellow] Container {vmid if vmid else '?'}: {message}")
         
         if success_count > 0:
-            self.console.print(f"  [green]✓[/green] Container mounts configured ({success_count} mounts)")
+            summary = f"{success_count} container(s) configured"
+            if created_count > 0:
+                summary += f" ({created_count} created)"
+            self.console.print(f"  [green]✓[/green] {summary}")
         else:
-            self.console.print(f"  [yellow]⚠[/yellow] No container mounts configured")
+            self.console.print(f"  [yellow]⚠[/yellow] No containers configured successfully")
     
     def _setup_nas_shares(self, dataset_full_name: str, dataset_name: str,
                          dataset_config: Dict, pool_name: str):

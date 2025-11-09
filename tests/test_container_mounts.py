@@ -129,10 +129,10 @@ class TestMountExistingContainers:
         vmid, success, msg = results[0]
         assert success is True
 
-    def test_skip_auto_create_containers(self):
-        """Test that auto_create containers are skipped in Phase 1."""
+    def test_auto_create_containers(self):
+        """Test that auto_create containers are created and mounted (Phase 2)."""
         pm = ProxmoxManager(mock=True)
-        
+
         dataset_config = {
             'containers': [
                 {
@@ -144,14 +144,14 @@ class TestMountExistingContainers:
                 }
             ]
         }
-        
+
         results = pm.containers.setup_container_mounts('media', dataset_config, 'tank')
-        
+
         assert len(results) == 1
         vmid, success, msg = results[0]
-        assert vmid == 0
-        assert success is False
-        assert 'auto_create' in msg.lower() or 'not yet implemented' in msg.lower()
+        assert vmid == 200  # Container created with specified VMID
+        assert success is True  # Mount succeeded
+        assert 'mounted' in msg.lower() or 'already exists' in msg.lower()
 
     def test_mount_mixed_formats(self):
         """Test mixing different container specification formats."""

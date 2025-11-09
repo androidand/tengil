@@ -16,6 +16,7 @@ from tengil.core.orchestrator import PoolOrchestrator
 from tengil.core.applicator import ChangeApplicator
 from tengil.services.proxmox import ProxmoxManager
 from tengil.services.nas import NASManager
+from tengil.services.proxmox.containers import ContainerOrchestrator
 from tengil.core.state_store import StateStore
 from tengil.core.importer import InfrastructureImporter
 from tengil.core.template_loader import TemplateLoader
@@ -80,12 +81,15 @@ def diff(
         orchestrator = PoolOrchestrator(loader, ZFSManager())
         all_desired, all_current = orchestrator.flatten_pools()
         
-        # Calculate diff across all pools
-        engine = DiffEngine(all_desired, all_current)
+        # Initialize container manager for diff detection
+        container_mgr = ContainerOrchestrator(mock=False)
+        
+        # Calculate diff across all pools (including containers)
+        engine = DiffEngine(all_desired, all_current, container_manager=container_mgr)
         engine.calculate_diff()
         
         # Display plan
-        if engine.changes:
+        if engine.changes or engine.container_changes:
             plan = engine.format_plan()
             console.print(plan)
         else:
@@ -117,11 +121,14 @@ def apply(
         orchestrator = PoolOrchestrator(loader, ZFSManager(mock=dry_run))
         all_desired, all_current = orchestrator.flatten_pools()
         
-        # Calculate diff across all pools
-        engine = DiffEngine(all_desired, all_current)
+        # Initialize container manager
+        container_mgr = ContainerOrchestrator(mock=dry_run)
+        
+        # Calculate diff across all pools (including containers)
+        engine = DiffEngine(all_desired, all_current, container_manager=container_mgr)
         changes = engine.calculate_diff()
         
-        if not changes:
+        if not changes and not engine.container_changes:
             console.print("[green]✓[/green] Infrastructure is up to date")
             return
             
@@ -161,6 +168,9 @@ def apply(
         console.print(f"  Datasets managed: {stats['datasets_managed']}")
         console.print(f"    Created by Tengil: {stats['datasets_created']}")
         console.print(f"    Pre-existing: {stats['datasets_external']}")
+        console.print(f"  Containers managed: {stats.get('containers_managed', 0)}")
+        if stats.get('containers_created', 0) > 0:
+            console.print(f"    Created by Tengil: {stats['containers_created']}")
         console.print(f"  Container mounts: {stats['mounts_managed']}")
         console.print(f"  SMB shares: {stats['smb_shares']}")
         console.print(f"  NFS exports: {stats['nfs_shares']}")

@@ -1,7 +1,10 @@
 # Tengil Configuration Example - Version 2 (Multi-Pool)
 # Copy this to tengil.yml and customize for your setup
 #
-# See examples/ directory for more complete configurations
+# For more examples:
+# - examples/multi-pool.yml - Complete homelab (Phase 1: existing containers)
+# - examples/phase2-auto-create.yml - Auto-create containers (Phase 2)
+# - examples/multi-pool-simple.yml - Simple multi-pool setup
 
 version: 2
 mode: converged-nas

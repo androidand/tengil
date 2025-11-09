@@ -1,0 +1,263 @@
+"""High-level container orchestration (combines lifecycle, mounts, discovery)."""
+from typing import Dict, List, Tuple
+
+from tengil.core.logger import get_logger
+from .lifecycle import ContainerLifecycle
+from .mounts import MountManager
+from .discovery import ContainerDiscovery
+from .templates import TemplateManager
+
+logger = get_logger(__name__)
+
+
+class ContainerOrchestrator:
+    """Orchestrates container operations (facade for all container subsystems)."""
+
+    def __init__(self, mock: bool = False):
+        self.mock = mock
+        self.lifecycle = ContainerLifecycle(mock=mock)
+        self.mounts = MountManager(mock=mock)
+        self.discovery = ContainerDiscovery(mock=mock)
+        self.templates = TemplateManager(mock=mock)
+
+    # ==================== Delegation Methods ====================
+    # Delegate to subsystems for backward compatibility
+
+    # Lifecycle operations
+    def create_container(self, spec, storage='local-lvm'):
+        """Create a new LXC container (delegates to lifecycle)."""
+        return self.lifecycle.create_container(spec, storage)
+
+    def start_container(self, vmid):
+        """Start a container (delegates to lifecycle)."""
+        return self.lifecycle.start_container(vmid)
+
+    def stop_container(self, vmid):
+        """Stop a container (delegates to lifecycle)."""
+        return self.lifecycle.stop_container(vmid)
+
+    def container_exists(self, vmid):
+        """Check if container exists (delegates to discovery)."""
+        return self.discovery.container_exists(vmid)
+
+    # Discovery operations
+    def list_containers(self):
+        """List all containers (delegates to discovery)."""
+        return self.discovery.list_containers()
+
+    def find_container_by_name(self, name):
+        """Find container by name (delegates to discovery)."""
+        return self.discovery.find_container_by_name(name)
+
+    def get_container_info(self, vmid):
+        """Get container info (delegates to discovery)."""
+        return self.discovery.get_container_info(vmid)
+
+    def get_container_by_name(self, name):
+        """Get container by name (delegates to discovery)."""
+        return self.discovery.get_container_by_name(name)
+
+    def get_all_containers_info(self):
+        """Get all containers info (delegates to discovery)."""
+        return self.discovery.get_all_containers_info()
+
+    def get_container_config(self, vmid):
+        """Get container config (delegates to discovery)."""
+        return self.discovery.get_container_config(vmid)
+
+    # Mount operations
+    def get_container_mounts(self, vmid):
+        """Get container mounts (delegates to mounts)."""
+        return self.mounts.get_container_mounts(vmid)
+
+    def add_container_mount(self, vmid, mount_point, host_path, container_path, readonly=False):
+        """Add container mount (delegates to mounts)."""
+        return self.mounts.add_container_mount(vmid, mount_point, host_path, container_path, readonly)
+
+    def remove_container_mount(self, vmid, mount_point):
+        """Remove container mount (delegates to mounts)."""
+        return self.mounts.remove_container_mount(vmid, mount_point)
+
+    def container_has_mount(self, vmid, host_path):
+        """Check if container has mount (delegates to mounts)."""
+        return self.mounts.container_has_mount(vmid, host_path)
+
+    def get_next_free_mountpoint(self, vmid):
+        """Get next free mountpoint (delegates to mounts)."""
+        return self.mounts.get_next_free_mountpoint(vmid)
+
+    # Template operations
+    def list_available_templates(self):
+        """List available templates (delegates to templates)."""
+        return self.templates.list_available_templates()
+
+    def template_exists_locally(self, template):
+        """Check if template exists locally (delegates to templates)."""
+        return self.templates.template_exists_locally(template)
+
+    def download_template(self, template):
+        """Download template (delegates to templates)."""
+        return self.templates.download_template(template)
+
+    def ensure_template_available(self, template):
+        """Ensure template available (delegates to templates)."""
+        return self.templates.ensure_template_available(template)
+
+    # ==================== Orchestration Methods ====================
+
+    def setup_container_mounts(self, dataset_name: str, dataset_config: Dict,
+                             pool: str = 'tank') -> List[Tuple[int, bool, str]]:
+        """Set up all container mounts for a dataset.
+
+        Handles containers intelligently:
+        - Creates containers if auto_create=true (Phase 2)
+        - Looks up existing containers by vmid or name
+        - Checks if mount already exists (idempotent)
+        - Only adds mount if container exists and mount is new
+
+        Args:
+            dataset_name: Name of the dataset
+            dataset_config: Dataset configuration dict
+            pool: ZFS pool name
+
+        Returns:
+            List of (vmid, success, message) tuples
+        """
+        results = []
+
+        # Check if containers are configured
+        containers = dataset_config.get('containers', [])
+        if not containers:
+            return results
+
+        # Host path for the dataset
+        host_path = f"/{pool}/{dataset_name}"
+
+        for idx, container_spec in enumerate(containers):
+            # Parse container specification
+            if isinstance(container_spec, dict):
+                vmid = container_spec.get('vmid')
+                container_name = container_spec.get('name')
+                mount_path = container_spec.get('mount', f"/{dataset_name}")
+                readonly = container_spec.get('readonly', False)
+                auto_create = container_spec.get('auto_create', False)
+
+                # Phase 2: Create container if auto_create is enabled
+                if auto_create:
+                    # Validate template is specified
+                    template = container_spec.get('template')
+                    if not template:
+                        msg = f"Container '{container_name or vmid}': auto_create requires 'template' field"
+                        logger.error(msg)
+                        results.append((0, False, "missing template"))
+                        continue
+
+                    # Check if container already exists
+                    existing_vmid = None
+                    if vmid and self.discovery.container_exists(vmid):
+                        existing_vmid = vmid
+                        logger.info(f"Container {vmid} ({container_name}) already exists")
+                    elif container_name:
+                        existing_vmid = self.discovery.find_container_by_name(container_name)
+                        if existing_vmid:
+                            logger.info(f"Container '{container_name}' already exists (vmid={existing_vmid})")
+
+                    if not existing_vmid:
+                        # Create new container
+                        logger.info(f"Creating container '{container_name}' from template {template}")
+                        created_vmid = self.lifecycle.create_container(container_spec, storage='local-lvm')
+
+                        if not created_vmid:
+                            msg = f"Failed to create container '{container_name}'"
+                            logger.error(msg)
+                            results.append((0, False, "creation failed"))
+                            continue
+
+                        logger.info(f"✓ Created container '{container_name}' (vmid={created_vmid})")
+
+                        # Start container
+                        if self.lifecycle.start_container(created_vmid):
+                            logger.info(f"✓ Started container {created_vmid}")
+                        else:
+                            logger.warning(f"Container {created_vmid} created but failed to start")
+
+                        vmid = created_vmid
+                    else:
+                        # Use existing container
+                        vmid = existing_vmid
+
+                    # Update container_name for logging if not set
+                    if not container_name:
+                        info = self.discovery.get_container_info(vmid)
+                        container_name = info['name'] if info else f"CT{vmid}"
+
+            elif isinstance(container_spec, str):
+                # Simple format: "container_name:/mount/path" or "container_name:/mount/path:ro"
+                parts = container_spec.split(':')
+                container_name = parts[0]
+                mount_path = parts[1] if len(parts) > 1 else f"/{dataset_name}"
+                readonly = (len(parts) > 2 and parts[2] == 'ro')
+                vmid = None
+
+            else:
+                logger.warning(f"Invalid container spec: {container_spec}")
+                results.append((0, False, "invalid spec format"))
+                continue
+
+            # Find container VMID (try vmid first, then name)
+            if vmid:
+                # vmid provided, verify it exists
+                if not self.discovery.container_exists(vmid):
+                    msg = f"Container {vmid} not found"
+                    logger.warning(f"{msg} - skipping mount")
+                    logger.info(f"  Create the container first, then re-run 'tg apply'")
+                    results.append((vmid, False, msg))
+                    continue
+                # Get name for logging
+                info = self.discovery.get_container_info(vmid)
+                container_name = info['name'] if info else f"CT{vmid}"
+            else:
+                # Name provided, look up vmid
+                vmid = self.discovery.find_container_by_name(container_name)
+                if not vmid:
+                    msg = f"Container '{container_name}' not found"
+                    logger.warning(f"{msg} - skipping mount")
+                    logger.info(f"  Create the container first, then re-run 'tg apply'")
+                    results.append((0, False, msg))
+                    continue
+
+            # Check if mount already exists (idempotent)
+            if self.mounts.container_has_mount(vmid, host_path):
+                msg = f"Mount already exists: {host_path} → {container_name}:{mount_path}"
+                logger.info(f"✓ {msg}")
+                results.append((vmid, True, "already exists"))
+                continue
+
+            # Find next available mount point
+            try:
+                mp_num = self.mounts.get_next_free_mountpoint(vmid)
+            except ValueError as e:
+                msg = f"No free mount points for container {vmid}"
+                logger.error(f"{msg}: {e}")
+                results.append((vmid, False, msg))
+                continue
+
+            # Add the mount
+            success = self.mounts.add_container_mount(
+                vmid=vmid,
+                mount_point=mp_num,
+                host_path=host_path,
+                container_path=mount_path,
+                readonly=readonly
+            )
+
+            if success:
+                msg = f"Mounted {host_path} → {container_name}:{mount_path}"
+                logger.info(f"✓ {msg}")
+                results.append((vmid, True, "mounted"))
+            else:
+                msg = f"Failed to mount {host_path} → {container_name}"
+                logger.error(msg)
+                results.append((vmid, False, "mount failed"))
+
+        return results

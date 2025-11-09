@@ -4,6 +4,32 @@
 
 Rule your Proxmox homelab with an iron fist through declarative YAML configuration.
 
+## Real Talk: What This Actually Does
+
+**You have a fresh Proxmox server. What can Tengil do RIGHT NOW?**
+
+1. **Create your ZFS pool** (you do this once manually: `zpool create tank ...`)
+2. **Write one YAML file** defining your datasets, containers, and shares
+3. **Run `tg apply`** and Tengil:
+   - Creates all your ZFS datasets with optimized settings
+   - Downloads LXC templates automatically
+   - Creates and starts containers
+   - Mounts datasets into containers
+   - Configures Samba/NFS shares
+   - Tracks everything in state
+
+**What you still configure yourself:**
+- Apps inside containers (Jellyfin, Nextcloud, etc.) - install them normally after containers exist
+- Network settings, firewall rules - use Proxmox UI or manual config
+- Backups - use Proxmox Backup Server or your own solution
+- VMs - Tengil only handles LXC containers, not VMs
+
+**What Tengil gives you:**
+- **Infrastructure as code** - your entire storage/container setup in one file
+- **Reproducibility** - blow it away, run `tg apply`, back to working state
+- **No scattered pct commands** - everything declarative
+- **Safe operations** - diff before apply, idempotent, never destroys data
+
 ## Why?
 
 **The Problem**: Running Proxmox as a NAS requires tedious manual work:
@@ -45,13 +71,20 @@ pools:
       media:
         profile: media
         containers:
-          # Multiple format options:
-          - name: jellyfin          # By container name
+          # Phase 2: Auto-create containers
+          - name: jellyfin
+            auto_create: true
+            template: debian-12-standard
             mount: /media
             readonly: true
-          - vmid: 101              # By VMID
+            resources:
+              memory: 2048
+              cores: 2
+          
+          # Phase 1: Mount to existing containers
+          - name: plex
             mount: /media
-          - 'plex:/media:ro'       # String shorthand
+            readonly: true
         shares:
           smb:
             name: Media
@@ -74,16 +107,17 @@ Tengil brings **order and control** to your infrastructure:
 
 **Declare** your desired state → **Review** with `tg diff` → **Execute** with `tg apply`
 
-### Current Powers
-
-- ✅ **ZFS orchestration**: Create pools and datasets with optimized settings
-- ✅ **Container discovery**: Query 100+ available LXC templates (`tg discover`)
-- ✅ **Smart recommendations**: Match apps to actual Proxmox templates (`tg suggest`)
-- ✅ **Bind mount management**: Auto-configure container access via pct
-- ✅ **Share configuration**: Samba and NFS with proper permissions
-- ✅ **Proxmox integration**: Register ZFS storage automatically
-- ✅ **Idempotent operations**: Safe to run multiple times
-- ✅ **Multi-pool support**: Manage multiple ZFS pools from one config
+- **ZFS orchestration**: Create pools and datasets with optimized settings
+- **Container auto-creation**: Automatically create LXC containers from templates
+- **Template management**: Auto-download missing LXC templates
+- **Container lifecycle**: Start/stop containers automatically
+- **Bind mount management**: Auto-configure container access via pct
+- **Container discovery**: Query 100+ available LXC templates (`tg discover`)
+- **Smart recommendations**: Match apps to actual Proxmox templates (`tg suggest`)
+- **Share configuration**: Samba and NFS with proper permissions
+- **Proxmox integration**: Register ZFS storage automatically
+- **Idempotent operations**: Safe to run multiple times
+- **Multi-pool support**: Manage multiple ZFS pools from one config
 
 ## Built-in Profiles
 
@@ -128,15 +162,41 @@ Tengil warns about Proxmox-reserved paths on `rpool`:
 
 Recommends using `rpool/tengil/*` namespace for clarity.
 
-### Container Mounts
+### Container Management
 
-Tengil mounts ZFS datasets to **existing** LXC containers using multiple formats:
+Tengil can automatically create and configure LXC containers:
 
 ```yaml
 datasets:
   media:
     containers:
-      # By container name (recommended)
+      - name: jellyfin
+        auto_create: true
+        template: debian-12-standard
+        mount: /media
+        readonly: true
+        resources:
+          memory: 2048
+          cores: 2
+          disk: 16G
+        network:
+          bridge: vmbr0
+          ip: dhcp
+```
+
+**What happens:**
+1. Template downloaded if missing
+2. Container created with specified resources
+3. Container started
+4. Dataset mounted to container
+
+**Mount to existing containers:**
+
+```yaml
+datasets:
+  media:
+    containers:
+      # By container name
       - name: jellyfin
         mount: /media
         readonly: true
@@ -228,22 +288,40 @@ pct config 100 | grep mp     # Show only mount points
 - Python 3.8+
 - Root access (for ZFS and Proxmox operations)
 
-**Prerequisites (must exist before running Tengil):**
-- ZFS pools must be created (`zpool create ...`)
-- LXC containers must be created (`pct create ...`)
-- Tengil will:
-  - ✅ Create ZFS datasets
-  - ✅ Configure Proxmox storage
-  - ✅ Mount datasets to containers
-  - ✅ Set up Samba/NFS shares
-  - ❌ Does not create pools or containers (yet - Phase 2 coming)
+**What Tengil Manages:**
+- ZFS datasets (automatic creation)
+- LXC containers (automatic creation from templates)
+- LXC templates (automatic download)
+- Container bind mounts (automatic configuration)
+- Proxmox storage (automatic registration)
+- Samba/NFS shares (automatic setup)
+
+**What you need to create manually:**
+- ZFS pools (one-time setup)
 
 **Quick Setup Guide:**
+
+Automatic containers (recommended):
 ```bash
-# 1. Create ZFS pool (if needed)
+# 1. Create ZFS pool (manual - one time)
 zpool create -o ashift=12 tank mirror /dev/sda /dev/sdb
 
-# 2. Create LXC containers (if needed)
+# 2. Configure Tengil (containers created automatically)
+tg init
+vim /etc/tengil/tengil.yml
+# Add auto_create: true to containers
+
+# 3. Apply - Tengil creates everything
+tg diff
+tg apply
+```
+
+Manual containers (old way):
+```bash
+# 1. Create ZFS pool
+zpool create -o ashift=12 tank mirror /dev/sda /dev/sdb
+
+# 2. Create LXC containers manually
 pct create 100 local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst \
   --hostname jellyfin \
   --memory 2048 \

@@ -57,7 +57,7 @@ ln -sf "$INSTALL_DIR/.venv/bin/tg" /usr/local/bin/tg
 echo "⚙️  Setting up configuration..."
 mkdir -p /etc/tengil
 if [ ! -f /etc/tengil/tengil.yml ]; then
-    cp tengil.yml.example /etc/tengil/tengil.yml
+    cp examples/tengil.yml.example /etc/tengil/tengil.yml
     echo "📝 Created /etc/tengil/tengil.yml - edit this file"
 else
     echo "✓ Configuration already exists at /etc/tengil/tengil.yml"

@@ -1,0 +1,210 @@
+# Example: Phase 2 - Automatic Container Creation
+#
+# This example demonstrates Tengil's Phase 2 capabilities:
+# - Automatic container creation (no manual pct create needed!)
+# - Template auto-download
+# - Resource allocation
+# - Network configuration
+# - Dataset mounting
+#
+# Just run: tg apply
+#
+# Tengil will:
+# 1. Download templates if missing
+# 2. Create containers automatically
+# 3. Start containers
+# 4. Create datasets
+# 5. Mount datasets to containers
+#
+# No manual container creation required!
+
+version: 2
+mode: converged-nas
+
+pools:
+  tank:
+    type: zfs
+    description: "Media and application storage"
+    
+    datasets:
+      # Media library with auto-created Jellyfin
+      media:
+        profile: media
+        containers:
+          - name: jellyfin
+            auto_create: true
+            template: debian-12-standard
+            mount: /media
+            readonly: true
+            resources:
+              memory: 2048
+              cores: 2
+              disk: 16G
+            network:
+              bridge: vmbr0
+              ip: dhcp
+      
+      # Photo library with auto-created Immich
+      photos:
+        profile: photos
+        containers:
+          - name: immich
+            auto_create: true
+            template: debian-12-standard
+            mount: /photos
+            resources:
+              memory: 4096
+              cores: 4
+              disk: 32G
+            network:
+              ip: 192.168.1.100/24
+              gateway: 192.168.1.1
+              firewall: true
+      
+      # Downloads with auto-created qBittorrent
+      downloads:
+        profile: downloads
+        containers:
+          - name: qbittorrent
+            auto_create: true
+            template: debian-12-standard
+            mount: /downloads
+            resources:
+              memory: 1024
+              cores: 2
+              disk: 8G
+            network:
+              ip: dhcp
+        shares:
+          smb:
+            name: Downloads
+            browseable: yes
+      
+      # Development with auto-created code-server
+      dev:
+        profile: dev
+        containers:
+          - name: code-server
+            auto_create: true
+            template: ubuntu-22.04-standard
+            mount: /workspace
+            resources:
+              memory: 2048
+              cores: 2
+            network:
+              ip: dhcp
+
+# ============================================================================
+# WHAT HAPPENS WHEN YOU RUN 'tg apply'
+# ============================================================================
+#
+# 1. Template Check & Download:
+#    ✓ Checking template: debian-12-standard
+#    ✓ Checking template: ubuntu-22.04-standard
+#    → Downloading debian-12-standard... (if needed)
+#    → Downloading ubuntu-22.04-standard... (if needed)
+#
+# 2. Container Creation:
+#    ✓ Creating container jellyfin (auto-assigned VMID: 100)
+#    ✓ Creating container immich (auto-assigned VMID: 101)
+#    ✓ Creating container qbittorrent (auto-assigned VMID: 102)
+#    ✓ Creating container code-server (auto-assigned VMID: 103)
+#
+# 3. Container Startup:
+#    ✓ Started container 100 (jellyfin)
+#    ✓ Started container 101 (immich)
+#    ✓ Started container 102 (qbittorrent)
+#    ✓ Started container 103 (code-server)
+#
+# 4. Dataset Creation:
+#    ✓ Created dataset: tank/media
+#    ✓ Created dataset: tank/photos
+#    ✓ Created dataset: tank/downloads
+#    ✓ Created dataset: tank/dev
+#
+# 5. Dataset Mounting:
+#    ✓ Mounted tank/media → jellyfin:/media (readonly)
+#    ✓ Mounted tank/photos → immich:/photos
+#    ✓ Mounted tank/downloads → qbittorrent:/downloads
+#    ✓ Mounted tank/dev → code-server:/workspace
+#
+# 6. Share Configuration:
+#    ✓ Configured SMB share: Downloads
+#
+# Done! Your entire infrastructure is ready.
+#
+# ============================================================================
+# CONTAINER AUTO-CREATE OPTIONS
+# ============================================================================
+#
+# Required fields:
+#   auto_create: true          # Enable automatic creation
+#   template: <template-name>  # LXC template to use
+#   mount: <path>              # Mount point in container
+#
+# Optional resource configuration:
+#   resources:
+#     memory: 2048             # RAM in MB (default: 512)
+#     cores: 2                 # CPU cores (default: 1)
+#     disk: 16G                # Disk size (default: 8G)
+#     swap: 512                # Swap in MB (default: 512)
+#
+# Optional network configuration:
+#   network:
+#     bridge: vmbr0            # Network bridge (default: vmbr0)
+#     ip: dhcp                 # DHCP or static IP with /24
+#     gateway: 192.168.1.1     # Gateway (required for static IP)
+#     firewall: true           # Enable firewall (default: true)
+#
+# ============================================================================
+# MIXING AUTO-CREATE WITH EXISTING CONTAINERS
+# ============================================================================
+#
+# You can mix auto-created containers with manually created ones:
+#
+# datasets:
+#   media:
+#     containers:
+#       # Auto-create new container
+#       - name: jellyfin
+#         auto_create: true
+#         template: debian-12-standard
+#         mount: /media
+#       
+#       # Mount to existing container (Phase 1 behavior)
+#       - name: plex
+#         mount: /media
+#         readonly: true
+#
+# Tengil will:
+# - Create jellyfin (doesn't exist)
+# - Mount to plex (already exists)
+#
+# ============================================================================
+# AVAILABLE TEMPLATES
+# ============================================================================
+#
+# Common templates (auto-downloaded if needed):
+# - debian-12-standard       - Debian 12 (Bookworm)
+# - ubuntu-22.04-standard    - Ubuntu 22.04 LTS
+# - ubuntu-24.04-standard    - Ubuntu 24.04 LTS
+# - debian-12-turnkey-*      - TurnKey Linux appliances
+#
+# Find more templates:
+#   pveam available
+#
+# ============================================================================
+# IDEMPOTENCY
+# ============================================================================
+#
+# Running 'tg apply' multiple times is safe:
+# - Skips containers that already exist
+# - Skips datasets that already exist
+# - Skips mounts that already exist
+#
+# This means you can:
+# 1. Add new containers to config
+# 2. Run 'tg apply'
+# 3. Only new containers are created
+#
+# Existing infrastructure is never touched!

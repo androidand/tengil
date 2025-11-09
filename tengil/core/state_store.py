@@ -56,6 +56,7 @@ class StateStore:
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
             "datasets": {},
+            "containers": {},  # NEW: Track containers created by Tengil
             "mounts": {},
             "shares": {
                 "smb": {},
@@ -63,6 +64,7 @@ class StateStore:
             },
             "external": {
                 "datasets": [],
+                "containers": [],  # NEW: Track pre-existing containers
                 "mounts": {},
                 "shares": {
                     "smb": [],
@@ -218,6 +220,114 @@ class StateStore:
         container_key = str(container_id)
         return mount_point in self.state['mounts'].get(container_key, {})
     
+    # Container tracking (Phase 2)
+    
+    def mark_container_managed(self, vmid: int, name: str, template: str,
+                              created: bool = True, mounts: Optional[List[str]] = None) -> None:
+        """Mark container as managed by Tengil.
+        
+        Args:
+            vmid: Container VMID
+            name: Container name/hostname
+            template: Template used to create container
+            created: True if created by Tengil, False if pre-existing
+            mounts: List of mount paths in the container
+        """
+        vmid_key = str(vmid)
+        if 'containers' not in self.state:
+            self.state['containers'] = {}
+        
+        self.state['containers'][vmid_key] = {
+            'name': name,
+            'template': template,
+            'created_by_tengil': created,
+            'mounts': mounts or [],
+            'created_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat()
+        }
+        self.save()
+    
+    def is_managed_container(self, vmid: int) -> bool:
+        """Check if container is managed by Tengil.
+        
+        Args:
+            vmid: Container VMID
+            
+        Returns:
+            True if Tengil is managing this container
+        """
+        if 'containers' not in self.state:
+            return False
+        return str(vmid) in self.state['containers']
+    
+    def was_container_created_by_tengil(self, vmid: int) -> bool:
+        """Check if container was created by Tengil.
+        
+        Args:
+            vmid: Container VMID
+            
+        Returns:
+            True if Tengil created it, False if pre-existing
+        """
+        if 'containers' not in self.state:
+            return False
+        container_info = self.state['containers'].get(str(vmid), {})
+        return container_info.get('created_by_tengil', False)
+    
+    def get_managed_containers(self) -> List[int]:
+        """Get list of all containers managed by Tengil.
+        
+        Returns:
+            List of container VMIDs
+        """
+        if 'containers' not in self.state:
+            return []
+        return [int(vmid) for vmid in self.state['containers'].keys()]
+    
+    def get_created_containers(self) -> List[int]:
+        """Get containers that were created by Tengil (not pre-existing).
+        
+        Returns:
+            List of container VMIDs created by Tengil
+        """
+        if 'containers' not in self.state:
+            return []
+        return [
+            int(vmid) for vmid, info in self.state['containers'].items()
+            if info.get('created_by_tengil', False)
+        ]
+    
+    def get_container_info(self, vmid: int) -> Optional[Dict]:
+        """Get stored information about a container.
+        
+        Args:
+            vmid: Container VMID
+            
+        Returns:
+            Container info dict or None if not tracked
+        """
+        if 'containers' not in self.state:
+            return None
+        return self.state['containers'].get(str(vmid))
+    
+    def update_container_mounts(self, vmid: int, mounts: List[str]) -> None:
+        """Update the list of mounts for a container.
+        
+        Args:
+            vmid: Container VMID
+            mounts: List of mount paths
+        """
+        if 'containers' not in self.state:
+            self.state['containers'] = {}
+        
+        vmid_key = str(vmid)
+        if vmid_key in self.state['containers']:
+            self.state['containers'][vmid_key]['mounts'] = mounts
+            self.state['containers'][vmid_key]['updated_at'] = datetime.now().isoformat()
+            self.save()
+        else:
+            logger.warning(f"Cannot update mounts for untracked container {vmid}")
+    
     # Share tracking
     
     def mark_share_managed(self, share_type: str, share_name: str, 
@@ -280,10 +390,15 @@ class StateStore:
         Returns:
             Dict with counts of managed resources
         """
+        containers_managed = len(self.state.get('containers', {}))
+        containers_created = len(self.get_created_containers())
+        
         return {
             'datasets_managed': len(self.state['datasets']),
             'datasets_created': len(self.get_created_datasets()),
             'datasets_external': len(self.state['external']['datasets']),
+            'containers_managed': containers_managed,
+            'containers_created': containers_created,
             'mounts_managed': sum(len(mounts) for mounts in self.state['mounts'].values()),
             'smb_shares': len(self.state['shares']['smb']),
             'nfs_shares': len(self.state['shares']['nfs'])

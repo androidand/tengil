@@ -27,9 +27,10 @@ rich = "^13.0"
 pydantic = "^2.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4"
-black = "^23.0"
-ruff = "^0.1.0"
+pytest = "^8.0"
+black = "^24.0"
+ruff = "^0.6.0"
+pytest-cov = "^5.0"
 
 [tool.poetry.scripts]
 tengil = "tengil.cli:app"
@@ -38,3 +39,45 @@ tg = "tengil.cli:app"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+# --------------------------------------------------------
+# STYLE AND QUALITY SETTINGS
+# --------------------------------------------------------
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+skip-string-normalization = false
+
+[tool.ruff]
+# Match Black's formatting philosophy, handle lint and style.
+line-length = 100
+fix = true
+select = [
+  "E",   # pycodestyle errors
+  "F",   # pyflakes
+  "B",   # bugbear
+  "I",   # import sorting
+  "UP",  # pyupgrade
+  "SIM", # simplify
+  "N",   # pep8-naming
+]
+ignore = [
+  "E501"  # line length (handled by Black)
+]
+
+# Enforce per-file limits and structure discipline
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "lf"
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --color=yes"
+testpaths = ["src/tests"]
+python_files = ["test_*.py", "*_test.py"]
