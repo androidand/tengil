@@ -29,11 +29,12 @@ pools:
       media:
         profile: media
         containers:
-          - id: 100
-            path: /media
-        smb:
-          - name: Media
-            path: /tank/media
+          - name: jellyfin
+            mount: /media
+        shares:
+          smb:
+            name: Media
+            browseable: yes
 ```
 
 ### Multi-Pool Setup
@@ -82,19 +83,23 @@ Proxmox reserves these paths on rpool:
 datasets:
   media:
     containers:
-      - id: 100
-        path: /media
+      - name: jellyfin    # Container hostname (not VMID)
+        mount: /media      # Path inside container
+        readonly: false    # Optional
 ```
+
+Find container hostnames: `pct config <VMID> | grep hostname`
 
 ### Adding SMB Share
 
 ```yaml
 datasets:
   media:
-    smb:
-      - name: Media
-        path: /tank/media
+    shares:
+      smb:
+        name: Media        # Share name (path auto-calculated)
         browseable: yes
+        guest_ok: false    # Require authentication
 ```
 
 ### Adding NFS Export
@@ -102,8 +107,9 @@ datasets:
 ```yaml
 datasets:
   media:
-    nfs:
-      - hosts: "192.168.1.0/24"
+    shares:
+      nfs:
+        allowed: "192.168.1.0/24"
         options: "rw,sync,no_root_squash"
 ```
 

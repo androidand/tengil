@@ -366,10 +366,17 @@ class ContainerManager:
         raise ValueError(f"No free mount points available for container {vmid}")
 
     def setup_container_mounts(self, dataset_name: str, dataset_config: Dict,
-                             pool: str = 'tank') -> List[Tuple[int, bool]]:
+                             pool: str = 'tank') -> List[Tuple[int, bool, str]]:
         """Set up all container mounts for a dataset.
+        
+        Handles existing containers intelligently:
+        - Looks up containers by vmid or name
+        - Checks if mount already exists (idempotent)
+        - Only adds mount if container exists and mount is new
+        - Skips auto_create containers (Phase 2)
 
-        Returns list of (vmid, success) tuples.
+        Returns:
+            List of (vmid, success, message) tuples
         """
         results = []
 
@@ -381,34 +388,71 @@ class ContainerManager:
         # Host path for the dataset
         host_path = f"/{pool}/{dataset_name}"
 
-        for container_spec in containers:
+        for idx, container_spec in enumerate(containers):
             # Parse container specification
             if isinstance(container_spec, dict):
+                vmid = container_spec.get('vmid')
                 container_name = container_spec.get('name')
                 mount_path = container_spec.get('mount', f"/{dataset_name}")
                 readonly = container_spec.get('readonly', False)
+                auto_create = container_spec.get('auto_create', False)
+                
+                # Phase 1: Skip auto_create containers (not implemented yet)
+                if auto_create:
+                    logger.info(f"Skipping auto_create container '{container_name or vmid}' (Phase 2 feature)")
+                    results.append((0, False, "auto_create not yet implemented"))
+                    continue
+                
             elif isinstance(container_spec, str):
-                # Simple format: "container_name:/mount/path"
-                if ':' in container_spec:
-                    container_name, mount_path = container_spec.split(':', 1)
-                else:
-                    container_name = container_spec
-                    mount_path = f"/{dataset_name}"
-                readonly = False
+                # Simple format: "container_name:/mount/path" or "container_name:/mount/path:ro"
+                parts = container_spec.split(':')
+                container_name = parts[0]
+                mount_path = parts[1] if len(parts) > 1 else f"/{dataset_name}"
+                readonly = (len(parts) > 2 and parts[2] == 'ro')
+                vmid = None
+                
             else:
                 logger.warning(f"Invalid container spec: {container_spec}")
+                results.append((0, False, "invalid spec format"))
                 continue
 
-            # Find container VMID
-            vmid = self.find_container_by_name(container_name)
-            if not vmid:
-                logger.warning(f"Container '{container_name}' not found - skipping mount")
-                logger.info(f"  Create the container first, then re-run 'tg apply'")
-                results.append((0, False))
+            # Find container VMID (try vmid first, then name)
+            if vmid:
+                # vmid provided, verify it exists
+                if not self.container_exists(vmid):
+                    msg = f"Container {vmid} not found"
+                    logger.warning(f"{msg} - skipping mount")
+                    logger.info(f"  Create the container first, then re-run 'tg apply'")
+                    results.append((vmid, False, msg))
+                    continue
+                # Get name for logging
+                info = self.get_container_info(vmid)
+                container_name = info['name'] if info else f"CT{vmid}"
+            else:
+                # Name provided, look up vmid
+                vmid = self.find_container_by_name(container_name)
+                if not vmid:
+                    msg = f"Container '{container_name}' not found"
+                    logger.warning(f"{msg} - skipping mount")
+                    logger.info(f"  Create the container first, then re-run 'tg apply'")
+                    results.append((0, False, msg))
+                    continue
+
+            # Check if mount already exists (idempotent)
+            if self.container_has_mount(vmid, host_path):
+                msg = f"Mount already exists: {host_path} → {container_name}:{mount_path}"
+                logger.info(f"✓ {msg}")
+                results.append((vmid, True, "already exists"))
                 continue
 
             # Find next available mount point
-            mp_num = self.get_next_free_mountpoint(vmid)
+            try:
+                mp_num = self.get_next_free_mountpoint(vmid)
+            except ValueError as e:
+                msg = f"No free mount points for container {vmid}"
+                logger.error(f"{msg}: {e}")
+                results.append((vmid, False, msg))
+                continue
 
             # Add the mount
             success = self.add_container_mount(
@@ -419,11 +463,13 @@ class ContainerManager:
                 readonly=readonly
             )
 
-            results.append((vmid, success))
-
             if success:
-                logger.info(f"Successfully mounted {host_path} to {container_name}:{mount_path}")
+                msg = f"Mounted {host_path} → {container_name}:{mount_path}"
+                logger.info(f"✓ {msg}")
+                results.append((vmid, True, "mounted"))
             else:
-                logger.error(f"Failed to mount {host_path} to {container_name}")
+                msg = f"Failed to mount {host_path} → {container_name}"
+                logger.error(msg)
+                results.append((vmid, False, "mount failed"))
 
         return results

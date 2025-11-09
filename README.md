@@ -131,6 +131,8 @@ datasets:
         readonly: true
 ```
 
+Find container hostnames: `pct config <VMID> | grep hostname`
+
 ### SMB Shares
 
 ```yaml
