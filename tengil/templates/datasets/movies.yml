@@ -1,0 +1,19 @@
+description: Movies library for streaming services (Jellyfin/Plex) with automation (Radarr)
+
+movies:
+  profile: media
+  containers:
+    - name: jellyfin
+      mount: /movies
+      readonly: true
+    - name: plex
+      mount: /movies
+      readonly: true
+    - name: radarr
+      mount: /movies
+      readonly: false
+  shares:
+    smb:
+      name: "Movies"
+      guest_ok: true
+      browseable: true

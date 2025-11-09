@@ -1,0 +1,9 @@
+description: Basic NAS setup with general-purpose storage (2 datasets)
+
+version: 1
+mode: converged-nas
+pool: ${pool}
+
+datasets:
+  - media
+  - backups

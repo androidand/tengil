@@ -1,0 +1,17 @@
+description: Music library optimized for smaller audio files (128K recordsize)
+
+music:
+  profile: media
+  zfs:
+    recordsize: 128K
+  containers:
+    - name: jellyfin
+      mount: /music
+      readonly: true
+    - name: plex
+      mount: /music
+      readonly: true
+  shares:
+    smb:
+      name: "Music"
+      guest_ok: true

@@ -1,0 +1,14 @@
+description: Application data with extra safety (2 copies, high compression) for configs and databases
+
+appdata:
+  profile: dev
+  zfs:
+    recordsize: 128K
+    compression: zstd
+    copies: 2
+  containers:
+    - name: portainer
+      mount: /data
+      readonly: false
+  permissions:
+    mode: "0755"

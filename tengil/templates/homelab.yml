@@ -1,0 +1,14 @@
+description: Complete homelab NAS with media, documents, photos, and system datasets (7 datasets)
+
+version: 1
+mode: converged-nas
+pool: ${pool}
+
+datasets:
+  - media
+  - documents
+  - photos
+  - downloads
+  - backups
+  - appdata
+  - timemachine

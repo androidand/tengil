@@ -1,0 +1,19 @@
+description: TV Shows library for streaming services with automation (Sonarr)
+
+tv:
+  profile: media
+  containers:
+    - name: jellyfin
+      mount: /tv
+      readonly: true
+    - name: plex
+      mount: /tv
+      readonly: true
+    - name: sonarr
+      mount: /tv
+      readonly: false
+  shares:
+    smb:
+      name: "TV Shows"
+      guest_ok: true
+      browseable: true

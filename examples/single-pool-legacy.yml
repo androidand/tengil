@@ -1,0 +1,36 @@
+# Example: Legacy Single-Pool Configuration (v1 - will auto-convert)
+mode: converged-nas
+
+# Single pool - this will automatically convert to v2 format
+pool: tank
+type: zfs
+
+datasets:
+  appdata:
+    profile: dev
+    containers:
+      - name: jellyfin
+        mount: /config
+  
+  movies:
+    profile: media
+    containers:
+      - name: jellyfin
+        mount: /movies
+        readonly: true
+  
+  backups:
+    profile: backups
+    zfs:
+      compression: zstd
+
+# Note: This v1 format will be automatically converted to:
+#
+# version: 2
+# pools:
+#   tank:
+#     type: zfs
+#     datasets:
+#       appdata: ...
+#       movies: ...
+#       backups: ...

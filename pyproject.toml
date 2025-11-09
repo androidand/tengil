@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "tengil"
+version = "0.9.0"
+description = "Turn Proxmox into an easy-to-manage NAS and container server through declarative configuration"
+authors = ["Androidand"]
+readme = "README.md"
+license = "MIT"
+homepage = "https://github.com/androidand/tengil"
+repository = "https://github.com/androidand/tengil"
+documentation = "https://github.com/androidand/tengil#readme"
+keywords = ["zfs", "proxmox", "nas", "homelab", "infrastructure", "lxc", "samba", "nfs"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: System :: Systems Administration",
+    "Topic :: System :: Filesystems",
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+pyyaml = "^6.0"
+typer = "^0.9.0"
+rich = "^13.0"
+pydantic = "^2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4"
+black = "^23.0"
+ruff = "^0.1.0"
+
+[tool.poetry.scripts]
+tengil = "tengil.cli:app"
+tg = "tengil.cli:app"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

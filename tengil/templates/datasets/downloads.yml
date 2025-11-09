@@ -1,0 +1,29 @@
+description: Downloads folder optimized for torrents/usenet with large recordsize and light compression
+
+downloads:
+  profile: media
+  zfs:
+    recordsize: 1M
+    compression: lz4
+  containers:
+    - name: qbittorrent
+      mount: /downloads
+      readonly: false
+    - name: sabnzbd
+      mount: /downloads
+      readonly: false
+    - name: sonarr
+      mount: /downloads
+      readonly: true
+    - name: radarr
+      mount: /downloads
+      readonly: true
+  shares:
+    smb:
+      name: "Downloads"
+      valid_users: "@family"
+      browseable: false
+  permissions:
+    uid: nobody
+    gid: users
+    mode: "0775"

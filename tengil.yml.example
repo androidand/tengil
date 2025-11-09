@@ -1,0 +1,61 @@
+# Tengil Configuration Example - Version 2 (Multi-Pool)
+# Copy this to tengil.yml and customize for your setup
+#
+# See examples/ directory for more complete configurations
+
+version: 2
+mode: converged-nas
+
+# Define one or more ZFS pools
+pools:
+  # Primary pool
+  tank:
+    type: zfs
+    description: "Main storage pool"
+    
+    datasets:
+      # Media storage
+      media:
+        profile: media
+        zfs:
+          recordsize: 1M
+          compression: lz4
+        containers:
+          - name: jellyfin
+            mount: /media
+            readonly: true
+          - name: plex
+            mount: /media
+            readonly: true
+        shares:
+          smb:
+            name: "Media"
+            guest_ok: true
+            browseable: true
+          nfs:
+            allowed: "192.168.1.0/24"
+            options: "ro,sync,no_subtree_check"
+      
+      # Documents
+      documents:
+        profile: documents
+        containers:
+          - name: nextcloud
+            mount: /documents
+        shares:
+          smb:
+            name: "Documents"
+            valid_users: "@users"
+      
+      # Backups
+      backups:
+        profile: backups
+        zfs:
+          compression: zstd
+        shares:
+          nfs:
+            allowed: "192.168.1.0/24"
+            options: "rw,sync"
+
+# NOTE: For legacy single-pool configs (version: 1), see examples/single-pool-legacy.yml
+# Your existing v1 configs will be automatically converted to v2 format

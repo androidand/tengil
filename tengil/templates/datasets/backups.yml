@@ -1,0 +1,10 @@
+description: Backup storage with high compression and NFS access for backup tools
+
+backups:
+  profile: backups
+  shares:
+    nfs:
+      allowed: "192.168.1.0/24"
+      options: "rw,sync,no_root_squash"
+  permissions:
+    mode: "0700"

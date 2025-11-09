@@ -1,0 +1,17 @@
+description: Document storage with Nextcloud integration and restricted access
+
+documents:
+  profile: documents
+  containers:
+    - name: nextcloud
+      mount: /var/www/html/data
+      readonly: false
+  shares:
+    smb:
+      name: "Documents"
+      valid_users: "@family"
+      browseable: true
+  permissions:
+    uid: www-data
+    gid: www-data
+    mode: "0770"

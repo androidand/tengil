@@ -1,0 +1,45 @@
+# Example: Simple Multi-Pool Configuration
+version: 2
+mode: converged-nas
+
+pools:
+  # Fast pool (NVMe/SSD)
+  fastpool:
+    type: zfs
+    description: "Fast storage for apps and VMs"
+    
+    datasets:
+      appdata:
+        profile: dev
+        containers:
+          - name: jellyfin
+            mount: /config
+      
+      databases:
+        profile: dev
+        zfs:
+          recordsize: 8K
+  
+  # Bulk storage pool (HDDs)
+  datapool:
+    type: zfs
+    description: "Bulk storage for media"
+    
+    datasets:
+      downloads:
+        profile: media
+        containers:
+          - name: qbittorrent
+            mount: /downloads
+      
+      movies:
+        profile: media
+        containers:
+          - name: jellyfin
+            mount: /movies
+            readonly: true
+      
+      backups:
+        profile: backups
+        zfs:
+          compression: zstd

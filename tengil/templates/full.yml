@@ -1,0 +1,18 @@
+description: Complete media server + homelab setup with all features (10 datasets)
+
+version: 1
+mode: converged-nas
+pool: ${pool}
+
+# Reference datasets from the library
+datasets:
+  - movies
+  - tv
+  - music
+  - media
+  - documents
+  - photos
+  - downloads
+  - backups
+  - appdata
+  - timemachine

@@ -1,0 +1,12 @@
+description: macOS Time Machine backup target with Apple-specific SMB extensions
+
+timemachine:
+  profile: backups
+  shares:
+    smb:
+      name: "Time Machine"
+      valid_users: "@family"
+      fruit: true
+      timemachine: true
+  permissions:
+    mode: "0700"
