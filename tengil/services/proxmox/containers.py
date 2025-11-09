@@ -238,6 +238,110 @@ class ContainerManager:
                 return container['vmid']
         return None
 
+    def get_container_info(self, vmid: int) -> Optional[Dict]:
+        """Get detailed information about a container.
+        
+        Returns a dict with container details or None if not found:
+        {
+            'vmid': 100,
+            'name': 'jellyfin',
+            'status': 'running',
+            'template': 'debian-12-standard',
+            'memory': 2048,
+            'cores': 2,
+            'rootfs': 'local-lvm:vm-100-disk-0,size=8G',
+            'mounts': {...}
+        }
+        """
+        if self.mock:
+            # Get status from list_containers for accurate mock data
+            containers = self.list_containers()
+            container_data = next((c for c in containers if c['vmid'] == vmid), None)
+            if container_data:
+                return {
+                    'vmid': vmid,
+                    'name': container_data['name'],
+                    'status': container_data['status'],
+                    'template': 'debian-12-standard',
+                    'memory': 2048,
+                    'cores': 2,
+                    'rootfs': 'local-lvm:vm-100-disk-0,size=8G',
+                    'mounts': {}
+                }
+            return None
+        
+        if not self.container_exists(vmid):
+            return None
+        
+        # Get basic info from pct list
+        containers = self.list_containers()
+        container_info = next((c for c in containers if c['vmid'] == vmid), None)
+        
+        if not container_info:
+            return None
+        
+        # Get config details
+        config = self.get_container_config(vmid)
+        
+        # Extract relevant fields
+        info = {
+            'vmid': vmid,
+            'name': container_info.get('name', config.get('hostname', '')),
+            'status': container_info.get('status', 'unknown'),
+            'template': config.get('ostemplate', ''),
+            'memory': int(config.get('memory', 512)),
+            'cores': int(config.get('cores', 1)),
+            'rootfs': config.get('rootfs', ''),
+            'mounts': self.get_container_mounts(vmid)
+        }
+        
+        return info
+
+    def get_container_by_name(self, name: str) -> Optional[Dict]:
+        """Get detailed container info by name.
+        
+        Convenience method that combines find_container_by_name and get_container_info.
+        """
+        vmid = self.find_container_by_name(name)
+        if vmid:
+            return self.get_container_info(vmid)
+        return None
+
+    def get_all_containers_info(self) -> List[Dict]:
+        """Get detailed info for all containers.
+        
+        Returns list of container info dicts.
+        """
+        containers = self.list_containers()
+        result = []
+        
+        for container in containers:
+            vmid = container['vmid']
+            info = self.get_container_info(vmid)
+            if info:
+                result.append(info)
+        
+        return result
+
+    def container_has_mount(self, vmid: int, host_path: str) -> bool:
+        """Check if container already has a mount for the given host path.
+        
+        Args:
+            vmid: Container ID
+            host_path: Host path to check (e.g., '/tank/media')
+            
+        Returns:
+            True if mount exists, False otherwise
+        """
+        if self.mock:
+            return False
+        
+        mounts = self.get_container_mounts(vmid)
+        for mount_config in mounts.values():
+            if mount_config.get('volume') == host_path:
+                return True
+        return False
+
     def get_next_free_mountpoint(self, vmid: int) -> int:
         """Find the next available mount point number for a container."""
         if self.mock:

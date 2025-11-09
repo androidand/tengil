@@ -1,0 +1,348 @@
+# Example: Complete Multi-Pool Homelab Configuration
+# Optimized for: Media server + AI/LLM + Development + Backups
+#
+# Hardware assumption:
+# - rpool: Fast NVMe (system + fast storage)
+# - tank: Large SATA RAID (bulk media + backups)
+
+version: 2
+mode: converged-nas
+
+pools:
+  # ============================================================================
+  # RPOOL - Fast NVMe Pool
+  # ============================================================================
+  # Use for: OS, VMs, databases, app configs, AI models, development
+  # Characteristics: Low latency, high IOPS, expensive $/GB
+
+  rpool:
+    type: zfs
+    description: "NVMe - System, databases, app configs, and AI models"
+
+    datasets:
+      # ------------------------------------------------------------------------
+      # Application Configurations
+      # ------------------------------------------------------------------------
+      # Small but frequently accessed - perfect for NVMe
+
+      appdata:
+        profile: dev
+        zfs:
+          recordsize: 128K
+          compression: lz4
+        containers:
+          - name: jellyfin
+            mount: /config
+          - name: nextcloud
+            mount: /var/www/html
+          - name: sonarr
+            mount: /config
+          - name: radarr
+            mount: /config
+          - name: immich
+            mount: /config
+        permissions:
+          uid: 1000
+          gid: 1000
+          mode: "0755"
+
+      # ------------------------------------------------------------------------
+      # Databases
+      # ------------------------------------------------------------------------
+      # Critical: needs fast NVMe for optimal performance
+
+      postgres:
+        profile: dev
+        zfs:
+          recordsize: 8K        # PostgreSQL page size
+          logbias: latency      # Prioritize latency over throughput
+          primarycache: metadata
+          compression: lz4
+        containers:
+          - name: postgres-nextcloud
+            mount: /var/lib/postgresql/data
+          - name: postgres-immich
+            mount: /var/lib/postgresql/data
+        permissions:
+          uid: postgres
+          gid: postgres
+          mode: "0700"
+
+      # ------------------------------------------------------------------------
+      # AI / LLM Models
+      # ------------------------------------------------------------------------
+      # IMPORTANT: AI models need fast storage for quick loading
+      # LLMs can be 10GB+ and benefit from NVMe read speeds
+
+      ai:
+        profile: dev
+        zfs:
+          recordsize: 1M        # Large sequential reads for model files
+          compression: lz4      # Fast compression for large files
+          atime: off
+          primarycache: all     # Cache everything
+        containers:
+          - name: ollama
+            mount: /root/.ollama
+          - name: stable-diffusion
+            mount: /models
+          - name: text-generation-webui
+            mount: /models
+        permissions:
+          uid: 1000
+          gid: 1000
+          mode: "0755"
+
+      # ------------------------------------------------------------------------
+      # Development / Code
+      # ------------------------------------------------------------------------
+      # Source code, git repos, build artifacts
+
+      dev:
+        profile: dev
+        zfs:
+          recordsize: 128K
+          compression: zstd     # Better compression for text files
+          atime: off
+        containers:
+          - name: gitea
+            mount: /data
+          - name: code-server
+            mount: /workspace
+        shares:
+          smb:
+            name: "Development"
+            browseable: yes
+        permissions:
+          uid: 1000
+          gid: 1000
+          mode: "0755"
+
+  # ============================================================================
+  # TANK - Large SATA Pool
+  # ============================================================================
+  # Use for: Media, downloads, photos, backups, archives
+  # Characteristics: High capacity, slower, cheap $/GB
+
+  tank:
+    type: zfs
+    description: "SATA RAID - Bulk media, photos, backups"
+
+    datasets:
+      # ------------------------------------------------------------------------
+      # Downloads
+      # ------------------------------------------------------------------------
+      # CRITICAL: Must be on SAME pool as media for hardlinks!
+      # Sonarr/Radarr use hardlinks to "move" files instantly
+
+      downloads:
+        profile: media
+        zfs:
+          recordsize: 1M        # Large files (torrents, usenet)
+          compression: lz4      # Light compression
+        containers:
+          - name: qbittorrent
+            mount: /downloads
+          - name: sabnzbd
+            mount: /downloads
+          - name: sonarr
+            mount: /downloads
+          - name: radarr
+            mount: /downloads
+        permissions:
+          uid: 1000
+          gid: 1000
+          mode: "0775"
+
+      # ------------------------------------------------------------------------
+      # Media - TV Shows
+      # ------------------------------------------------------------------------
+
+      media/tv:
+        profile: media
+        zfs:
+          recordsize: 1M
+          compression: lz4
+        containers:
+          - name: sonarr
+            mount: /tv
+          - name: jellyfin
+            mount: /tv
+            readonly: true
+          - name: plex
+            mount: /tv
+            readonly: true
+        shares:
+          smb:
+            name: "TV Shows"
+            browseable: yes
+            guest_ok: true
+
+      # ------------------------------------------------------------------------
+      # Media - Movies
+      # ------------------------------------------------------------------------
+
+      media/movies:
+        profile: media
+        zfs:
+          recordsize: 1M
+          compression: lz4
+        containers:
+          - name: radarr
+            mount: /movies
+          - name: jellyfin
+            mount: /movies
+            readonly: true
+          - name: plex
+            mount: /movies
+            readonly: true
+        shares:
+          smb:
+            name: "Movies"
+            browseable: yes
+            guest_ok: true
+
+      # ------------------------------------------------------------------------
+      # Media - Music
+      # ------------------------------------------------------------------------
+
+      media/music:
+        profile: media
+        zfs:
+          recordsize: 1M
+          compression: lz4
+          atime: off
+        containers:
+          - name: navidrome
+            mount: /music
+            readonly: true
+          - name: jellyfin
+            mount: /music
+            readonly: true
+        shares:
+          smb:
+            name: "Music"
+            browseable: yes
+
+      # ------------------------------------------------------------------------
+      # Photos
+      # ------------------------------------------------------------------------
+      # IMPORTANT: Extra safety with copies=2
+
+      photos:
+        profile: photos
+        zfs:
+          recordsize: 1M
+          compression: lz4
+          copies: 2             # Dual copies for extra safety
+        containers:
+          - name: immich
+            mount: /photos
+        shares:
+          smb:
+            name: "Photos"
+            browseable: yes
+            valid_users: "@family"
+        permissions:
+          uid: 1000
+          gid: 1000
+          mode: "0755"
+
+      # ------------------------------------------------------------------------
+      # Documents
+      # ------------------------------------------------------------------------
+
+      documents:
+        profile: documents
+        zfs:
+          recordsize: 128K
+          compression: zstd     # Better compression for documents
+          copies: 2             # Extra safety
+        containers:
+          - name: nextcloud
+            mount: /documents
+        shares:
+          smb:
+            name: "Documents"
+            browseable: yes
+        permissions:
+          uid: 1000
+          gid: 1000
+          mode: "0755"
+
+      # ------------------------------------------------------------------------
+      # Backups
+      # ------------------------------------------------------------------------
+      # High compression, NFS for remote backups
+
+      backups:
+        profile: backups
+        zfs:
+          compression: zstd     # Maximum compression
+          atime: off
+        shares:
+          nfs:
+            allowed: "192.168.1.0/24"
+            options: "rw,sync,no_subtree_check"
+          smb:
+            name: "Backups"
+            browseable: no
+        permissions:
+          uid: 1000
+          gid: 1000
+          mode: "0700"
+
+      # ------------------------------------------------------------------------
+      # Gaming
+      # ------------------------------------------------------------------------
+
+      games:
+        profile: gaming
+        zfs:
+          recordsize: 128K      # Mixed file sizes
+          compression: lz4
+        shares:
+          smb:
+            name: "Games"
+            browseable: yes
+
+      # ------------------------------------------------------------------------
+      # ROMs / Retro Gaming
+      # ------------------------------------------------------------------------
+
+      roms:
+        profile: roms
+        zfs:
+          recordsize: 128K
+          compression: lz4
+          copies: 2             # Protect collection
+        shares:
+          smb:
+            name: "ROMs"
+            browseable: yes
+            read_only: yes
+
+# ==============================================================================
+# Architecture Notes
+# ==============================================================================
+#
+# Pool Strategy:
+#   rpool (NVMe):  Hot data, frequent access, small files, databases, AI models
+#   tank (SATA):   Cold data, large files, archives, media
+#
+# Critical Rules:
+#   1. Downloads + Media on SAME pool for hardlinks (instant moves)
+#   2. Databases on NVMe for performance
+#   3. AI models on NVMe for fast loading
+#   4. App configs on NVMe for responsiveness
+#   5. Photos/Documents use copies=2 for safety
+#
+# Container Naming:
+#   Use container hostname (from Proxmox), not VMID
+#   Find with: pct config <VMID> | grep hostname
+#
+# Hardlink Explanation:
+#   Sonarr/Radarr "move" downloaded files to media library using hardlinks.
+#   This is instant and uses no extra space. But hardlinks ONLY work within
+#   the same pool. This is why downloads+tv+movies must all be on tank.
+#

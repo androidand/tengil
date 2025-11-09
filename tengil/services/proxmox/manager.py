@@ -68,6 +68,22 @@ class ProxmoxManager:
         """Find container VMID by name."""
         return self.containers.find_container_by_name(name)
 
+    def get_container_info(self, vmid: int) -> Optional[Dict]:
+        """Get detailed information about a container."""
+        return self.containers.get_container_info(vmid)
+
+    def get_container_by_name(self, name: str) -> Optional[Dict]:
+        """Get detailed container info by name."""
+        return self.containers.get_container_by_name(name)
+
+    def get_all_containers_info(self) -> List[Dict]:
+        """Get detailed info for all containers."""
+        return self.containers.get_all_containers_info()
+
+    def container_has_mount(self, vmid: int, host_path: str) -> bool:
+        """Check if container already has a mount for the given host path."""
+        return self.containers.container_has_mount(vmid, host_path)
+
     def get_next_free_mountpoint(self, vmid: int) -> int:
         """Find the next available mount point number for a container."""
         return self.containers.get_next_free_mountpoint(vmid)

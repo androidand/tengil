@@ -3,6 +3,7 @@ import pytest
 from tengil.discovery import SystemDiscovery, PoolRecommender
 from tengil.models.disk import DiskType
 from tengil.models.pool import PoolPurpose
+from tengil.services.proxmox.manager import ProxmoxManager
 
 
 def test_mock_disk_discovery():
@@ -112,3 +113,142 @@ def test_recommendations_without_use_cases():
     # Should still generate basic structure
     assert 'pools' in recommendations
     assert len(recommendations['pools']) > 0
+
+
+class TestContainerStateDetection:
+    """Test container state detection functionality."""
+
+    def test_list_containers_mock(self):
+        """Test listing containers in mock mode."""
+        pm = ProxmoxManager(mock=True)
+        containers = pm.list_containers()
+        
+        assert len(containers) == 2
+        assert containers[0]['vmid'] == 100
+        assert containers[0]['name'] == 'jellyfin'
+        assert containers[0]['status'] == 'running'
+        
+        assert containers[1]['vmid'] == 101
+        assert containers[1]['name'] == 'nextcloud'
+        assert containers[1]['status'] == 'stopped'
+
+    def test_find_container_by_name(self):
+        """Test finding container by name."""
+        pm = ProxmoxManager(mock=True)
+        
+        vmid = pm.find_container_by_name('jellyfin')
+        assert vmid == 100
+        
+        vmid = pm.find_container_by_name('nextcloud')
+        assert vmid == 101
+        
+        vmid = pm.find_container_by_name('nonexistent')
+        assert vmid is None
+
+    def test_get_container_info(self):
+        """Test getting detailed container info."""
+        pm = ProxmoxManager(mock=True)
+        
+        info = pm.get_container_info(100)
+        assert info is not None
+        assert info['vmid'] == 100
+        assert info['name'] == 'jellyfin'  # Should match list_containers mock data
+        assert info['status'] == 'running'
+        assert info['template'] == 'debian-12-standard'
+        assert info['memory'] == 2048
+        assert info['cores'] == 2
+
+    def test_get_container_by_name(self):
+        """Test getting container info by name."""
+        pm = ProxmoxManager(mock=True)
+        
+        info = pm.get_container_by_name('jellyfin')
+        assert info is not None
+        assert info['vmid'] == 100
+        assert info['status'] == 'running'
+        
+        info = pm.get_container_by_name('nonexistent')
+        assert info is None
+
+    def test_get_all_containers_info(self):
+        """Test getting info for all containers."""
+        pm = ProxmoxManager(mock=True)
+        
+        all_containers = pm.get_all_containers_info()
+        assert len(all_containers) == 2
+        
+        # Check first container
+        assert all_containers[0]['vmid'] == 100
+        assert all_containers[0]['status'] == 'running'
+        
+        # Check second container
+        assert all_containers[1]['vmid'] == 101
+        assert all_containers[1]['status'] == 'stopped'
+
+    def test_container_exists(self):
+        """Test checking if container exists."""
+        pm = ProxmoxManager(mock=True)
+        
+        # In mock mode, containers always exist
+        assert pm.container_exists(100) is True
+        assert pm.container_exists(999) is True
+
+    def test_container_has_mount(self):
+        """Test checking if container has specific mount."""
+        pm = ProxmoxManager(mock=True)
+        
+        # In mock mode, no mounts exist
+        has_mount = pm.container_has_mount(100, '/tank/media')
+        assert has_mount is False
+
+    def test_get_container_mounts(self):
+        """Test getting container mount points."""
+        pm = ProxmoxManager(mock=True)
+        
+        mounts = pm.get_container_mounts(100)
+        assert isinstance(mounts, dict)
+        # Mock returns empty mounts
+        assert len(mounts) == 0
+
+
+class TestContainerInfoStructure:
+    """Test the structure of container information."""
+
+    def test_container_info_has_required_fields(self):
+        """Container info should have all required fields."""
+        pm = ProxmoxManager(mock=True)
+        info = pm.get_container_info(100)
+        
+        required_fields = ['vmid', 'name', 'status', 'template', 
+                          'memory', 'cores', 'rootfs', 'mounts']
+        
+        for field in required_fields:
+            assert field in info, f"Missing required field: {field}"
+
+    def test_container_info_types(self):
+        """Container info fields should have correct types."""
+        pm = ProxmoxManager(mock=True)
+        info = pm.get_container_info(100)
+        
+        assert isinstance(info['vmid'], int)
+        assert isinstance(info['name'], str)
+        assert isinstance(info['status'], str)
+        assert isinstance(info['template'], str)
+        assert isinstance(info['memory'], int)
+        assert isinstance(info['cores'], int)
+        assert isinstance(info['rootfs'], str)
+        assert isinstance(info['mounts'], dict)
+
+    def test_all_containers_returns_list_of_dicts(self):
+        """get_all_containers_info should return list of dicts."""
+        pm = ProxmoxManager(mock=True)
+        all_containers = pm.get_all_containers_info()
+        
+        assert isinstance(all_containers, list)
+        assert len(all_containers) > 0
+        
+        for container in all_containers:
+            assert isinstance(container, dict)
+            assert 'vmid' in container
+            assert 'name' in container
+            assert 'status' in container
