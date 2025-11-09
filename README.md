@@ -45,8 +45,13 @@ pools:
       media:
         profile: media
         containers:
-          - name: jellyfin
+          # Multiple format options:
+          - name: jellyfin          # By container name
             mount: /media
+            readonly: true
+          - vmid: 101              # By VMID
+            mount: /media
+          - 'plex:/media:ro'       # String shorthand
         shares:
           smb:
             name: Media
@@ -58,6 +63,9 @@ pools:
         containers:
           - name: qbittorrent
             mount: /downloads
+          - name: transmission
+            mount: /downloads
+            readonly: false        # Read-write access
 ```
 
 ## What It Does
@@ -122,16 +130,38 @@ Recommends using `rpool/tengil/*` namespace for clarity.
 
 ### Container Mounts
 
+Tengil mounts ZFS datasets to **existing** LXC containers using multiple formats:
+
 ```yaml
 datasets:
   media:
     containers:
-      - name: jellyfin    # Container hostname (not VMID)
-        mount: /media      # Mount path inside container
+      # By container name (recommended)
+      - name: jellyfin
+        mount: /media
         readonly: true
+      
+      # By VMID
+      - vmid: 100
+        mount: /backup
+      
+      # String shorthand
+      - 'plex:/media:ro'
 ```
 
-Find container hostnames: `pct config <VMID> | grep hostname`
+**Finding Container Info:**
+```bash
+# List all containers
+pct list
+
+# Get container hostname (for 'name' field)
+pct config 100 | grep hostname
+
+# Get container status
+pct status 100
+```
+
+**Note:** Containers must exist before running `tg apply`. Tengil handles the mounting automatically.
 
 ### SMB Shares
 
@@ -161,11 +191,70 @@ datasets:
 - [User Guide](docs/USER_GUIDE.md) - Complete reference
 - [Contributing](CONTRIBUTING.md) - Development guide
 
+## Troubleshooting
+
+### Container not found
+```
+WARNING: Container 'jellyfin' not found - skipping mount
+```
+**Solution:** Verify container exists and name matches hostname:
+```bash
+pct list                          # List all containers
+pct config 100 | grep hostname    # Get hostname for VMID 100
+```
+
+### Mount already exists
+Tengil is idempotent - if mount already exists, it skips it:
+```
+✓ Mount already exists: /tank/media → jellyfin:/media
+```
+This is normal and safe.
+
+### Container name vs VMID
+- Use `name:` for container hostname (e.g., "jellyfin")
+- Use `vmid:` for container ID (e.g., 100)
+- Both work, name is more readable
+
+### Check current mounts
+```bash
+pct config 100               # Show full container config
+pct config 100 | grep mp     # Show only mount points
+```
+
 ## Requirements
 
-- Proxmox VE 7.0+
-- ZFS pools already created
-- LXC containers already created (Tengil mounts to existing containers)
+**System Requirements:**
+- Proxmox VE 7.0+ (or Linux with ZFS)
+- Python 3.8+
+- Root access (for ZFS and Proxmox operations)
+
+**Prerequisites (must exist before running Tengil):**
+- ZFS pools must be created (`zpool create ...`)
+- LXC containers must be created (`pct create ...`)
+- Tengil will:
+  - ✅ Create ZFS datasets
+  - ✅ Configure Proxmox storage
+  - ✅ Mount datasets to containers
+  - ✅ Set up Samba/NFS shares
+  - ❌ Does not create pools or containers (yet - Phase 2 coming)
+
+**Quick Setup Guide:**
+```bash
+# 1. Create ZFS pool (if needed)
+zpool create -o ashift=12 tank mirror /dev/sda /dev/sdb
+
+# 2. Create LXC containers (if needed)
+pct create 100 local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst \
+  --hostname jellyfin \
+  --memory 2048 \
+  --cores 2 \
+  --net0 name=eth0,bridge=vmbr0,ip=dhcp
+
+# 3. Use Tengil to manage datasets and mounts
+tg init
+tg diff
+tg apply
+```
 
 ## License
 

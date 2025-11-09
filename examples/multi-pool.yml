@@ -4,6 +4,69 @@
 # Hardware assumption:
 # - rpool: Fast NVMe (system + fast storage)
 # - tank: Large SATA RAID (bulk media + backups)
+#
+# ============================================================================
+# PREREQUISITES - Must exist BEFORE running 'tg apply'
+# ============================================================================
+#
+# 1. ZFS Pools must be created:
+#    zpool create -o ashift=12 tank mirror /dev/sda /dev/sdb
+#
+# 2. LXC Containers must be created:
+#    pct create 100 local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst \
+#      --hostname jellyfin --memory 2048 --cores 2 \
+#      --net0 name=eth0,bridge=vmbr0,ip=dhcp
+#
+#    Repeat for each container mentioned below (jellyfin, nextcloud, etc.)
+#
+# 3. List containers to verify:
+#    pct list
+#
+# 4. Check container hostnames (used in 'name:' field below):
+#    pct config 100 | grep hostname
+#
+# ============================================================================
+# HOW TO USE THIS CONFIG
+# ============================================================================
+#
+# 1. Copy this file to tengil.yml:
+#    cp examples/multi-pool.yml tengil.yml
+#
+# 2. Edit to match your setup:
+#    - Update pool names (rpool, tank) if different
+#    - Update container names to match your hostnames
+#    - Add/remove datasets as needed
+#
+# 3. Preview changes:
+#    tg diff
+#
+# 4. Apply configuration:
+#    tg apply
+#
+# 5. Verify mounts:
+#    pct config 100 | grep mp
+#
+# ============================================================================
+# CONTAINER MOUNT FORMATS
+# ============================================================================
+#
+# Tengil supports three ways to specify containers:
+#
+# By name (recommended - more readable):
+#   - name: jellyfin
+#     mount: /media
+#     readonly: true
+#
+# By VMID (useful if you know the ID):
+#   - vmid: 100
+#     mount: /media
+#
+# String shorthand (compact):
+#   - 'jellyfin:/media:ro'
+#
+# All three formats work identically!
+#
+# ============================================================================
 
 version: 2
 mode: converged-nas
