@@ -2,6 +2,12 @@
 from tengil.models.disk import DiskType, PhysicalDisk
 from tengil.models.pool import PoolPurpose, ZFSPool
 from tengil.models.config import ConfigValidationError
+from tengil.models.container import (
+    ContainerMount,
+    ContainerInfo,
+    ContainerResources,
+    NetworkConfig,
+)
 
 __all__ = [
     'DiskType',
@@ -9,4 +15,8 @@ __all__ = [
     'PoolPurpose',
     'ZFSPool',
     'ConfigValidationError',
+    'ContainerMount',
+    'ContainerInfo',
+    'ContainerResources',
+    'NetworkConfig',
 ]

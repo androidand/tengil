@@ -153,6 +153,11 @@ class ConfigLoader:
                         dataset_config['containers'],
                         dataset_path
                     )
+                    # Parse containers into structured format
+                    dataset_config['containers'] = self._parse_container_mounts(
+                        dataset_config['containers'],
+                        dataset_path
+                    )
 
                 # Check for old 'smb'/'nfs' at dataset level (should be under 'shares')
                 if 'smb' in dataset_config and 'shares' not in dataset_config:
@@ -290,6 +295,65 @@ class ConfigLoader:
             fixed.append(container)
 
         return fixed
+
+    def _parse_container_mounts(self, containers: List, dataset_path: str) -> List:
+        """Parse and validate container configurations.
+        
+        Validates container specs but preserves original format for backward compatibility.
+        
+        Supports multiple formats:
+        - Simple string: "jellyfin:/media" (kept as-is)
+        - Dict with name: {name: jellyfin, mount: /media}
+        - Dict with vmid: {vmid: 100, mount: /media}
+        - Phase 2+: Full specs with auto_create, template, resources
+        
+        Args:
+            containers: List of container configurations
+            dataset_path: Dataset path for error messages
+            
+        Returns:
+            List of validated containers (format preserved)
+        """
+        if not containers:
+            return []
+        
+        parsed = []
+        for container in containers:
+            # String format: "name:/mount" or "name:/mount:ro"
+            if isinstance(container, str):
+                parts = container.split(':')
+                if len(parts) < 2:
+                    raise ConfigValidationError(
+                        f"Invalid container string format in '{dataset_path}': {container}\n"
+                        f"  Expected: 'name:/mount' or 'name:/mount:ro'"
+                    )
+                # Validate and keep string format
+                parsed.append(container)
+                continue
+            
+            # Dict format
+            if not isinstance(container, dict):
+                raise ConfigValidationError(
+                    f"Invalid container type in '{dataset_path}': {type(container)}"
+                )
+            
+            # Keep original dict mostly as-is, just validate
+            container_data = container.copy()
+            
+            # Handle deprecated 'id' field (already warned in _fix_container_format)
+            # Map 'id' to 'vmid' for internal consistency
+            if 'id' in container_data and 'vmid' not in container_data:
+                container_data['vmid'] = container_data['id']
+            
+            # Validate mount point
+            if not container_data.get('mount'):
+                raise ConfigValidationError(
+                    f"Container in '{dataset_path}' missing required 'mount' field"
+                )
+            
+            parsed.append(container_data)
+        
+        return parsed
 
     def _fix_smb_format(self, smb_config, dataset_path: str):
         """Fix deprecated SMB/Samba share formats.

@@ -1,4 +1,4 @@
-# Example: Multi-Pool Configuration (Andreas's Setup)
+# Example: Multi-Pool Configuration (Tengil's Setup)
 version: 2
 mode: converged-nas
 
@@ -6,7 +6,7 @@ pools:
   # NVMe pool - Fast storage for OS, VMs, databases
   rpool:
     type: zfs
-    description: "4TB NVMe - System and fast storage"
+    description: "Multi TB NVMe - System (OS) and fast storage"
     
     datasets:
       # Application configuration (small, fast access needed)
@@ -47,7 +47,7 @@ pools:
   # SATA RAID1 pool - Media and bulk storage
   tank:
     type: zfs
-    description: "10TB usable (2x 10TB SATA mirror) - Media storage"
+    description: "Multi TB usable (2x Multi TB SATA mirror) - Media storage"
     
     datasets:
       # Downloads - MUST be on same pool as media for hardlinks!

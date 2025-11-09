@@ -178,9 +178,4 @@ Named after Tengil from Astrid Lindgren's "The Brothers Lionheart" - the tyrant 
 
 In the saga, Tengil conquered Cherry Valley with his fire-breathing dragon Katla, ruling with an iron fist from his fortress in Karmanjaka. Like the fictional overlord who maintained strict control over his domain, this tool orchestrates your Proxmox infrastructure with unwavering authority - though for good, not evil.
 
-**Tengil's Titles:**
-- Knight of Karmanjaka
-- Lord of Cherry Valley  
-- Master of the Dragon Katla
-
 Just as Tengil commanded Cherry Valley from Karmanjaka, this Tengil commands your homelab infrastructure from a single YAML file. The difference? This Tengil serves you, bringing order and automation to your storage empire.

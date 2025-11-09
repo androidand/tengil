@@ -37,6 +37,16 @@ class MultiPoolValidator:
                 dataset_errors = self._validate_dataset_names(pool_config['datasets'])
                 errors.extend([f"Pool '{pool_name}': {err}" for err in dataset_errors])
 
+                # Validate container specifications in each dataset
+                for dataset_name, dataset_config in pool_config['datasets'].items():
+                    if 'containers' in dataset_config and dataset_config['containers']:
+                        dataset_path = f"{pool_name}/{dataset_name}"
+                        container_errors = self._validate_container_specs(
+                            dataset_config['containers'],
+                            dataset_path
+                        )
+                        errors.extend(container_errors)
+
                 # Collect all dataset names
                 all_dataset_names.extend(
                     [(pool_name, name) for name in pool_config['datasets'].keys()]
@@ -151,6 +161,88 @@ class MultiPoolValidator:
                     break  # Only show once
 
         return warnings
+
+    def _validate_container_specs(self, containers: List, dataset_path: str) -> List[str]:
+        """Validate container specifications.
+        
+        Args:
+            containers: List of container configurations
+            dataset_path: Pool/dataset path for error messages
+            
+        Returns:
+            List of validation errors
+        """
+        errors = []
+        
+        for idx, container in enumerate(containers):
+            # String format: validate and continue
+            if isinstance(container, str):
+                parts = container.split(':')
+                if len(parts) < 2:
+                    errors.append(
+                        f"Container {idx} in '{dataset_path}': invalid string format '{container}'\n"
+                        f"    Expected: 'name:/mount' or 'name:/mount:ro'"
+                    )
+                continue
+            
+            # Should be dict format
+            if not isinstance(container, dict):
+                errors.append(
+                    f"Container {idx} in '{dataset_path}' has invalid type: {type(container)}"
+                )
+                continue
+            
+            # Check identity (must have name or vmid)
+            if not container.get('name') and not container.get('vmid'):
+                errors.append(
+                    f"Container {idx} in '{dataset_path}' must have 'name' or 'vmid'"
+                )
+            
+            # Check mount point
+            if not container.get('mount'):
+                errors.append(
+                    f"Container {idx} in '{dataset_path}' missing 'mount' field"
+                )
+            elif not container['mount'].startswith('/'):
+                errors.append(
+                    f"Container {idx} in '{dataset_path}': mount '{container['mount']}' "
+                    f"must be absolute path (start with /)"
+                )
+            
+            # Phase 2+ validation: auto_create requires template
+            if container.get('auto_create'):
+                if not container.get('template'):
+                    errors.append(
+                        f"Container {idx} in '{dataset_path}': auto_create=true requires 'template' field"
+                    )
+                
+                # Validate resources if provided
+                if 'resources' in container:
+                    res = container['resources']
+                    if not isinstance(res, dict):
+                        errors.append(
+                            f"Container {idx} in '{dataset_path}': resources must be a dict"
+                        )
+                    else:
+                        # Check memory (MB)
+                        if 'memory' in res and not isinstance(res['memory'], int):
+                            errors.append(
+                                f"Container {idx} in '{dataset_path}': resources.memory must be integer (MB)"
+                            )
+                        # Check cores
+                        if 'cores' in res and not isinstance(res['cores'], int):
+                            errors.append(
+                                f"Container {idx} in '{dataset_path}': resources.cores must be integer"
+                            )
+                        # Check disk format
+                        if 'disk' in res:
+                            disk = str(res['disk'])
+                            if not re.match(r'^\d+[GMgm]$', disk):
+                                errors.append(
+                                    f"Container {idx} in '{dataset_path}': resources.disk must be like '8G' or '512M'"
+                                )
+        
+        return errors
 
     def _check_hardlink_issues(self, pools: Dict) -> List[str]:
         """Check for potential cross-pool hardlink issues."""
