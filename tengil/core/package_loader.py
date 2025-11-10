@@ -169,7 +169,9 @@ class PackageLoader:
             # Parse just the metadata part (before config)
             split_pos = config_match.start()
             metadata_yaml = raw_content[:split_pos]
-            config_section = raw_content[split_pos:]
+            # Skip the "config:" line itself, get everything after it
+            config_start = config_match.end() + 1  # +1 to skip the newline
+            config_section = raw_content[config_start:]
             
             # Parse metadata normally
             data = yaml.safe_load(metadata_yaml)
