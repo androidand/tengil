@@ -14,10 +14,11 @@ logger = get_logger(__name__)
 class ContainerOrchestrator:
     """Orchestrates container operations (facade for all container subsystems)."""
 
-    def __init__(self, mock: bool = False):
+    def __init__(self, mock: bool = False, permission_manager=None):
         self.mock = mock
+        self.permission_manager = permission_manager
         self.lifecycle = ContainerLifecycle(mock=mock)
-        self.mounts = MountManager(mock=mock)
+        self.mounts = MountManager(mock=mock, permission_manager=permission_manager)
         self.discovery = ContainerDiscovery(mock=mock)
         self.templates = TemplateManager(mock=mock)
         self.post_install = PostInstallManager(mock=mock)
@@ -72,9 +73,9 @@ class ContainerOrchestrator:
         """Get container mounts (delegates to mounts)."""
         return self.mounts.get_container_mounts(vmid)
 
-    def add_container_mount(self, vmid, mount_point, host_path, container_path, readonly=False):
+    def add_container_mount(self, vmid, mount_point, host_path, container_path, readonly=False, container_name=None):
         """Add container mount (delegates to mounts)."""
-        return self.mounts.add_container_mount(vmid, mount_point, host_path, container_path, readonly)
+        return self.mounts.add_container_mount(vmid, mount_point, host_path, container_path, readonly, container_name)
 
     def remove_container_mount(self, vmid, mount_point):
         """Remove container mount (delegates to mounts)."""
@@ -185,16 +186,21 @@ class ContainerOrchestrator:
                             post_install = container_spec.get('post_install')
                             if post_install:
                                 logger.info(f"Running post-install tasks for container {created_vmid}...")
-                                
+
                                 # Wait for container to boot
                                 if self.post_install.wait_for_container_boot(created_vmid, timeout=30):
                                     if self.post_install.run_post_install(created_vmid, post_install):
                                         logger.info(f"✓ Post-install completed for container {created_vmid}")
                                     else:
-                                        logger.warning(f"Post-install failed for container {created_vmid}")
-                                        # Continue anyway - user can fix manually
+                                        msg = f"Post-install failed for container {created_vmid}"
+                                        logger.error(msg)
+                                        results.append((created_vmid, False, "post-install failed"))
+                                        continue
                                 else:
-                                    logger.warning(f"Container {created_vmid} boot timeout, skipping post-install")
+                                    msg = f"Container {created_vmid} boot timeout, post-install cannot run"
+                                    logger.error(msg)
+                                    results.append((created_vmid, False, "boot timeout"))
+                                    continue
                         else:
                             logger.warning(f"Container {created_vmid} created but failed to start")
 
@@ -265,7 +271,8 @@ class ContainerOrchestrator:
                 mount_point=mp_num,
                 host_path=host_path,
                 container_path=mount_path,
-                readonly=readonly
+                readonly=readonly,
+                container_name=container_name
             )
 
             if success:

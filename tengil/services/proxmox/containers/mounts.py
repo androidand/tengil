@@ -11,9 +11,10 @@ logger = get_logger(__name__)
 class MountManager:
     """Manages mount points for LXC containers."""
 
-    def __init__(self, mock: bool = False):
+    def __init__(self, mock: bool = False, permission_manager=None):
         self.mock = mock
         self.discovery = ContainerDiscovery(mock=mock)
+        self.permission_manager = permission_manager  # For determining mount flags
 
     def get_container_mounts(self, vmid: int) -> Dict[str, Dict[str, str]]:
         """Get all mount points configured for a container.
@@ -69,7 +70,7 @@ class MountManager:
 
     def add_container_mount(self, vmid: int, mount_point: int,
                            host_path: str, container_path: str,
-                           readonly: bool = False) -> bool:
+                           readonly: bool = False, container_name: str = None) -> bool:
         """Add a mount point to a container.
 
         Checks for existing mounts at the same path and handles conflicts.
@@ -80,13 +81,23 @@ class MountManager:
             mount_point: Mount point number (e.g., 0 for mp0)
             host_path: Path on the host (e.g., '/tank/movies')
             container_path: Path inside container (e.g., '/movies')
-            readonly: Whether mount should be read-only
+            readonly: Whether mount should be read-only (can be overridden by permission_manager)
+            container_name: Name of container (used for permission lookup)
 
         Returns:
             True if mount added or already exists with same config
         """
+        # Check permission manager for readonly flag (overrides parameter)
+        if self.permission_manager and container_name:
+            try:
+                flags = self.permission_manager.get_container_mount_flags(host_path, container_name)
+                readonly = flags.get("readonly", readonly)
+                logger.info(f"Permission manager determined readonly={readonly} for {container_name} -> {host_path}")
+            except Exception as e:
+                logger.warning(f"Could not get mount flags from permission manager: {e}, using readonly={readonly}")
+        
         if self.mock:
-            logger.info(f"MOCK: Would add mount to container {vmid}: {host_path} -> {container_path}")
+            logger.info(f"MOCK: Would add mount to container {vmid}: {host_path} -> {container_path} (readonly={readonly})")
             return True
 
         # Check if container exists

@@ -3,6 +3,8 @@ import subprocess
 from typing import List
 
 from tengil.core.logger import get_logger
+from tengil.core.retry import retry
+from tengil.core.config import get_config
 
 logger = get_logger(__name__)
 
@@ -85,19 +87,24 @@ class TemplateManager:
             logger.error(f"Failed to check local templates: {e}")
             return False
 
+    @retry(max_attempts=3, delay=5, exceptions=(subprocess.CalledProcessError,))
     def download_template(self, template: str) -> bool:
-        """Download template from Proxmox repository.
+        """Download template from Proxmox repository with retry on failure.
 
         Args:
             template: Template name to download (e.g., 'debian-12-standard')
 
         Returns:
             True if download successful
+
+        Note:
+            Automatically retries up to 3 times with exponential backoff on network failures
         """
         if self.mock:
             logger.info(f"MOCK: Would download template {template}")
             return True
 
+        config = get_config()
         logger.info(f"Downloading template {template}...")
 
         # Template names might need full version suffix for download
@@ -109,7 +116,8 @@ class TemplateManager:
                 ['pveam', 'download', 'local', template_file],
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
+                timeout=config.template_download_timeout
             )
             logger.info(f"✓ Downloaded template {template}")
             return True
@@ -118,7 +126,10 @@ class TemplateManager:
             logger.error(f"✗ Failed to download template {template}: {e}")
             if e.stderr:
                 logger.error(f"Error output: {e.stderr}")
-            return False
+            raise  # Re-raise to trigger retry
+        except subprocess.TimeoutExpired:
+            logger.error(f"✗ Template download timed out after 10 minutes")
+            raise subprocess.CalledProcessError(1, ['pveam', 'download'])
 
     def ensure_template_available(self, template: str) -> bool:
         """Ensure template is available locally, download if needed.

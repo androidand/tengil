@@ -1,0 +1,202 @@
+# Example: Phase 3 - Unified Permission Management
+#
+# This demonstrates Tengil's unified permission management:
+# - Declare WHO accesses WHAT with WHAT permissions
+# - Tengil automatically handles:
+#   * ZFS ACLs (chown, chmod)
+#   * Container mount flags (readonly vs readwrite)
+#   * SMB share permissions (read-only vs writable)
+#
+# THE KILLER FEATURE: "This data should be readable by both Jellyfin and SMB" → just declare it!
+
+version: 2
+mode: converged-nas
+
+pools:
+  tank:
+    type: zfs
+    description: "Media and application storage with unified permissions"
+    
+    datasets:
+      # Read-only media library - multiple consumers, all read-only
+      media:
+        profile: media
+        
+        # NEW: Consumers model (Phase 3)
+        # Tengil orchestrates permissions across ALL layers
+        consumers:
+          # Container accessing dataset (read-only)
+          - type: container
+            name: jellyfin
+            access: read
+          
+          # SMB share (read-only)
+          - type: smb
+            name: Media
+            access: read
+          
+          # NFS export (read-only)
+          - type: nfs
+            name: media_export
+            access: read
+        
+        # OLD: Still supported for backward compatibility
+        # containers:
+        #   - name: jellyfin
+        #     mount: /media
+        #     readonly: true  # Manual flag
+        #
+        # shares:
+        #   smb:
+        #     name: Media
+        #     read only: yes  # Manual config
+        
+        # What Tengil does automatically:
+        # 1. ZFS ACLs: chmod 755 /tank/media (read-only)
+        # 2. Container mount: pct set 100 -mp0 /tank/media,mp=/media,ro=1
+        # 3. SMB config: read only = yes, writable = no
+        # 4. NFS export: ro option
+      
+      # Writable upload directory - container writes, SMB writes
+      uploads:
+        profile: default
+        
+        consumers:
+          # Container with write access
+          - type: container
+            name: uploader
+            access: write
+          
+          # SMB share with write access
+          - type: smb
+            name: Uploads
+            access: write
+        
+        # What Tengil does automatically:
+        # 1. ZFS ACLs: chmod 775 /tank/uploads (group writable)
+        # 2. Container mount: pct set 101 -mp0 /tank/uploads,mp=/uploads (readwrite)
+        # 3. SMB config: writable = yes, read only = no
+      
+      # Mixed access - some read, some write
+      shared:
+        profile: default
+        
+        consumers:
+          # Read-only consumers
+          - type: container
+            name: viewer
+            access: read
+          
+          - type: smb
+            name: SharedRead
+            access: read
+          
+          # Write consumers
+          - type: container
+            name: editor
+            access: write
+          
+          - type: smb
+            name: SharedWrite
+            access: write
+        
+        # What Tengil does automatically:
+        # 1. ZFS ACLs: chmod 775 /tank/shared (most permissive wins)
+        # 2. viewer mount: ro=1 (readonly)
+        # 3. editor mount: (readwrite)
+        # 4. SharedRead SMB: read only = yes
+        # 5. SharedWrite SMB: writable = yes
+      
+      # Complex scenario: Media processing pipeline
+      video_processing:
+        profile: media
+        
+        consumers:
+          # Input: Uploader writes raw videos
+          - type: container
+            name: upload_handler
+            access: write
+          
+          # Processing: Transcoder reads and writes
+          - type: container
+            name: handbrake
+            access: write
+          
+          # Output: Media servers read processed videos
+          - type: container
+            name: jellyfin
+            access: read
+          
+          - type: container
+            name: plex
+            access: read
+          
+          # Backup: Read-only access for backup system
+          - type: nfs
+            name: backup_nfs
+            access: read
+          
+          # Monitoring: SMB for admins (read-only)
+          - type: smb
+            name: VideoLogs
+            access: read
+        
+        # Tengil figures out:
+        # - Dataset needs 775 (writers present)
+        # - upload_handler, handbrake: readwrite mounts
+        # - jellyfin, plex: readonly mounts
+        # - backup_nfs: ro export
+        # - VideoLogs: read-only share
+
+# Benefits of Consumers Model:
+#
+# 1. DECLARATIVE: Say what you want, not how to achieve it
+#    Old: Set chmod, pct mount flags, SMB config separately
+#    New: Declare consumers, Tengil handles everything
+#
+# 2. CONSISTENT: Permissions match across all layers
+#    No more "why can't Jellyfin read but SMB can?"
+#    One source of truth → consistent permissions
+#
+# 3. VALIDATABLE: Tengil detects conflicts
+#    Same consumer with both read AND write? Error!
+#    Mixed read/write on same dataset? Warning!
+#
+# 4. PORTABLE: Export to other tools
+#    tg export docker-compose → volume mounts with correct flags
+#    tg export ansible → permission tasks
+#
+# 5. DISCOVERABLE: See who accesses what
+#    tg permissions show tank/media → lists all consumers
+#    tg permissions summary → overview of all datasets
+
+# Migration from old format:
+#
+# OLD (manual permissions):
+#   datasets:
+#     media:
+#       profile: media
+#       containers:
+#         - name: jellyfin
+#           mount: /media
+#           readonly: true
+#       shares:
+#         smb:
+#           name: Media
+#           read only: yes
+#
+# NEW (consumers model):
+#   datasets:
+#     media:
+#       profile: media
+#       consumers:
+#         - {type: container, name: jellyfin, access: read}
+#         - {type: smb, name: Media, access: read}
+#
+# Both formats work! Old format auto-converts internally.
+# But new format gives you validation and consistency.
+
+# Commands:
+# tg diff         → Shows what permissions would be applied
+# tg apply        → Creates datasets + applies permissions
+# tg permissions  → Show permission summary

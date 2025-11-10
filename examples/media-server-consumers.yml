@@ -1,0 +1,162 @@
+# Media Server Package - Consumers Model Example
+#
+# This shows the NEW consumers model (Phase 3) vs OLD manual config
+# Both work! But consumers give you automatic permission orchestration.
+
+name: Media Server (Consumers Demo)
+description: Media server with unified permission management
+category: Media
+
+config:
+  version: 2
+  pools:
+    tank:
+      type: zfs
+      datasets:
+        
+        # ==================== NEW: Consumers Model ====================
+        # Declare WHO accesses WHAT with WHAT permissions
+        # Tengil orchestrates everything automatically
+        
+        movies:
+          profile: media
+          
+          # NEW consumers syntax:
+          consumers:
+            # Jellyfin reads movies (read-only for safety)
+            - type: container
+              name: jellyfin
+              access: read
+              mount: /media
+            
+            # SMB share for adding content (read-only - use dedicated upload share for writes)
+            - type: smb
+              name: Movies
+              access: read
+          
+          # What Tengil does automatically:
+          # 1. ZFS ACLs: chmod 755 /tank/movies (read-only)
+          # 2. Container mount: pct set 100 -mp0 /tank/movies,mp=/media,ro=1
+          # 3. SMB config: read only = yes
+          # Result: Consistent permissions across ALL layers!
+        
+        # ==================== OLD: Manual Config (still works!) ====================
+        # You specify each layer separately
+        
+        tvshows_old_style:
+          profile: media
+          
+          # Manual container config:
+          containers:
+            - name: jellyfin
+              mount: /tvshows
+              readonly: true  # YOU set readonly flag
+          
+          # Manual SMB config:
+          shares:
+            smb:
+              name: TVShows
+              read only: yes  # YOU set SMB permissions
+              browseable: yes
+          
+          # Problem: Easy to have mismatched permissions
+          # - Forgot readonly on container? Now Jellyfin can delete files
+          # - Forgot "read only" on SMB? Users can delete via network share
+          # - Have to remember to set BOTH every time
+        
+        # ==================== MIXED ACCESS (Consumers shines here!) ====================
+        # Some read, some write - Tengil figures it out
+        
+        video_processing:
+          profile: media
+          
+          consumers:
+            # Upload handler writes raw videos
+            - type: container
+              name: upload_handler
+              access: write
+              mount: /uploads
+            
+            # Handbrake transcodes (reads and writes)
+            - type: container
+              name: handbrake
+              access: write
+              mount: /processing
+            
+            # Jellyfin just reads processed videos
+            - type: container
+              name: jellyfin
+              access: read
+              mount: /media_processed
+            
+            # SMB for monitoring (read-only)
+            - type: smb
+              name: VideoProcessing
+              access: read
+            
+            # Backup via NFS (read-only)
+            - type: nfs
+              name: backup_export
+              access: read
+          
+          # What Tengil does:
+          # 1. Dataset gets 775 permissions (writers present)
+          # 2. upload_handler mount: readwrite
+          # 3. handbrake mount: readwrite
+          # 4. jellyfin mount: readonly (ro=1)
+          # 5. SMB share: read only = yes
+          # 6. NFS export: ro option
+          # 
+          # You declared intent, Tengil handled the details!
+        
+        # ==================== MIGRATION PATH ====================
+        # You can mix both formats!
+        
+        music:
+          profile: media
+          
+          # New consumers for some access
+          consumers:
+            - type: container
+              name: jellyfin
+              access: read
+              mount: /music
+          
+          # Old manual config for others (maybe legacy systems)
+          shares:
+            smb:
+              name: Music
+              browseable: yes
+              guest_ok: no
+          
+          # Both work together. Consumers provide validation,
+          # manual config gives you escape hatch for edge cases.
+
+# ==================== Benefits ====================
+#
+# 1. CONSISTENCY: Permissions match across ZFS, containers, shares
+#    - No more "why can container read but SMB can't?"
+#    - One source of truth
+#
+# 2. SAFETY: Tengil validates
+#    - Same consumer wants both read AND write? Error!
+#    - Mixed read/write on dataset? Warning shown
+#
+# 3. CLARITY: See who accesses what at a glance
+#    - consumers list shows complete picture
+#    - Manual config scattered across containers/shares sections
+#
+# 4. PORTABILITY: Export to other tools
+#    - tg export docker-compose → correct volume flags
+#    - tg export ansible → permission tasks
+#
+# 5. AUDITABILITY: Know what will change
+#    - tg diff shows permission changes
+#    - tg permissions summary → who accesses what
+
+# ==================== Commands ====================
+#
+# tg diff                    → Preview what permissions will be applied
+# tg apply                   → Create datasets + apply permissions
+# tg permissions show tank/movies → List all consumers
+# tg permissions summary     → Overview of all datasets

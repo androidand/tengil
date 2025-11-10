@@ -115,6 +115,45 @@ class ContainerLifecycle:
             '--features', 'nesting=1',
         ])
 
+        # GPU passthrough if requested
+        gpu_config = spec.get('gpu', {})
+        if gpu_config and gpu_config.get('passthrough', False):
+            gpu_type = gpu_config.get('type', 'auto')
+            
+            if gpu_type == 'auto':
+                # Auto-detect GPU type
+                from tengil.discovery.hwdetect import SystemDetector
+                detector = SystemDetector()
+                gpus = detector._detect_gpu()
+                
+                if gpus:
+                    gpu_type = gpus[0]['type']  # Use first detected GPU
+                    logger.info(f"Auto-detected GPU: {gpu_type} - {gpus[0]['model']}")
+                else:
+                    logger.warning("GPU passthrough requested but no GPU detected")
+                    gpu_type = None
+            
+            # Configure GPU passthrough based on type
+            if gpu_type in ['intel', 'amd']:
+                # Intel/AMD: Mount /dev/dri for hardware transcoding
+                logger.info(f"Configuring {gpu_type} GPU passthrough via /dev/dri")
+                # Note: /dev/dri mount will be added via lxc.cgroup2.devices.allow
+                # This requires privileged container or manual config post-creation
+                # For now, log a note about manual configuration needed
+                logger.warning(f"  GPU passthrough requires manual configuration:")
+                logger.warning(f"  1. Edit /etc/pve/lxc/{vmid}.conf")
+                logger.warning(f"  2. Add: lxc.cgroup2.devices.allow: c 226:* rwm")
+                logger.warning(f"  3. Add: lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir")
+                logger.warning(f"  Or use privileged container with --unprivileged 0")
+                
+            elif gpu_type == 'nvidia':
+                # NVIDIA: Requires nvidia-container-runtime and different setup
+                logger.info("Configuring NVIDIA GPU passthrough")
+                logger.warning("  NVIDIA GPU passthrough requires:")
+                logger.warning("  1. nvidia-container-runtime installed on host")
+                logger.warning("  2. Manual LXC config modification")
+                logger.warning("  3. See: https://github.com/NVIDIA/nvidia-container-toolkit")
+
         try:
             logger.info(f"Creating container {vmid} ({name}) with template {template}")
             logger.debug(f"Command: {' '.join(cmd)}")
