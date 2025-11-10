@@ -315,8 +315,14 @@ class PackageLoader:
         cache_dir = Path(__file__).parent.parent.parent / "compose_cache"
         resolver = ComposeResolver(cache_dir=cache_dir)
         
+        # Extract first source from sources array (if present)
+        compose_spec = package.docker_compose
+        if 'sources' in compose_spec and isinstance(compose_spec['sources'], list):
+            # New format: docker_compose.sources[0]
+            compose_spec = compose_spec['sources'][0]
+        
         # Resolve compose spec (cache → source → image → dockerfile)
-        compose_result = resolver.resolve(package.docker_compose)
+        compose_result = resolver.resolve(compose_spec)
         
         logger.info(f"✓ Resolved compose using strategy: {compose_result.source_type}")
         logger.info(f"  Source: {compose_result.source_path}")
