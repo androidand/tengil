@@ -1,0 +1,111 @@
+# Immich Photo Management - Curated for Tengil
+# Source: https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
+# Curated: 2025-11-10
+# Official Immich self-hosted photo/video management
+
+version: '3.8'
+
+services:
+  immich-server:
+    container_name: immich_server
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION:-release}
+    restart: unless-stopped
+
+    volumes:
+      # Photo/video library (managed by Tengil)
+      - /photos:/data
+      - /etc/localtime:/etc/localtime:ro
+
+    ports:
+      - '2283:2283'
+
+    environment:
+      # Database connection
+      - DB_HOSTNAME=immich_postgres
+      - DB_USERNAME=${DB_USERNAME:-immich}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_DATABASE_NAME=${DB_DATABASE_NAME:-immich}
+
+      # Redis connection
+      - REDIS_HOSTNAME=immich_redis
+
+      # Upload location (inside container)
+      - UPLOAD_LOCATION=/data
+
+      # Machine learning
+      - MACHINE_LEARNING_ENABLED=true
+      - MACHINE_LEARNING_URL=http://immich-machine-learning:3003
+
+    depends_on:
+      - redis
+      - database
+
+    healthcheck:
+      disable: false
+
+    labels:
+      - "tengil.managed=true"
+      - "tengil.service=immich"
+      - "tengil.cache=compose_cache/immich"
+
+  immich-machine-learning:
+    container_name: immich_machine_learning
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}
+    restart: unless-stopped
+
+    volumes:
+      - model-cache:/cache
+
+    environment:
+      - DB_HOSTNAME=immich_postgres
+      - DB_USERNAME=${DB_USERNAME:-immich}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_DATABASE_NAME=${DB_DATABASE_NAME:-immich}
+      - REDIS_HOSTNAME=immich_redis
+
+    healthcheck:
+      disable: false
+
+    # Optional: For GPU acceleration, uncomment and choose:
+    # NVIDIA GPU:
+    # runtime: nvidia
+    # image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}-cuda
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+    #   - NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
+
+    # Intel/AMD GPU (OpenVINO):
+    # devices:
+    #   - /dev/dri:/dev/dri
+    # image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION:-release}-openvino
+
+  redis:
+    container_name: immich_redis
+    image: docker.io/valkey/valkey:8
+    restart: unless-stopped
+
+    healthcheck:
+      test: valkey-cli ping || exit 1
+
+  database:
+    container_name: immich_postgres
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
+    restart: unless-stopped
+
+    volumes:
+      # Database storage (managed by Tengil)
+      - /database:/var/lib/postgresql/data
+
+    environment:
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_USER=${DB_USERNAME:-immich}
+      - POSTGRES_DB=${DB_DATABASE_NAME:-immich}
+      - POSTGRES_INITDB_ARGS=--data-checksums
+      # Uncomment if database is on HDD (not SSD)
+      # - DB_STORAGE_TYPE=HDD
+
+    shm_size: 128mb
+
+volumes:
+  model-cache:
+    name: immich_model_cache

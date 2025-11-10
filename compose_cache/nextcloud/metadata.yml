@@ -1,0 +1,88 @@
+# Nextcloud All-in-One Compose Cache Metadata
+
+source_type: upstream
+source_path: https://github.com/nextcloud/all-in-one/blob/main/compose.yaml
+cached_at: "2025-11-10"
+verified: true
+
+# Why curated?
+curation_notes: |
+  Simplified official Nextcloud AIO compose for Tengil integration:
+  - Removed commented-out Caddy service (Tengil handles reverse proxy)
+  - Removed network_mode comments (bridge is standard)
+  - Consolidated environment variables with clear defaults
+  - Added NEXTCLOUD_DATADIR=/data for Tengil volume management
+  - Added TZ=Europe/Stockholm (user can customize)
+  - Added Tengil labels
+  - Cleaned up excessive comments
+  - Kept critical warnings about volume name and DATADIR
+
+# Update frequency
+update_frequency: monthly
+last_verified: "2025-11-10"
+
+# Tengil integration
+managed_volumes:
+  - /data               # Nextcloud user data (must be set before first install!)
+
+# Special volumes (must not be changed)
+docker_volumes:
+  - nextcloud_aio_mastercontainer  # AIO config (exact name required!)
+
+secrets:
+  # No explicit secrets - AIO generates admin password on first run
+  # Password shown in AIO web interface at https://server:8080
+
+# Hardware acceleration
+hardware_acceleration:
+  gpu: optional
+  types:
+    - intel           # QuickSync for preview generation
+    - nvidia          # CUDA for preview generation
+
+# Resource requirements
+resources:
+  min_memory_mb: 4096
+  recommended_memory_mb: 8192
+  min_disk_gb: 100
+  recommended_disk_gb: 500
+  cpu_cores: 4
+
+# Network ports
+ports:
+  - 80              # HTTP (can remove if using reverse proxy)
+  - 8080            # AIO admin interface (HTTPS with self-signed cert)
+  - 8443            # Nextcloud HTTPS (can remove if using reverse proxy)
+
+# Special notes
+notes: |
+  Nextcloud All-in-One uses a mastercontainer that manages additional
+  sub-containers via the Docker socket. This means:
+
+  1. The mastercontainer will create more containers on your host
+  2. Total container count: ~8-12 depending on optional services
+  3. Volume nextcloud_aio_mastercontainer name must NOT be changed
+  4. NEXTCLOUD_DATADIR cannot be changed after first installation
+
+  AIO includes:
+  - Nextcloud server
+  - PostgreSQL database
+  - Redis cache
+  - Collabora Office
+  - Nextcloud Talk
+  - Imaginary (image processing)
+  - Fulltextsearch (optional)
+  - Borg backup system
+
+  First-time setup requires accessing https://server-ip:8080 to:
+  - Get generated admin password
+  - Configure domain/IP
+  - Enable optional containers
+  - Start deployment
+
+warnings:
+  - "NEXTCLOUD_DATADIR must be set BEFORE first install"
+  - "Volume name 'nextcloud_aio_mastercontainer' must NOT be changed"
+  - "AIO will create additional containers not shown in compose file"
+  - "Access AIO interface at https://server:8080 (self-signed cert)"
+  - "Never expose HTTP (port 80) to internet without reverse proxy"

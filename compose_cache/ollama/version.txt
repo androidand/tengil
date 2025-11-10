@@ -1,0 +1,14 @@
+source: https://hub.docker.com/r/ollama/ollama (official Docker image)
+composed_by: Tengil maintainers
+curated: 2025-11-10
+verified: 2025-11-10
+notes: |
+  Ollama doesn't provide an official docker-compose.yml file.
+  This is a minimal compose configuration based on their Docker documentation.
+  
+  Reference: https://github.com/ollama/ollama#docker
+  
+  The official image is ollama/ollama and requires only:
+  - Port 11434 exposed
+  - Volume mount for model storage at /root/.ollama
+  - OLLAMA_HOST=0.0.0.0 to accept connections

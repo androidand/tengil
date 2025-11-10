@@ -1,0 +1,60 @@
+# Immich Compose Cache Metadata
+
+source_type: upstream
+source_path: https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
+cached_at: "2025-11-10"
+verified: true
+
+# Why curated?
+curation_notes: |
+  Simplified official Immich compose for Tengil integration:
+  - Removed UPLOAD_LOCATION env var (set inline to /data)
+  - Removed DB_DATA_LOCATION env var (set inline to /database)
+  - Simplified volume mounts to Tengil-managed paths
+  - Added Tengil labels
+  - Cleaned up comments for clarity
+  - Pinned valkey:8 instead of SHA hash (more readable)
+  - Kept all 4 services (server, ml, redis, postgres)
+
+# Update frequency
+update_frequency: monthly
+last_verified: "2025-11-10"
+
+# Tengil integration
+managed_volumes:
+  - /photos         # Photo/video library
+  - /database       # PostgreSQL data
+
+secrets:
+  - DB_PASSWORD     # Required: PostgreSQL password
+  - DB_USERNAME     # Optional: defaults to "immich"
+  - DB_DATABASE_NAME  # Optional: defaults to "immich"
+
+# Hardware acceleration
+hardware_acceleration:
+  gpu: optional
+  types:
+    - nvidia        # CUDA for ML inference
+    - openvino      # Intel/AMD GPU
+    - armnn         # ARM GPU
+
+# Resource requirements
+resources:
+  min_memory_mb: 4096
+  recommended_memory_mb: 8192
+  min_disk_gb: 50
+  recommended_disk_gb: 100
+  cpu_cores: 4
+
+# Network ports
+ports:
+  - 2283          # Main web interface
+
+# Notes
+notes: |
+  Immich is a high-performance Google Photos alternative with AI-powered
+  search, face detection, and mobile apps. Requires PostgreSQL with pgvector
+  extension for machine learning features.
+
+  GPU acceleration highly recommended for face detection and CLIP embeddings.
+  Can process 10-50x faster with GPU vs CPU-only.

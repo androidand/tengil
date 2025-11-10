@@ -1,0 +1,20 @@
+source: https://jellyfin.org/docs/general/installation/container
+curated_date: 2025-11-10
+image: jellyfin/jellyfin:latest
+notes: |
+  Official Jellyfin setup optimized for Tengil.
+  
+  Configuration:
+  - Uses bridge networking (not host mode) for better isolation
+  - Read-only media mounts (safety)
+  - GPU passthrough commented out (enable if needed)
+  
+  Security considerations:
+  - Set up user authentication immediately after first run
+  - Enable HTTPS if exposing to internet
+  - Read-only media mounts prevent accidental deletion
+  
+  Hardware transcoding:
+  - Intel QuickSync: Uncomment /dev/dri device mapping
+  - NVIDIA: Uncomment nvidia runtime and env vars
+  - Requires Proxmox GPU passthrough setup

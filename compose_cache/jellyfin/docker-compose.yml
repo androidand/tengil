@@ -1,0 +1,55 @@
+# Jellyfin Docker Compose Configuration
+# Source: https://jellyfin.org/docs/general/installation/container
+# Curated: 2025-11-10
+# Official Jellyfin media server setup
+
+version: '3.8'
+
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    
+    # Network mode: host is recommended for DLNA/autodiscovery
+    # Alternative: bridge mode with explicit port mappings
+    network_mode: bridge
+    
+    ports:
+      - "8096:8096"   # HTTP web interface
+      - "8920:8920"   # HTTPS (if configured)
+      - "7359:7359/udp"  # Auto-discovery
+      - "1900:1900/udp"  # DLNA discovery
+    
+    volumes:
+      # Config and cache (should be on fast storage)
+      - /config:/config
+      - /cache:/cache
+      
+      # Media libraries (will be mapped by Tengil)
+      - /media:/media:ro        # Movies (read-only recommended)
+      - /tvshows:/tv:ro         # TV shows (read-only recommended)
+      - /music:/music:ro        # Music library (optional)
+      - /photos:/photos:ro      # Photo library (optional)
+    
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Stockholm
+      # Optional: JELLYFIN_PublishedServerUrl for reverse proxy
+    
+    # Optional: GPU hardware acceleration
+    # Uncomment for Intel QuickSync:
+    # devices:
+    #   - /dev/dri:/dev/dri
+    
+    # Uncomment for NVIDIA GPU:
+    # runtime: nvidia
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+    #   - NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
+    
+    labels:
+      - "tengil.managed=true"
+      - "tengil.service=jellyfin"
+      - "tengil.cache=compose_cache/jellyfin"

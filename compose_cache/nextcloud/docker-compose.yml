@@ -1,0 +1,89 @@
+# Nextcloud All-in-One - Curated for Tengil
+# Source: https://github.com/nextcloud/all-in-one/blob/main/compose.yaml
+# Curated: 2025-11-10
+# Official Nextcloud All-in-One deployment
+
+version: '3.8'
+
+services:
+  nextcloud-aio-mastercontainer:
+    image: ghcr.io/nextcloud-releases/all-in-one:latest
+    container_name: nextcloud-aio-mastercontainer
+    restart: always
+    init: true
+
+    volumes:
+      # AIO configuration (must be named exactly this)
+      - nextcloud_aio_mastercontainer:/mnt/docker-aio-config
+
+      # Docker socket for container management
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    network_mode: bridge
+
+    ports:
+      # HTTP (can be removed if behind reverse proxy)
+      - "80:80"
+
+      # AIO admin interface (HTTPS with self-signed cert)
+      - "8080:8080"
+
+      # HTTPS for Nextcloud (can be removed if behind reverse proxy)
+      - "8443:8443"
+
+    environment:
+      # Data directory location on host
+      # ⚠️ WARNING: Set this BEFORE first install, cannot change after!
+      - NEXTCLOUD_DATADIR=/data
+
+      # Optional: Reverse proxy configuration
+      # Uncomment if running behind Caddy/Nginx/Traefik:
+      # - APACHE_PORT=11000
+      # - APACHE_IP_BINDING=127.0.0.1
+
+      # Optional: Upload limits
+      # - NEXTCLOUD_UPLOAD_LIMIT=16G
+      # - NEXTCLOUD_MAX_TIME=3600
+      # - NEXTCLOUD_MEMORY_LIMIT=512M
+
+      # Optional: Default apps on first startup
+      # - NEXTCLOUD_STARTUP_APPS=deck twofactor_totp tasks calendar contacts notes
+
+      # Optional: Hardware acceleration
+      # Intel/AMD GPU for preview generation:
+      # - NEXTCLOUD_ENABLE_DRI_DEVICE=true
+
+      # NVIDIA GPU:
+      # - NEXTCLOUD_ENABLE_NVIDIA_GPU=true
+
+      # Optional: Backup settings
+      # - AIO_DISABLE_BACKUP_SECTION=false
+      # - BORG_RETENTION_POLICY=--keep-within=7d --keep-weekly=4 --keep-monthly=6
+
+      # Optional: Timezone
+      - TZ=Europe/Stockholm
+
+    # Uncomment for SELinux systems:
+    # security_opt:
+    #   - label:disable
+
+    # Optional: GPU acceleration
+    # Intel QuickSync / AMD:
+    # devices:
+    #   - /dev/dri:/dev/dri
+
+    # NVIDIA (requires nvidia-container-toolkit):
+    # runtime: nvidia
+    # environment:
+    #   - NVIDIA_VISIBLE_DEVICES=all
+    #   - NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
+
+    labels:
+      - "tengil.managed=true"
+      - "tengil.service=nextcloud"
+      - "tengil.cache=compose_cache/nextcloud"
+
+volumes:
+  # This volume name must NOT be changed
+  nextcloud_aio_mastercontainer:
+    name: nextcloud_aio_mastercontainer

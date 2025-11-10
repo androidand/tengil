@@ -1,0 +1,10 @@
+source: jupyter/scipy-notebook
+image_tag: latest
+composed_by: tengil
+curated: 2025-11-10
+verified: 2025-11-10
+notes: |
+  Using scipy-notebook for scientific computing stack.
+  Includes NumPy, SciPy, Pandas, Matplotlib, scikit-learn.
+  Token/password disabled for local development (should be configured for production).
+  Running as root to allow package installation.
