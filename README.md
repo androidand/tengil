@@ -105,29 +105,48 @@ tg apply
 
 ## Quick Start (2 Minutes)
 
-### Prerequisites
+### Installation
 
-- **Proxmox VE** (7.x or 8.x)
-- **ZFS pool** created
-- **Python 3.10+** on your workstation
-
-### Installation & First Deploy
+**From your Mac/Workstation** (installs to Proxmox remotely):
 
 ```bash
 git clone https://github.com/androidand/tengil.git
 cd tengil
-poetry install
 
-alias tg="poetry run python -m tengil.cli"
-tg packages list              # Browse 13 packages
-tg init --package nas-basic   # Interactive setup
-tg diff                       # Preview changes
-tg apply                      # Deploy to Proxmox
+# Install from GitHub
+./scripts/install.sh root@YOUR-PROXMOX-IP
+
+# Or install your local development version
+./scripts/install.sh root@YOUR-PROXMOX-IP --local
 ```
 
-**Result:** ZFS datasets + SMB shares ready in 2 minutes.
+**Or directly on Proxmox**:
 
-📖 **[Installation Guide](docs/USER_GUIDE.md#installation)** - Workstation vs Proxmox install, SSH setup, troubleshooting
+```bash
+# SSH to Proxmox first, then:
+curl -fsSL https://raw.githubusercontent.com/androidand/tengil/main/scripts/install.sh | sudo bash
+```
+
+### First Deploy
+
+```bash
+# Browse preset packages
+tg packages list
+
+# Create config from preset
+cd ~/tengil-configs
+tg init --package nas-basic
+
+# Preview changes
+tg diff
+
+# Apply
+tg apply
+```
+
+**Result**: ZFS datasets + SMB shares ready to use.
+
+📖 **[Full Installation Guide](docs/USER_GUIDE.md#installation)** - Multiple install modes, SSH setup, troubleshooting  
 📖 **[Mac/Windows Mounting](docs/USER_GUIDE.md#accessing-shares-from-mac)** - Connect to your shares
 
 ---

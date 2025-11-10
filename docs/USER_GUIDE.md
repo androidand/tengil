@@ -2,103 +2,102 @@
 
 Complete reference for using Tengil to manage Proxmox infrastructure.
 
-## Quick Start
+## Installation
 
-### Installation
+Tengil runs **on your Proxmox server** and manages storage/containers locally. Choose your installation method:
 
-Tengil can be installed in two ways depending on your workflow:
+### Method 1: Production Install (from GitHub)
 
-#### Option 1: Install on Your Workstation (Recommended)
+**Easiest for most users.** Installs latest release from GitHub to `/opt/tengil`.
 
-Run Tengil from your Mac/Linux workstation and manage Proxmox remotely via SSH.
-
-**Prerequisites:**
-- Python 3.10+ on your workstation
-- SSH access to Proxmox server
-- Git
-
-**Installation:**
 ```bash
-# Clone and install
-git clone https://github.com/androidand/tengil.git
-cd tengil
-poetry install
+# SSH to your Proxmox server
+ssh root@proxmox-ip
 
-# Create alias for convenience
-echo 'alias tg="poetry run python -m tengil.cli"' >> ~/.zshrc  # or ~/.bashrc
-source ~/.zshrc
+# Run installer
+curl -fsSL https://raw.githubusercontent.com/androidand/tengil/main/scripts/install.sh | sudo bash
 
-# Verify installation
-tg --version
+# Reload shell
+source ~/.bashrc
+
+# Verify
+tg version
 ```
 
-**Benefits:**
-- ✅ Keep your configs local (version control with git)
-- ✅ Edit tengil.yml in your favorite editor
-- ✅ Manage multiple Proxmox servers
-- ✅ Safer (review changes before applying)
+**What it does:**
+- Installs dependencies (`python3-venv`, `python3-pip`, `git`)
+- Clones repo to `/opt/tengil`
+- Creates Python venv and installs packages
+- Adds `tg` alias to `~/.bashrc`
+- Creates `~/tengil-configs/` working directory
 
 ---
 
-#### Option 2: Deploy Directly to Proxmox (For Testing)
+### Method 2: Development Install (from local repo)
 
-Deploy Tengil directly to your Proxmox server for quick testing or development.
+**For contributors or testing local changes.** Copies your local repo to `/opt/tengil`.
 
-**Prerequisites:**
-- `rsync` installed on your workstation
-- SSH keys set up: `ssh-copy-id root@proxmox-ip`
-- Python 3.10+ on Proxmox server
-
-**Deployment:**
 ```bash
-# From your workstation
+# On your workstation, clone and prepare
 git clone https://github.com/androidand/tengil.git
 cd tengil
-./scripts/dev-deploy.sh root@proxmox-ip
 
-# Script does:
-# 1. Syncs code to /tmp/tengil-dev on Proxmox
-# 2. Creates Python venv
-# 3. Installs dependencies
-# 4. Sets up mock mode (TG_MOCK=1)
-```
+# Copy to Proxmox
+scp -r . root@proxmox-ip:/tmp/tengil-local
 
-**Usage on Proxmox:**
-```bash
 # SSH to Proxmox
 ssh root@proxmox-ip
-cd /tmp/tengil-dev
 
-# Run commands
-.venv/bin/poetry run tg packages list
-.venv/bin/poetry run tg diff
-.venv/bin/poetry run tg apply --dry-run
+# Install from local copy
+cd /tmp/tengil-local
+sudo ./scripts/install.sh --local
 
-# For real operations (disable mock mode)
-export TG_MOCK=0
-.venv/bin/poetry run tg apply
+# Reload shell
+source ~/.bashrc
+
+# Verify
+tg version
 ```
 
-**Use cases:**
-- 🧪 Testing Tengil before installing locally
-- 🔬 Development and debugging on actual hardware
-- 🚀 Quick demos without local setup
-
-**Note:** This deploys to `/tmp/tengil-dev` and sets mock mode by default for safety. Not recommended for production use—install on your workstation instead.
+**Use case:** Testing changes before pushing to GitHub
 
 ---
 
-**Which option should you choose?**
+### Method 3: Quick Dev Test (temporary)
 
-| Scenario | Recommended Option |
-|----------|-------------------|
-| Normal use | Option 1 (workstation) |
-| Testing Tengil | Option 2 (Proxmox) |
-| Managing multiple servers | Option 1 (workstation) |
-| Development/debugging | Option 2 (Proxmox) |
-| Production homelab | Option 1 (workstation) |
+**For quick testing without permanent install.** Installs to `/tmp/tengil-dev` with mock mode enabled.
 
-### First Deploy - NAS Shares
+```bash
+# On Proxmox (or copy repo as above)
+cd /path/to/tengil
+sudo ./scripts/install.sh --dev
+
+# Test without installing permanently
+cd /tmp/tengil-dev
+export TG_MOCK=1
+.venv/bin/poetry run tg packages list
+.venv/bin/poetry run tg diff
+```
+
+**Use case:** Quick testing, development, CI/CD  
+**Note:** `/tmp` is cleared on reboot
+
+---
+
+### Comparison
+
+| Feature | Production | Development | Quick Test |
+|---------|-----------|-------------|------------|
+| Source | GitHub | Local repo | Local repo |
+| Location | `/opt/tengil` | `/opt/tengil` | `/tmp/tengil-dev` |
+| Persistent | ✅ Yes | ✅ Yes | ❌ No (tmp) |
+| Shell alias | ✅ Yes | ✅ Yes | ❌ No |
+| Mock mode | ❌ No | ❌ No | ✅ Yes |
+| Use case | Production | Development | Testing |
+
+---
+
+## Quick Start
 
 ```bash
 # Browse available packages
