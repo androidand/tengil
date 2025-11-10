@@ -147,6 +147,13 @@ class ConfigLoader:
             for dataset_name, dataset_config in pool_config['datasets'].items():
                 dataset_path = f"{pool_name}/{dataset_name}"
 
+                # NEW: Parse consumers section (Phase 3)
+                if 'consumers' in dataset_config:
+                    dataset_config = self._parse_consumers(
+                        dataset_config,
+                        dataset_path
+                    )
+
                 # Fix container mount configuration
                 if 'containers' in dataset_config:
                     dataset_config['containers'] = self._fix_container_format(
@@ -214,6 +221,132 @@ class ConfigLoader:
                                 )
 
         return config
+
+    def _parse_consumers(self, dataset_config: Dict, dataset_path: str) -> Dict:
+        """Parse consumers section and convert to internal format.
+        
+        The consumers model (Phase 3) provides unified permission management.
+        Consumers are converted to the existing internal format for backward compatibility,
+        but stored separately for permission manager integration.
+        
+        Args:
+            dataset_config: Dataset configuration dict
+            dataset_path: Dataset path for error messages
+        
+        Returns:
+            Modified dataset_config with consumers parsed and converted
+        """
+        consumers = dataset_config.get('consumers', [])
+        if not consumers:
+            return dataset_config
+        
+        # Keep raw consumers for permission manager
+        dataset_config['_consumers'] = []
+        
+        # Convert consumers to existing internal structures
+        if 'containers' not in dataset_config:
+            dataset_config['containers'] = []
+        if 'shares' not in dataset_config:
+            dataset_config['shares'] = {}
+        
+        for idx, consumer in enumerate(consumers):
+            if not isinstance(consumer, dict):
+                raise ConfigValidationError(
+                    f"Invalid consumer format in '{dataset_path}'[{idx}]: must be dict\n"
+                    f"  Expected:\n"
+                    f"    - type: container\n"
+                    f"      name: jellyfin\n"
+                    f"      access: read"
+                )
+            
+            consumer_type = consumer.get('type')
+            consumer_name = consumer.get('name')
+            consumer_access = consumer.get('access')
+            
+            # Validate required fields
+            if not consumer_type:
+                raise ConfigValidationError(
+                    f"Consumer in '{dataset_path}'[{idx}] missing 'type' field\n"
+                    f"  Valid types: container, smb, nfs, user, group"
+                )
+            
+            if not consumer_name:
+                raise ConfigValidationError(
+                    f"Consumer in '{dataset_path}'[{idx}] missing 'name' field"
+                )
+            
+            if not consumer_access:
+                raise ConfigValidationError(
+                    f"Consumer in '{dataset_path}'[{idx}] missing 'access' field\n"
+                    f"  Valid access levels: read, write"
+                )
+            
+            # Validate access level
+            if consumer_access not in ['read', 'write']:
+                raise ConfigValidationError(
+                    f"Invalid access level in '{dataset_path}'[{idx}]: '{consumer_access}'\n"
+                    f"  Valid access levels: read, write"
+                )
+            
+            # Store for permission manager
+            dataset_config['_consumers'].append(consumer)
+            
+            # Convert to existing internal format for backward compatibility
+            readonly = (consumer_access == 'read')
+            
+            if consumer_type == 'container':
+                # Add to containers list
+                container_spec = {
+                    'name': consumer_name,
+                    'mount': consumer.get('mount', f"/{dataset_path.split('/')[-1]}"),
+                    'readonly': readonly,
+                    '_from_consumer': True  # Mark as converted from consumer
+                }
+                dataset_config['containers'].append(container_spec)
+            
+            elif consumer_type == 'smb':
+                # Add to shares.smb
+                if 'smb' not in dataset_config['shares']:
+                    dataset_config['shares']['smb'] = []
+                
+                # SMB can have multiple shares per dataset
+                if not isinstance(dataset_config['shares']['smb'], list):
+                    dataset_config['shares']['smb'] = [dataset_config['shares']['smb']]
+                
+                smb_config = {
+                    'name': consumer_name,
+                    'read only': 'yes' if readonly else 'no',
+                    'writable': 'no' if readonly else 'yes',
+                    '_from_consumer': True
+                }
+                dataset_config['shares']['smb'].append(smb_config)
+            
+            elif consumer_type == 'nfs':
+                # Add to shares.nfs
+                if 'nfs' not in dataset_config['shares']:
+                    dataset_config['shares']['nfs'] = []
+                
+                if not isinstance(dataset_config['shares']['nfs'], list):
+                    dataset_config['shares']['nfs'] = [dataset_config['shares']['nfs']]
+                
+                nfs_config = {
+                    'name': consumer_name,
+                    'readonly': readonly,
+                    '_from_consumer': True
+                }
+                dataset_config['shares']['nfs'].append(nfs_config)
+            
+            elif consumer_type in ['user', 'group']:
+                # User/group consumers are for ACLs only, don't convert to other structures
+                pass
+            
+            else:
+                raise ConfigValidationError(
+                    f"Invalid consumer type in '{dataset_path}'[{idx}]: '{consumer_type}'\n"
+                    f"  Valid types: container, smb, nfs, user, group"
+                )
+        
+        return dataset_config
 
     def _fix_container_format(self, containers: List, dataset_path: str) -> List:
         """Fix deprecated container mount formats.
@@ -372,6 +505,13 @@ class ConfigLoader:
             ConfigValidationError: For invalid formats
         """
         if isinstance(smb_config, list):
+            # Lists are OK if they came from consumers (marked with _from_consumer)
+            # But manual list format is deprecated
+            if smb_config and all(isinstance(item, dict) and item.get('_from_consumer') for item in smb_config):
+                # This list came from consumers parsing, it's fine
+                return smb_config
+            
+            # Manual list format is not allowed
             raise ConfigValidationError(
                 f"Invalid SMB configuration in '{dataset_path}':\n"
                 f"  SMB config must be a dict, not a list.\n"

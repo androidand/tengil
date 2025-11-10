@@ -15,10 +15,11 @@ class ProxmoxManager:
     This is a facade that delegates to specialized managers.
     """
 
-    def __init__(self, mock: bool = False):
+    def __init__(self, mock: bool = False, permission_manager=None):
         self.mock = mock or os.environ.get('TG_MOCK', '').lower() in ('1', 'true')
+        self.permission_manager = permission_manager
         self.storage = StorageManager(mock=self.mock)
-        self.containers = ContainerManager(mock=self.mock)
+        self.containers = ContainerManager(mock=self.mock, permission_manager=permission_manager)
 
     # ==================== Storage Management ====================
 

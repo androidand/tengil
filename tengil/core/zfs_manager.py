@@ -12,10 +12,11 @@ logger = get_logger(__name__)
 class ZFSManager:
     """Manages ZFS datasets and properties."""
     
-    def __init__(self, mock: bool = False, state_store=None):
+    def __init__(self, mock: bool = False, state_store=None, permission_manager=None):
         self.mock = mock or os.environ.get('TG_MOCK', '').lower() in ('1', 'true')
         self._mock_datasets = set()  # Track datasets in mock mode
         self._state_store = state_store  # For checking persistent state
+        self.permission_manager = permission_manager  # For managing ACLs and permissions
         
     def list_datasets(self, pool: str) -> Dict[str, Dict]:
         """List all datasets in a pool with their properties."""
@@ -66,12 +67,19 @@ class ZFSManager:
         # Check if dataset already exists
         if self.dataset_exists(name):
             logger.info(f"Dataset {name} already exists, syncing properties...")
-            return self.sync_properties(name, properties)
+            success = self.sync_properties(name, properties)
+            # Apply permissions even if dataset already existed
+            if success and self.permission_manager:
+                self._apply_dataset_permissions(name)
+            return success
         
         # Create new dataset
         if self.mock:
             logger.info(f"MOCK: Would create dataset {name} with properties {properties}")
             self._mock_datasets.add(name)
+            # Apply permissions in mock mode too
+            if self.permission_manager:
+                self._apply_dataset_permissions(name)
             return True
             
         cmd = ["zfs", "create"]
@@ -85,6 +93,11 @@ class ZFSManager:
         try:
             logger.info(f"Creating dataset: {name}")
             subprocess.run(cmd, check=True)
+            
+            # Apply permissions after successful creation
+            if self.permission_manager:
+                self._apply_dataset_permissions(name)
+            
             return True
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to create dataset {name}: {e}")
@@ -191,3 +204,42 @@ class ZFSManager:
             logger.info(f"All properties for {dataset} already match desired state")
         
         return success
+
+    def _apply_dataset_permissions(self, dataset: str) -> bool:
+        """Apply permissions to a dataset using the PermissionManager.
+        
+        Retrieves ACL commands from the permission manager and executes them
+        to set proper ownership and permissions on the dataset mountpoint.
+        
+        Args:
+            dataset: Full dataset name (e.g., 'tank/movies')
+            
+        Returns:
+            True if permissions applied successfully or no permissions configured
+        """
+        if not self.permission_manager:
+            return True
+        
+        try:
+            # Get ACL commands from permission manager
+            acl_commands = self.permission_manager.get_zfs_acl_commands(dataset)
+            
+            if not acl_commands:
+                logger.debug(f"No permissions configured for {dataset}")
+                return True
+            
+            # Execute each ACL command
+            for cmd_str in acl_commands:
+                if self.mock:
+                    logger.info(f"MOCK: Would execute ACL command: {cmd_str}")
+                else:
+                    logger.info(f"Applying permissions: {cmd_str}")
+                    cmd = cmd_str.split()
+                    subprocess.run(cmd, check=True)
+            
+            logger.info(f"Successfully applied permissions to {dataset}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to apply permissions to {dataset}: {e}")
+            return False

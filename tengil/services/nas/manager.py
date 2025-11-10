@@ -17,8 +17,9 @@ class NASManager:
     This is a facade that delegates to specialized managers.
     """
 
-    def __init__(self, mock: bool = False):
+    def __init__(self, mock: bool = False, permission_manager=None):
         self.mock = mock or os.environ.get('TG_MOCK', '').lower() in ('1', 'true')
+        self.permission_manager = permission_manager
         self.smb = SMBManager(mock=self.mock)
         self.nfs = NFSManager(mock=self.mock)
         self.acl = ACLManager(mock=self.mock)
@@ -31,6 +32,17 @@ class NASManager:
 
     def add_smb_share(self, name: str, path: str, config: Dict) -> bool:
         """Add or update an SMB share."""
+        # Check permission manager for SMB share configuration
+        if self.permission_manager:
+            try:
+                perm_config = self.permission_manager.get_smb_share_config(path, name)
+                if perm_config:
+                    # Merge permission manager config with provided config
+                    config = {**perm_config, **config}
+                    logger.info(f"Using permission manager config for SMB share {name}")
+            except Exception as e:
+                logger.warning(f"Could not get SMB config from permission manager: {e}")
+        
         return self.smb.add_smb_share(name, path, config)
 
     def remove_smb_share(self, name: str) -> bool:

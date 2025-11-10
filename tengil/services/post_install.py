@@ -11,6 +11,8 @@ import subprocess
 import time
 from typing import List, Optional, Union
 from tengil.core.logger import get_logger
+from tengil.core.retry import retry
+from tengil.core.config import get_config
 
 logger = get_logger(__name__)
 
@@ -193,17 +195,21 @@ class PostInstallManager:
         
         return success
 
+    @retry(max_attempts=3, delay=5, exceptions=(subprocess.CalledProcessError,))
     def run_tteck_script(self, vmid: int, script_name: str) -> bool:
-        """Run a tteck Proxmox Helper Script inside container.
-        
+        """Run a tteck Proxmox Helper Script inside container with retry on failure.
+
         Downloads and executes community-maintained installation scripts.
-        
+
         Args:
             vmid: Container ID
             script_name: Name of tteck script (e.g., 'jellyfin', 'immich')
-        
+
         Returns:
             True if script completed successfully
+
+        Note:
+            Automatically retries up to 3 times with exponential backoff on network failures
         """
         if self.mock:
             logger.info(f"MOCK: Would run tteck/{script_name} in container {vmid}")
@@ -227,14 +233,18 @@ class PostInstallManager:
         bash -c "$(curl -fsSL {script_url})"
         """
 
-        success = self._exec_in_container(vmid, install_command)
-        
-        if success:
-            logger.info(f"✓ tteck/{script_name} completed in container {vmid}")
-        else:
-            logger.error(f"✗ tteck/{script_name} failed in container {vmid}")
-        
-        return success
+        try:
+            success = self._exec_in_container(vmid, install_command)
+
+            if success:
+                logger.info(f"✓ tteck/{script_name} completed in container {vmid}")
+                return True
+            else:
+                logger.error(f"✗ tteck/{script_name} failed in container {vmid}")
+                raise subprocess.CalledProcessError(1, f"tteck/{script_name}")
+        except Exception as e:
+            # Re-raise to trigger retry
+            raise subprocess.CalledProcessError(1, f"tteck/{script_name}")
 
     def run_custom_command(self, vmid: int, command: str) -> bool:
         """Run custom shell command(s) inside container.
@@ -258,21 +268,23 @@ class PostInstallManager:
 
     def _exec_in_container(self, vmid: int, command: str) -> bool:
         """Execute command inside container via pct exec.
-        
+
         Args:
             vmid: Container ID
             command: Shell command to run
-        
+
         Returns:
             True if command succeeded
         """
+        config = get_config()
+
         try:
             # Use pct exec to run command in container
             result = subprocess.run(
                 ['pct', 'exec', str(vmid), '--', 'bash', '-c', command],
                 capture_output=True,
                 text=True,
-                timeout=600  # 10 minute timeout for installations
+                timeout=config.post_install_timeout
             )
             
             if result.returncode == 0:
@@ -295,56 +307,60 @@ class PostInstallManager:
 
     def _check_command_exists(self, vmid: int, command: str) -> bool:
         """Check if a command exists in container.
-        
+
         Args:
             vmid: Container ID
             command: Command name to check
-        
+
         Returns:
             True if command exists
         """
+        config = get_config()
         check_script = f"command -v {command} >/dev/null 2>&1"
-        
+
         try:
             result = subprocess.run(
                 ['pct', 'exec', str(vmid), '--', 'bash', '-c', check_script],
                 capture_output=True,
-                timeout=5
+                timeout=config.command_check_timeout
             )
             return result.returncode == 0
         except:
             return False
 
-    def wait_for_container_boot(self, vmid: int, timeout: int = 30) -> bool:
+    def wait_for_container_boot(self, vmid: int, timeout: int = None) -> bool:
         """Wait for container to finish booting.
-        
+
         Args:
             vmid: Container ID
-            timeout: Maximum seconds to wait
-        
+            timeout: Maximum seconds to wait (uses config default if None)
+
         Returns:
             True if container is ready
         """
         if self.mock:
             return True
 
+        config = get_config()
+        actual_timeout = timeout if timeout is not None else config.container_boot_timeout
+
         logger.debug(f"Waiting for container {vmid} to boot...")
-        
-        for i in range(timeout):
+
+        for i in range(actual_timeout):
             try:
                 # Try to run simple command
                 result = subprocess.run(
                     ['pct', 'exec', str(vmid), '--', 'echo', 'ready'],
                     capture_output=True,
-                    timeout=2
+                    timeout=config.container_ready_timeout
                 )
                 if result.returncode == 0:
                     logger.debug(f"Container {vmid} ready after {i}s")
                     return True
             except:
                 pass
-            
+
             time.sleep(1)
-        
-        logger.warning(f"Container {vmid} not ready after {timeout}s")
+
+        logger.warning(f"Container {vmid} not ready after {actual_timeout}s")
         return False
