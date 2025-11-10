@@ -51,6 +51,7 @@ logger = get_logger(__name__)
 
 # Default config search paths
 CONFIG_PATHS = [
+    str(Path.home() / "tengil-configs" / "tengil.yml"),  # User config directory
     "/etc/tengil/tengil.yml",  # System-wide config
     "./tengil.yml",             # Current directory
 ]
