@@ -417,9 +417,6 @@ def init(
                 # Traditional package with embedded config
                 # Render package config with user inputs
                 final_config = package_loader.render_config(pkg, user_inputs)
-            
-            # Set pool name
-            final_config["pool"] = pool
         
         # Load from --datasets flag
         elif datasets:
@@ -454,7 +451,6 @@ def init(
         if not package:
             # Merge all configurations
             merged_config = template_loader.merge_configs(configs_to_merge)
-            merged_config["pool"] = pool
             
             # Substitute ${pool} variable
             final_config = template_loader.substitute_pool(merged_config, pool)
