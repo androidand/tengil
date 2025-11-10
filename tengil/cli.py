@@ -375,20 +375,26 @@ def init(
                 console.print("[bold]Customization:[/bold]")
                 for prompt in pkg.prompts:
                     # Show prompt with default
-                    default_display = f" [{prompt.default}]" if prompt.default else ""
+                    default_display = f" [{prompt.default}]" if prompt.default is not None else ""
                     user_input = typer.prompt(
                         f"  {prompt.prompt}{default_display}",
-                        default=prompt.default if prompt.default else "",
+                        default=prompt.default if prompt.default is not None else "",
                         show_default=False
                     )
                     
                     # Type conversion
                     if prompt.type == "int":
-                        user_inputs[prompt.id] = int(user_input)
+                        user_inputs[prompt.id] = int(user_input) if user_input else prompt.default
                     elif prompt.type == "bool":
-                        user_inputs[prompt.id] = user_input.lower() in ['true', 'yes', 'y', '1']
+                        # Handle empty input (use default) and string conversion
+                        if user_input == "" or user_input is None:
+                            user_inputs[prompt.id] = prompt.default
+                        elif isinstance(user_input, bool):
+                            user_inputs[prompt.id] = user_input
+                        else:
+                            user_inputs[prompt.id] = str(user_input).lower() in ['true', 'yes', 'y', '1']
                     else:
-                        user_inputs[prompt.id] = user_input
+                        user_inputs[prompt.id] = user_input if user_input else prompt.default
                 
                 console.print()
             elif pkg.prompts and non_interactive:

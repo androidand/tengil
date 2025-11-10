@@ -31,6 +31,10 @@ class ConfigLoader:
         with open(self.config_path, 'r') as f:
             self.raw_config = yaml.safe_load(f)
 
+        # Handle empty config file
+        if not self.raw_config:
+            raise ConfigValidationError("Config file is empty. Run 'tg init' to create a config.")
+
         # Validate version
         if self.raw_config.get('version') != 2:
             raise ConfigValidationError("Only version 2 configs are supported. Please update your config.")

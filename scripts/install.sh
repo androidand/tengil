@@ -116,12 +116,13 @@ fi
 
 # Clone, copy, or update
 if [[ "$MODE" == "github" ]]; then
-    if [ -d "$INSTALL_DIR" ]; then
+    if [ -d "$INSTALL_DIR/.git" ]; then
         echo "♻️  Updating existing installation..."
         cd "$INSTALL_DIR"
         git pull
     else
         echo "📥 Cloning from GitHub..."
+        rm -rf "$INSTALL_DIR"
         git clone https://github.com/androidand/tengil.git "$INSTALL_DIR"
         cd "$INSTALL_DIR"
     fi
