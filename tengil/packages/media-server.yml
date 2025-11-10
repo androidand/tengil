@@ -1,0 +1,227 @@
+# Media Server - Complete media streaming setup
+# Perfect for: Replacing Plex/Netflix with your own content
+# What you get: Jellyfin, organized media storage, Samba shares
+
+name: Media Server
+description: Jellyfin media server with optimized storage for 4K streaming
+category: Media
+tags: [media, jellyfin, streaming, movies, tv, 4k]
+components:
+  - Jellyfin (open-source Plex alternative)
+  - Organized datasets (movies, TV, music, photos)
+  - Samba shares for adding content from your laptop
+  - Optimized ZFS (1MB blocks = 30% faster reads for large video files)
+  - Read-only mounts for safety
+
+requirements:
+  min_ram_mb: 2048
+  min_disk_gb: 50
+  recommended_ram_mb: 4096
+  recommended_cores: 4
+
+# DOCKER COMPOSE SOURCE (maintained by Jellyfin team)
+docker_compose:
+  sources:
+    - name: jellyfin
+      cache: "compose_cache/jellyfin/docker-compose.yml"
+      source: "https://jellyfin.org/docs/general/installation/container"
+      managed_volumes:
+        - /media
+        - /tvshows
+        - /music
+        - /photos
+        - /config
+        - /cache
+  
+  optional_services:
+    - key: include_music
+      volumes: ["/music:/music:ro"]
+    - key: include_photos
+      volumes: ["/photos:/photos:ro"]
+
+# TENGIL'S VALUE-ADD: Storage optimization hints
+storage_hints:
+  "/media":
+    profile: media
+    size_estimate: "2TB"
+    why: "Large video files (2-50GB) benefit from 1M recordsize. 30% faster reads for 4K streaming vs default 128K."
+    mount_as: /media
+  
+  "/tvshows":
+    profile: media
+    size_estimate: "1TB"
+    why: "TV shows library - same optimization as movies. Separate dataset allows different backup policies."
+    mount_as: /tvshows
+  
+  "/music":
+    profile: media
+    size_estimate: "200GB"
+    why: "Music library with same media profile optimization."
+    mount_as: /music
+  
+  "/photos":
+    profile: media
+    size_estimate: "100GB"
+    why: "Photo library. Consider immich package for advanced photo management."
+    mount_as: /photos
+  
+  "/config":
+    profile: dev
+    size_estimate: "5GB"
+    why: "Jellyfin configuration and database. Small files benefit from smaller recordsize."
+    mount_as: /config
+  
+  "/cache":
+    profile: dev
+    size_estimate: "50GB"
+    why: "Jellyfin cache and transcoding temp files. Fast storage recommended."
+    mount_as: /cache
+
+# TENGIL'S VALUE-ADD: Network share recommendations
+share_recommendations:
+  "/media":
+    smb: true
+    smb_name: "Movies"
+    read_only: false
+    browseable: yes
+    comment: "Add movies here - Jellyfin will detect them automatically"
+    why: "Users need easy access to upload movies from Windows/Mac/Linux. SMB provides Windows-native file sharing."
+  
+  "/tvshows":
+    smb: true
+    smb_name: "TVShows"
+    read_only: false
+    browseable: yes
+    comment: "Organize as: ShowName/Season 01/S01E01.mkv"
+    why: "Separate share for TV shows organization."
+  
+  "/music":
+    smb: true
+    smb_name: "Music"
+    read_only: false
+    browseable: yes
+    comment: "Music collection"
+  
+  "/photos":
+    smb: true
+    smb_name: "Photos"
+    read_only: false
+    browseable: yes
+    comment: "Photo library"
+
+# TENGIL'S VALUE-ADD: Container resource sizing
+container:
+  memory: "{{ jellyfin_memory }}"
+  cores: "{{ jellyfin_cores }}"
+  disk_size: 20
+  template: debian-12-standard
+  post_install:
+    - tteck/docker
+    - tteck/portainer
+  why: "4GB RAM sufficient for most streaming. 8GB+ for 4K transcoding. Portainer provides easy Docker Compose management."
+
+# RUNTIME CONFIGURATION
+deployment:
+  runtime: docker
+  method: lxc
+  why: |
+    LXC Docker host is the default - lightweight, integrates with Proxmox storage, fast startup.
+    
+    For GPU passthrough (Intel QuickSync, NVIDIA NVENC):
+    - Requires Proxmox GPU configuration
+    - See compose_cache/jellyfin/README.md for details
+
+customize:
+  - key: pool_name
+    prompt: "ZFS pool name"
+    default: tank
+    type: string
+    help: "The ZFS pool where media datasets will be created"
+
+  - key: jellyfin_cores
+    prompt: "CPU cores for Jellyfin (need more for 4K transcoding)"
+    default: 4
+    type: int
+    min: 2
+    max: 16
+    help: "2 cores for 1080p, 4-8 cores for 4K transcoding, 8+ for multiple streams"
+
+  - key: jellyfin_memory
+    prompt: "RAM for Jellyfin in MB (4GB is good for most setups)"
+    default: 4096
+    type: int
+    min: 2048
+    max: 16384
+    help: "2GB minimum, 4GB recommended, 8GB+ if transcoding 4K to multiple clients"
+
+  - key: include_music
+    prompt: "Include music library? (y/n)"
+    default: true
+    type: bool
+    help: "Creates separate music dataset with Samba share"
+
+  - key: include_photos
+    prompt: "Include photo library? (y/n)"
+    default: true
+    type: bool
+    help: "Creates photo dataset with Samba share (consider immich package for advanced photo management)"
+
+related:
+  - download-station  # Add *arr stack for automated downloads
+  - home-automation   # Add Home Assistant for media controls
+
+notes: |
+  Your Jellyfin media server is ready!
+
+  Access points:
+  - Jellyfin Web UI: http://proxmox:8096
+  - Portainer: http://proxmox:9000 (manage Docker)
+  - Movie share: \\proxmox\Movies
+  - TV share: \\proxmox\TVShows
+
+  Setting up Jellyfin (one-time, 5 minutes):
+  1. Access Portainer: http://proxmox:9000
+  2. Go to: Stacks > Add Stack
+  3. Name: jellyfin
+  4. Paste the docker-compose.yml (generated by Tengil)
+  5. Click "Deploy the stack"
+  6. Wait 1-2 minutes for Jellyfin to start
+  7. Access Jellyfin: http://proxmox:8096
+
+  First-time Jellyfin setup:
+  1. Open http://proxmox:8096 in your browser
+  2. Create admin account when prompted
+  3. Add media libraries:
+     - Movies → /media
+     - TV Shows → /tv
+     - Music → /music (if enabled)
+     - Photos → /photos (if enabled)
+  4. Enable hardware transcoding (if GPU available):
+     - Settings > Playback > Hardware acceleration
+     - Intel QuickSync or NVIDIA NVENC
+
+  Adding content:
+  - Windows: \\proxmox\Movies
+  - Mac: smb://proxmox/Movies (⌘+K in Finder)
+  - Linux: smb://proxmox/Movies
+  - Copy your media files to these shares
+  - Jellyfin automatically detects and catalogs them
+
+  Optimization tips:
+  - Use MKV or MP4 containers for best compatibility
+  - H.264/H.265 video for efficient streaming
+  - AAC audio for wide device support
+  - For 4K: Enable hardware transcoding and allocate 8+ CPU cores
+  - Tengil already optimized ZFS with 1M recordsize!
+
+  Hardware transcoding (optional):
+  - Requires Proxmox GPU passthrough
+  - See compose_cache/jellyfin/README.md for details
+  - Intel QuickSync: Uncomment device mapping in compose
+  - NVIDIA: Uncomment nvidia runtime
+
+  Next steps:
+  - Install download-station package for automated media downloads
+  - Set up remote access (reverse proxy recommended)
+  - Configure user accounts and parental controls in Jellyfin
+  - Enable HTTPS if exposing to internet

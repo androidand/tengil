@@ -1,0 +1,197 @@
+# Gaming & Retro Setup - Stream, sync, and host games
+# Perfect for: Steam Deck sync, retro gaming, game servers
+# What you get: Game streaming, ROM sync, emulation, dedicated servers
+
+name: Gaming Station
+description: Game streaming, ROM library, and game server hosting
+category: Gaming
+tags: [gaming, retro, emulation, streaming, gameservers, roms]
+components:
+  - Syncthing (ROM/save sync across devices)
+  - Sunshine (game streaming server for Moonlight clients)
+  - RetroArch + EmulationStation (emulation frontend)
+  - SteamCMD (host dedicated game servers)
+  - Optimized storage for ROMs, ISOs, saves
+
+requirements:
+  min_ram_mb: 8192
+  min_disk_gb: 100
+  recommended_ram_mb: 16384
+  recommended_cores: 8
+
+customize:
+  - key: pool_name
+    prompt: "ZFS pool name"
+    default: tank
+    type: string
+    help: "The ZFS pool where gaming datasets will be created (needs 100GB+ free)"
+
+  - key: gameserver_memory
+    prompt: "RAM for game servers in MB"
+    default: 8192
+    type: int
+    min: 4096
+    max: 16384
+    help: "4GB for Minecraft, 8GB for Valheim, 16GB for ARK. Allocate based on games."
+
+  - key: include_streaming
+    prompt: "Include Sunshine game streaming?"
+    default: true
+    type: bool
+    help: "Stream games to any device via Moonlight app. Requires GPU passthrough for best quality."
+
+  - key: include_syncthing
+    prompt: "Include Syncthing for save sync?"
+    default: true
+    type: bool
+    help: "Automatically sync game saves between PC, Steam Deck, and other devices."
+
+related:
+  - media-server  # Add Jellyfin for game soundtrack library
+  - nas-basic  # Add more storage for large game files
+
+notes: |
+  Your gaming station is ready! Stream, sync, and host games.
+
+  Access points:
+  - Portainer - http://proxmox:9000 (manage all gaming apps)
+  - Syncthing - http://proxmox:8384 (if enabled)
+  - Games share - \\proxmox\Games (add ROMs here)
+
+  Getting started:
+
+  ROM organization:
+  - Copy ROMs to \\proxmox\Games
+  - Organize by system - NES, SNES, PS1, etc.
+  - RetroArch will auto-detect systems
+  - Access from any device on network
+
+  Game server hosting:
+  1. Access Portainer - http://proxmox:9000
+  2. Deploy game server via Docker template
+  3. Popular options:
+     - Minecraft (Java/Bedrock)
+     - Valheim
+     - ARK Survival Evolved
+     - Terraria
+     - Counter-Strike
+  4. Configure server settings
+  5. Port forward on router if needed
+  6. Share IP with friends!
+
+  Syncthing setup (if enabled):
+  1. Open http://proxmox:8384
+  2. Add devices (PC, Steam Deck, etc.)
+  3. Create sync folder for game saves
+  4. Point game save locations to sync folder
+  5. Saves automatically sync across all devices
+
+  Game streaming (if enabled):
+  1. Set up GPU passthrough (see link below)
+  2. Deploy Sunshine via Portainer
+  3. Install Moonlight on client device
+  4. Pair devices
+  5. Stream games at 1080p60 or 4K60
+  6. Works on - PC, Android, iOS, Raspberry Pi
+
+  GPU passthrough for streaming:
+  - See - https://pve.proxmox.com/wiki/PCI_Passthrough
+  - Pass GPU to streaming container
+  - Enables hardware encoding (H.264/H.265)
+  - 10x better quality than software encoding
+  - Required for 4K streaming
+
+  Popular game server resources:
+  - Minecraft - 2-4GB RAM, 2 cores
+  - Valheim - 4-8GB RAM, 4 cores
+  - ARK - 8-16GB RAM, 8 cores
+  - Terraria - 1-2GB RAM, 2 cores
+
+  Retro gaming setup:
+  1. Deploy RetroArch via Portainer
+  2. Access via VNC or game streaming
+  3. Load ROMs from /games mount
+  4. Configure controllers
+  5. Save states sync via Syncthing
+
+  Performance tips:
+  - Use SSD for fast game loading
+  - Allocate enough RAM for servers (see requirements)
+  - GPU passthrough highly recommended for streaming
+  - 1Gbps network minimum for streaming
+
+  Next steps:
+  - Set up automated backups for save files
+  - Configure DuckDNS for dynamic DNS (if hosting public servers)
+  - Add monitoring (Uptime Kuma) for server status
+  - Set up RCON for remote server management
+
+# DOCKER COMPOSE - Using official images
+docker_compose:
+  sources:
+    - name: retro
+      image: "lscr.io/linuxserver/emulatorjs:latest"
+      ports: ["3000:3000"]
+      volumes: ["/games:/data"]
+      environment:
+        PUID: "1000"
+        PGID: "1000"
+  
+  optional_services:
+    - key: include_syncthing
+      image: "linuxserver/syncthing:latest"
+      ports: ["8384:8384", "22000:22000"]
+      volumes: ["/sync:/sync"]
+    
+    - key: include_streaming
+      image: "lizardbyte/sunshine:latest"
+      ports: ["47984:47984/tcp", "47989:47989/tcp", "48010:48010"]
+      volumes: ["/config:/config"]
+      environment:
+        SUNSHINE_USER: "gameserver"
+
+# Storage optimization hints
+storage_hints:
+  "/games":
+    profile: media
+    size_estimate: "500GB"
+    why: "ROM and ISO library. Large files benefit from media profile (recordsize=1M)."
+    mount_as: /data
+  
+  "/sync":
+    profile: dev
+    size_estimate: "10GB"
+    why: "Game saves sync folder. Frequent small file writes need dev profile."
+    mount_as: /sync
+  
+  "/servers":
+    profile: dev
+    size_estimate: "50GB"
+    why: "Game server files (Minecraft, Valheim, etc). Fast I/O for server performance."
+    mount_as: /servers
+
+# Share recommendations
+share_recommendations:
+  "/games":
+    smb: true
+    nfs: true
+    name: "Games"
+    browseable: true
+    comment: "ROMs, ISOs, and game files"
+  
+  "/sync":
+    smb: true
+    name: "Sync"
+    browseable: true
+    comment: "Auto-synced game saves"
+
+# Container resources
+container:
+  memory: "{{ gameserver_memory }}"
+  cores: 8
+  template: debian-12-standard
+  post_install:
+    - tteck/docker
+    - tteck/portainer
+  why: "Configurable RAM for game servers. 8 cores for multiple simultaneous servers."
+

@@ -1,0 +1,199 @@
+# Privacy & Security - Protect your digital life
+# Perfect for: Password management, DNS filtering, intrusion detection
+# What you get: Vaultwarden, Pi-hole, CrowdSec, self-hosted services
+
+name: Privacy Fortress
+description: Privacy and security tools (passwords, DNS, IDS)
+category: Security
+tags: [security, privacy, passwords, dns, pihole, vaultwarden, ids]
+components:
+  - Vaultwarden (Bitwarden password manager)
+  - Pi-hole or AdGuard Home (DNS filtering)
+  - CrowdSec (intrusion prevention)
+  - Headscale (self-hosted Tailscale control)
+  - Caddy (privacy-focused web server)
+
+requirements:
+  min_ram_mb: 2048
+  min_disk_gb: 10
+  recommended_ram_mb: 4096
+  recommended_cores: 2
+
+customize:
+  - key: pool_name
+    prompt: "ZFS pool name"
+    default: tank
+    type: string
+    help: "The ZFS pool where security datasets will be created"
+
+  - key: include_vaultwarden
+    prompt: "Include Vaultwarden (password manager)?"
+    default: true
+    type: bool
+    help: "Self-hosted Bitwarden. CRITICAL: Enable automated backups!"
+
+  - key: dns_filter
+    prompt: "DNS filtering (pihole/adguard/none)"
+    default: pihole
+    type: string
+    help: "Network-wide ad/tracker blocking. Set as router DNS after setup."
+
+  - key: include_crowdsec
+    prompt: "Include CrowdSec (IDS)?"
+    default: true
+    type: bool
+    help: "Intrusion detection and prevention. Crowdsourced threat intelligence."
+
+  - key: include_headscale
+    prompt: "Include Headscale (self-hosted VPN control)?"
+    default: false
+    type: bool
+    help: "Self-host Tailscale coordination server. Advanced users only."
+
+related:
+  - remote-access  # Add Tailscale and reverse proxy
+  - home-automation  # Secure smart home access
+
+notes: |
+  Your privacy fortress is ready! Secure passwords, DNS, and intrusion detection.
+
+  Access points:
+  - Portainer - http://proxmox:9000
+  - Vaultwarden - http://proxmox:8000 (if enabled)
+  - Pi-hole - http://proxmox/admin (if enabled)
+  - AdGuard - http://proxmox:3000 (if using AdGuard)
+
+  CRITICAL SECURITY WARNINGS:
+  - ⚠️ BACKUP VAULTWARDEN IMMEDIATELY - Password database is irreplaceable!
+  - ⚠️ Enable 2FA on Vaultwarden and all services
+  - ⚠️ Use strong, unique master password
+  - ⚠️ Never expose Vaultwarden to internet without HTTPS + 2FA
+
+  Vaultwarden setup (if enabled):
+  1. Open http://proxmox:8000
+  2. Create account (first user becomes admin)
+  3. ENABLE 2FA - Settings > Security > Two-step Login
+  4. Install browser extensions
+  5. Install mobile apps (iOS/Android)
+  6. Migrate passwords from LastPass/1Password
+  7. SET UP AUTOMATED BACKUPS (see below)
+
+  Backup Vaultwarden (CRITICAL):
+  1. Automatic - Use Proxmox Backup Server
+  2. Manual - Copy \\proxmox\Passwords-Backup regularly
+  3. Test restore procedure
+  4. Store backup copy offsite (encrypted!)
+
+  Pi-hole setup (if enabled):
+  1. Open http://proxmox/admin
+  2. Check logs for password (or reset via SSH)
+  3. Update router DNS to point to Pi-hole IP
+  4. All devices now have ad-blocking
+  5. Whitelist/blacklist as needed
+  6. Monitor dashboard for blocked queries
+
+  AdGuard setup (if using AdGuard):
+  1. Open http://proxmox:3000
+  2. Complete setup wizard
+  3. Set as router DNS
+  4. Configure blocking lists
+  5. Enable parental controls if needed
+
+  CrowdSec setup (if enabled):
+  1. Deploy via Portainer
+  2. Configure bouncers (fail2ban alternative)
+  3. Connect to crowdsourced threat feed
+  4. Monitor dashboard for blocked IPs
+  5. Automatically blocks brute-force attempts
+
+  Router DNS configuration:
+  1. Access router admin panel
+  2. Find DHCP/DNS settings
+  3. Set primary DNS to Pi-hole or AdGuard IP
+  4. Save and reboot router
+  5. All devices now protected
+
+  Testing DNS filtering:
+  - Visit - http://pi.hole/admin (Pi-hole)
+  - Check blocked query count
+  - Test ad-heavy site (should be clean)
+  - Verify no performance impact
+
+  Privacy best practices:
+  - Use Vaultwarden for ALL passwords
+  - Enable 2FA everywhere possible
+  - Regular backups (automated!)
+  - Strong master password (20+ characters)
+  - Keep services updated
+  - Monitor Pi-hole logs for anomalies
+  - Use VPN for remote access (not port forwarding)
+
+  Next steps:
+  - Set up remote access package for secure VPN
+  - Configure emergency access in Vaultwarden
+  - Add custom blocklists to Pi-hole
+  - Set up email alerts for CrowdSec
+  - Regular security audits
+
+# DOCKER COMPOSE - Using official images
+docker_compose:
+  sources:
+    - name: pihole
+      image: "pihole/pihole:latest"
+      ports: ["53:53/tcp", "53:53/udp", "80:80"]
+      volumes: ["/etc/pihole:/etc/pihole", "/etc/dnsmasq.d:/etc/dnsmasq.d"]
+      environment:
+        TZ: "Europe/Stockholm"
+        WEBPASSWORD: "changeme"
+  
+  optional_services:
+    - key: include_vaultwarden
+      image: "vaultwarden/server:latest"
+      ports: ["8000:80"]
+      volumes: ["/data:/data"]
+      environment:
+        DOMAIN: "https://vault.yourdomain.com"
+    
+    - key: include_crowdsec
+      image: "crowdsecurity/crowdsec:latest"
+      volumes: ["/config:/etc/crowdsec", "/var/log:/var/log:ro"]
+      environment:
+        COLLECTIONS: "crowdsecurity/linux crowdsecurity/nginx"
+    
+    - key: include_headscale
+      image: "headscale/headscale:latest"
+      ports: ["8080:8080"]
+      volumes: ["/config:/etc/headscale"]
+
+# Storage optimization hints
+storage_hints:
+  "/data":
+    profile: dev
+    size_estimate: "5GB"
+    why: "Password database and Pi-hole logs. CRITICAL: Backup vaultwarden regularly!"
+    mount_as: /data
+  
+  "/config":
+    profile: dev
+    size_estimate: "2GB"
+    why: "Security service configs. Fast access for real-time updates."
+    mount_as: /config
+
+# Share recommendations
+share_recommendations:
+  "/data/vaultwarden_backup":
+    smb: true
+    name: "Passwords-Backup"
+    browseable: false
+    comment: "CRITICAL: Password database backups"
+
+# Container resources
+container:
+  memory: 4096
+  cores: 2
+  template: debian-12-standard
+  post_install:
+    - tteck/docker
+    - tteck/portainer
+  why: "4GB RAM for Pi-hole query cache + Vaultwarden + CrowdSec analysis."
+

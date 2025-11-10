@@ -1,0 +1,121 @@
+# NAS Basic - Simple file sharing
+# Perfect for: Replacing Synology/QNAP with your own hardware
+# What you get: Samba shares for files, photos, backups
+
+name: NAS Basic
+description: Simple file sharing with Samba (like Synology, but you control it)
+category: Storage
+tags: [storage, nas, samba, backup, timemachine]
+components:
+  - File sharing via Samba (works with Windows/Mac/Linux)
+  - Organized datasets with smart compression
+  - Time Machine support (optional)
+  - No containers - just pure storage
+
+requirements:
+  min_ram_mb: 512
+  min_disk_gb: 20
+  recommended_ram_mb: 1024
+  recommended_cores: 1
+
+customize:
+  - key: pool_name
+    prompt: "ZFS pool name"
+    default: tank
+    type: string
+    help: "The ZFS pool where NAS datasets will be created"
+
+  - key: include_timemachine
+    prompt: "Include Mac Time Machine support? (y/n)"
+    default: true
+    type: bool
+    help: "Creates Time Machine dataset with Fruit extensions for native Mac backups over SMB"
+
+related:
+  - nas-complete  # Upgrade to include apps like Nextcloud
+  - media-server  # Add Jellyfin for media streaming
+
+notes: |
+  Your NAS is ready! Pure storage, no containers needed.
+
+  Access your shares:
+  - Windows - \\proxmox\Files
+  - Mac - smb://proxmox/Files (or cmd+K in Finder)
+  - Linux - smb://proxmox/Files
+
+  What you got:
+  - Files - General documents, downloads, anything
+  - Photos - Optimized for large images/videos (1MB blocks)
+  - Backups - Heavy compression saves 3-4x space
+  - TimeMachine - Mac backups (if enabled)
+
+  Setting up Time Machine (Mac):
+  1. Open System Preferences > Time Machine
+  2. Click "Select Disk"
+  3. Choose "TimeMachine" from the network
+  4. Enter credentials and start backing up
+
+  Performance tips:
+  - Photos dataset uses 1MB recordsize (30% faster for large files)
+  - Backups dataset uses gzip-9 (slower writes, huge space savings)
+  - Files dataset uses balanced 128K recordsize (good for mixed sizes)
+
+  Next steps:
+  - Set up Samba users - smbpasswd -a username
+  - Configure share permissions as needed
+  - Consider adding media-server package for Jellyfin
+  - Add nas-complete package to upgrade to full-featured NAS with Nextcloud
+
+config:
+  version: 2
+  pools:
+    {{ pool_name }}:
+      type: zfs
+      datasets:
+        # General documents and files
+        # WHY: Mixed file sizes (documents, downloads, etc.)
+        # PROFILE: dev = recordsize=128K, compression=lz4, atime=off
+        # RESULT: Good balance between small files and larger media
+        files:
+          profile: dev
+          shares:
+            smb:
+              name: Files
+              browseable: yes
+              comment: "General file storage - put anything here"
+
+        # Photo library - optimized for large files
+        # WHY: Photos/videos are large (1-50MB), sequential reads
+        # PROFILE: media = recordsize=1M, compression=lz4
+        # RESULT: 30% faster reads for large files vs 128K default
+        photos:
+          profile: media
+          shares:
+            smb:
+              name: Photos
+              browseable: yes
+              comment: "iPhone/Android backups - large files, fast access"
+
+        # Backup destination - heavy compression
+        # WHY: Backups are write-once, read-rarely, compressibility is high
+        # PROFILE: backups = recordsize=128K, compression=gzip-9
+        # RESULT: 3-4x space savings (slower writes, worth it for backups)
+        backups:
+          profile: backups
+          shares:
+            smb:
+              name: Backups
+              browseable: yes
+              comment: "Computer backups - compressed to save space"
+        {% if include_timemachine %}
+        
+        # Time Machine backups - Mac-specific
+        timemachine:
+          profile: backups  # Heavy compression for Time Machine
+          shares:
+            smb:
+              name: TimeMachine
+              browseable: no  # Hidden from normal browsing
+              comment: "Mac Time Machine backups (AFP/SMB compatible)"
+              fruit: yes  # Required for Mac Time Machine over SMB
+        {% endif %}

@@ -1,0 +1,339 @@
+# NAS Complete - Full-featured home server
+# Perfect for: All-in-one solution (storage + media + downloads)
+# What you get: Everything working together out of the box
+
+name: NAS Complete
+description: Complete NAS solution (storage + media + downloads + apps)
+category: Complete
+tags: [nas, complete, all-in-one, media, storage, downloads, jellyfin, arr]
+
+components:
+  - File sharing (Samba)
+  - Media server (Jellyfin)
+  - Download automation (*arr stack)
+  - Photo management (Immich)
+  - Document management (Nextcloud)
+  - Network services (Pi-hole)
+  - All optimized to work together
+
+requirements:
+  min_ram_mb: 16384
+  min_disk_gb: 200
+  recommended_ram_mb: 32768
+  recommended_cores: 8
+
+# DOCKER COMPOSE INTEGRATION
+docker_compose:
+  # Core media services
+  sources:
+    - name: jellyfin
+      source: "https://raw.githubusercontent.com/jellyfin/jellyfin/master/docker-compose.yml"
+      managed_volumes:
+        - /movies
+        - /tvshows
+    
+    - name: arr-stack
+      source: "https://raw.githubusercontent.com/hotio/arr-compose/main/docker-compose.yml"
+      managed_volumes:
+        - /downloads
+        - /movies
+        - /tvshows
+  
+  # Optional services
+  optional_services:
+    - key: include_immich
+      name: immich
+      source: "https://raw.githubusercontent.com/immich-app/immich/main/docker/docker-compose.yml"
+      managed_volumes:
+        - /photos
+    
+    - key: include_nextcloud
+      name: nextcloud
+      source: "https://raw.githubusercontent.com/nextcloud/docker/master/docker-compose.yml"
+      managed_volumes:
+        - /documents
+    
+    - key: include_pihole
+      name: pihole
+      source: "https://raw.githubusercontent.com/pi-hole/docker-pi-hole/master/docker-compose.yml"
+      managed_volumes:
+        - /config
+
+# TENGIL'S VALUE-ADD: Storage optimization hints
+storage_hints:
+  "/movies":
+    profile: media  # 1M recordsize for large video files
+    size_estimate: "2TB"
+    why: "Large video files (2-50GB each). Media profile (1M recordsize) optimal for sequential streaming."
+    mount_as: /movies
+    zfs_options:
+      recordsize: 1M
+      compression: lz4
+      atime: off
+  
+  "/tvshows":
+    profile: media
+    size_estimate: "1TB"
+    why: "TV episodes are typically smaller than movies but benefit from same media profile."
+    mount_as: /tvshows
+    zfs_options:
+      recordsize: 1M
+      compression: lz4
+      atime: off
+  
+  "/downloads":
+    profile: downloads  # Temporary storage, fast writes
+    size_estimate: "500GB"
+    why: "Active downloads need fast random writes. Must be on same pool as media for hardlinks to work!"
+    mount_as: /downloads
+    critical_note: "MUST be on same pool as /movies and /tvshows for hardlinks!"
+    zfs_options:
+      recordsize: 128K
+      compression: lz4
+      atime: off
+  
+  "/photos":
+    profile: media
+    size_estimate: "500GB"
+    why: "RAW photos and videos from phones/cameras. Media profile optimal for large image files."
+    mount_as: /photos
+    zfs_options:
+      recordsize: 1M
+      compression: lz4
+  
+  "/documents":
+    profile: dev  # Small files, good compression
+    size_estimate: "100GB"
+    why: "Office documents, PDFs, text files. Dev profile (128K recordsize) balances small file performance and compression."
+    mount_as: /documents
+    zfs_options:
+      recordsize: 128K
+      compression: zstd-3
+  
+  "/files":
+    profile: dev
+    size_estimate: "1TB"
+    why: "General purpose storage for mixed file types."
+    mount_as: /files
+  
+  "/config":
+    profile: dev
+    size_estimate: "10GB"
+    why: "Pi-hole config and DNS settings. Small database files."
+    mount_as: /config
+
+# TENGIL'S VALUE-ADD: Network share recommendations
+share_recommendations:
+  "/movies":
+    smb: true
+    smb_name: "Movies"
+    read_only: false
+    browseable: yes
+    comment: "Movie library - add movies here for Jellyfin"
+    why: "Easy to drag-and-drop movies from desktop"
+  
+  "/tvshows":
+    smb: true
+    smb_name: "TVShows"
+    read_only: false
+    browseable: yes
+    comment: "TV show library - add shows here for Jellyfin"
+  
+  "/downloads":
+    smb: true
+    smb_name: "Downloads"
+    read_only: false
+    browseable: yes
+    comment: "Active downloads folder"
+    why: "Monitor downloads, manually add torrents"
+  
+  "/photos":
+    smb: true
+    smb_name: "Photos"
+    read_only: false
+    browseable: yes
+    comment: "Photo library for Immich"
+  
+  "/documents":
+    smb: true
+    smb_name: "Documents"
+    read_only: false
+    browseable: yes
+    comment: "Nextcloud document storage"
+  
+  "/files":
+    smb: true
+    smb_name: "Files"
+    read_only: false
+    browseable: yes
+    comment: "General purpose file storage"
+
+# TENGIL'S VALUE-ADD: Container resource sizing
+container:
+  memory: 16384  # 16GB for full stack
+  cores: 8
+  disk_size: 50
+  template: debian-12-standard
+  post_install:
+    - tteck/docker
+    - tteck/portainer
+  why: "Portainer manages all Docker Compose stacks. Minimum 16GB RAM for full NAS Complete stack."
+
+# DEPLOYMENT OPTIONS
+deployment:
+  runtime: docker
+  method: lxc
+  gpu_passthrough: optional  # Helpful for Jellyfin transcoding
+  why: |
+    GPU passthrough recommended for:
+    - Jellyfin hardware transcoding (Intel QuickSync, NVIDIA NVENC)
+    - Immich AI features (facial recognition, object detection)
+    
+    Tengil auto-detects GPU via `tg doctor` and configures if available.
+
+customize:
+  - key: pool_name
+    prompt: "ZFS pool name"
+    default: tank
+    type: string
+    help: "The ZFS pool for your complete NAS (needs 200GB+ free space)"
+
+  - key: include_immich
+    prompt: "Include Immich (Google Photos replacement)?"
+    default: true
+    type: bool
+    help: "Self-hosted photo management with AI, face detection, mobile apps"
+
+  - key: include_nextcloud
+    prompt: "Include Nextcloud (Dropbox replacement)?"
+    default: true
+    type: bool
+    help: "Self-hosted cloud storage, calendars, contacts, office suite"
+
+  - key: include_pihole
+    prompt: "Include Pi-hole (network-wide ad blocking)?"
+    default: true
+    type: bool
+    help: "DNS-level ad blocking for entire network. Set as router DNS after setup."
+
+related:
+  - remote-access  # Add VPN and reverse proxy for remote access
+  - home-automation  # Add smart home control
+
+notes: |
+  🏠 Your complete home server is ready! Everything you need in one setup.
+
+  Access points:
+  - Portainer - http://proxmox:9000 (manage all services)
+  - Jellyfin (media) - http://proxmox:8096
+  - qBittorrent (torrents) - http://proxmox:8080
+  - Sonarr (TV) - http://proxmox:8989
+  - Radarr (movies) - http://proxmox:7878
+  - Prowlarr (indexers) - http://proxmox:9696
+  - Immich (photos) - http://proxmox:2283 (if enabled)
+  - Nextcloud (files) - http://proxmox:443 (if enabled)
+  - Pi-hole (DNS) - http://proxmox/admin (if enabled)
+
+  Samba shares:
+  - \\proxmox\Files (general storage)
+  - \\proxmox\Movies (add movies here)
+  - \\proxmox\TVShows (add TV shows here)
+  - \\proxmox\Downloads (active downloads)
+  - \\proxmox\Photos (if Immich enabled)
+  - \\proxmox\Documents (if Nextcloud enabled)
+
+  Getting started workflow:
+
+  1. Access Portainer:
+     - Open http://proxmox:9000
+     - Create admin account
+     - View all Docker Compose stacks
+     - Start services as needed
+
+  2. Set up download automation:
+     - Configure Prowlarr with indexers (http://proxmox:9696)
+     - Add download client in Sonarr/Radarr (qBittorrent)
+     - Add shows/movies, let automation handle downloads
+     - Files automatically move to media folders
+
+  3. Set up Jellyfin:
+     - Open http://proxmox:8096
+     - Create admin account
+     - Add libraries: Movies (/movies), TV (/tvshows)
+     - Enable hardware transcoding (if GPU available)
+     - Install mobile apps
+
+  4. Set up Immich (if enabled):
+     - Open http://proxmox:2283
+     - Create account
+     - Install mobile apps (iOS/Android)
+     - Enable auto-upload from phone
+     - AI will organize photos automatically
+
+  5. Set up Nextcloud (if enabled):
+     - Open http://proxmox:443
+     - Create admin account
+     - Install desktop/mobile sync clients
+     - Migrate files from Dropbox/Google Drive
+
+  6. Set up Pi-hole (if enabled):
+     - Open http://proxmox/admin
+     - Get password from logs: docker logs pihole | grep password
+     - Set router DNS to Pi-hole IP
+     - All devices now have ad-blocking
+
+  How downloads → media works:
+  1. Add show to Sonarr or movie to Radarr
+  2. Sonarr/Radarr searches via Prowlarr
+  3. Download starts in qBittorrent
+  4. Files saved to /downloads dataset
+  5. When complete, hardlinked to /movies or /tvshows
+  6. Jellyfin detects new media automatically
+  7. CRITICAL: Downloads and media MUST be on same pool for hardlinks!
+
+  Resource usage (typical):
+  - Jellyfin - 4GB RAM (more for 4K transcoding)
+  - *arr stack - 2GB RAM total
+  - Immich - 4GB RAM (AI features)
+  - Nextcloud - 2GB RAM
+  - Pi-hole - 512MB RAM
+  - Total - ~16GB RAM recommended minimum
+
+  Performance tips:
+  - Use SSD/NVMe for databases (Immich, Nextcloud)
+  - Keep media on HDD pool (cheaper storage)
+  - 16GB+ RAM recommended for full stack
+  - 8+ CPU cores for transcoding + AI
+  - 1Gbps network for smooth streaming
+  - Enable GPU passthrough for transcoding
+
+  ZFS optimization (automatic):
+  - Media files: 1M recordsize for streaming
+  - Downloads: 128K recordsize for torrent chunks
+  - Documents: zstd compression for text
+  - All datasets: atime=off for performance
+  - Hardlinks work across /downloads, /movies, /tvshows
+
+  Backup strategy:
+  - Immich photos - CRITICAL (automated backup recommended)
+  - Nextcloud data - CRITICAL (automated backup recommended)
+  - Jellyfin config - Important (backup settings)
+  - Arr stack configs - Nice to have
+  - Media files - Optional (can re-download)
+
+  Next steps:
+  - Set up automated backups (Proxmox Backup Server)
+  - Configure remote access (remote-access package)
+  - Add monitoring (Uptime Kuma in Portainer)
+  - Set up SSL certificates (nginx Proxy Manager)
+  - Configure user permissions for Samba shares
+  - Enable 2FA for Nextcloud
+  - Set up automated media organization
+
+  Troubleshooting:
+  - Check service status in Portainer
+  - View logs: docker logs <container>
+  - Restart stack in Portainer
+  - Verify ZFS dataset mounts
+  - Check GPU passthrough: tg doctor
+  - Test hardlinks: ls -i (same inode = hardlink working)

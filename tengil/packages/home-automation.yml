@@ -1,0 +1,142 @@
+# Home Automation - Smart home control center
+# Perfect for: Controlling lights, thermostats, cameras, anything smart
+# What you get: Home Assistant + optional Node-RED + MQTT
+
+name: Home Automation
+description: Home Assistant - control all your smart home devices from one place
+category: Automation
+tags: [automation, smart-home, homeassistant, iot, mqtt, nodered]
+components:
+  - Home Assistant (the brain of your smart home)
+  - Node-RED (visual automation - if this, then that)
+  - Mosquitto MQTT (device communication protocol)
+  - Fast storage for databases and logs
+
+requirements:
+  min_ram_mb: 2048
+  min_disk_gb: 20
+  recommended_ram_mb: 4096
+  recommended_cores: 2
+
+# DOCKER COMPOSE - Using official images
+docker_compose:
+  sources:
+    - name: homeassistant
+      image: "ghcr.io/home-assistant/home-assistant:stable"
+      ports: ["8123:8123"]
+      volumes: ["/config:/config"]
+      environment:
+        TZ: "Europe/Stockholm"
+  
+  optional_services:
+    - key: include_nodered
+      image: "nodered/node-red:latest"
+      ports: ["1880:1880"]
+      volumes: ["/data:/data"]
+    
+    - key: include_mqtt
+      image: "eclipse-mosquitto:latest"
+      ports: ["1883:1883", "9001:9001"]
+      volumes: ["/data:/mosquitto/data", "/mosquitto/log:/mosquitto/log"]
+
+# Storage optimization hints
+storage_hints:
+  "/config":
+    profile: dev
+    size_estimate: "10GB"
+    why: "Home Assistant SQLite database with frequent writes. Small recordsize optimal for database performance."
+    mount_as: /config
+  
+  "/data":
+    profile: dev
+    size_estimate: "5GB"
+    why: "Node-RED flows and MQTT data. Fast storage for real-time messages."
+    mount_as: /data
+
+# Container resources
+container:
+  memory: 4096
+  cores: 4
+  template: debian-12-standard
+  post_install:
+    - tteck/docker
+    - tteck/portainer
+  why: "4GB RAM handles most homes (100+ devices). HA needs decent CPU for automations."
+
+customize:
+  - key: pool_name
+    prompt: "ZFS pool name"
+    default: tank
+    type: string
+    help: "The ZFS pool where Home Assistant datasets will be created"
+
+  - key: include_nodered
+    prompt: "Include Node-RED for visual automations? (y/n)"
+    default: true
+    type: bool
+    help: "Drag-and-drop automation flows. Great for complex logic and integrations."
+
+  - key: include_mqtt
+    prompt: "Include MQTT broker for IoT devices? (y/n)"
+    default: true
+    type: bool
+    help: "Message broker for Zigbee, Z-Wave, ESP32, and custom IoT devices"
+
+related:
+  - privacy-fortress  # Add Pi-hole for network-wide ad blocking
+  - remote-access     # Add Wireguard VPN for remote access
+
+notes: |
+  Your smart home brain is ready! Control everything from one place.
+
+  Access points:
+  - Home Assistant - http://proxmox:8123
+  - Node-RED - http://proxmox:1880 (if enabled)
+  - MQTT - proxmox:1883 (if enabled)
+
+  First-time setup:
+  1. Open http://proxmox:8123
+  2. Create your Home Assistant account
+  3. Walk through device discovery wizard
+  4. Add integrations - Settings > Devices & Services
+
+  Popular integrations:
+  - Philips Hue (lights)
+  - Nest/Ecobee (thermostats)
+  - Ring/Wyze (cameras)
+  - Sonos (audio)
+  - Zigbee/Z-Wave (via USB stick)
+  - Google Home/Alexa (voice control)
+
+  Creating automations:
+  1. In Home Assistant - Settings > Automations & Scenes
+  2. Click "Create Automation"
+  3. Choose trigger (time, device state, etc.)
+  4. Choose action (turn on lights, send notification)
+  5. Test and save
+
+  Node-RED setup (if enabled):
+  1. Open http://proxmox:1880
+  2. Install Home Assistant nodes from palette
+  3. Connect to HA - Add Home Assistant server
+  4. Drag nodes to create flows
+  5. Deploy and test
+
+  MQTT devices (if enabled):
+  - Connect ESP32/Arduino devices to proxmox - 1883
+  - Username/password - Configure in Mosquitto
+  - Home Assistant auto-discovers MQTT devices
+  - Use Node-RED for custom MQTT logic
+
+  Performance tips:
+  - Use SSD for faster database access
+  - 4GB RAM handles most homes (100+ devices)
+  - Back up config regularly - Settings > System > Backups
+  - Consider external Zigbee/Z-Wave stick for better range
+
+  Next steps:
+  - Set up mobile app (iOS/Android)
+  - Configure notifications
+  - Add privacy-fortress package for Pi-hole
+  - Set up remote access via VPN or Nabu Casa
+

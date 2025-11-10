@@ -1,0 +1,177 @@
+# Remote Access - Secure access from anywhere
+# Perfect for: VPN, reverse proxy, SSO, secure remote access
+# What you get: Tailscale/WireGuard VPN, nginx proxy, Authelia SSO
+
+name: Remote Access
+description: Secure remote access with VPN and reverse proxy
+category: Network
+tags: [security, vpn, proxy, remote-access, tailscale, wireguard, ssl]
+components:
+  - Tailscale (mesh VPN, easiest setup)
+  - WireGuard (self-hosted VPN alternative)
+  - nginx-proxy-manager (reverse proxy with HTTPS)
+  - Authelia (two-factor SSO for web services)
+  - Cloudflare Tunnel (optional public access)
+
+requirements:
+  min_ram_mb: 1024
+  min_disk_gb: 10
+  recommended_ram_mb: 2048
+  recommended_cores: 2
+
+customize:
+  - key: pool_name
+    prompt: "ZFS pool name"
+    default: tank
+    type: string
+    help: "The ZFS pool where remote access datasets will be created"
+
+  - key: include_tailscale
+    prompt: "Include Tailscale (recommended)?"
+    default: true
+    type: bool
+    help: "Zero-config mesh VPN. Easiest way to access your homelab remotely."
+
+  - key: include_authelia
+    prompt: "Include Authelia (SSO + 2FA)?"
+    default: true
+    type: bool
+    help: "Add 2FA protection to all web services. Works with nginx Proxy Manager."
+
+  - key: include_wireguard
+    prompt: "Include WireGuard VPN?"
+    default: false
+    type: bool
+    help: "Self-hosted VPN. More complex than Tailscale but fully under your control."
+
+related:
+  - privacy-fortress  # Add Pi-hole for secure DNS
+  - home-automation   # Access Home Assistant remotely
+
+notes: |
+  Your secure remote access setup is ready! Access from anywhere safely.
+
+  Access points:
+  - nginx Proxy Manager - http://proxmox:81
+  - Portainer - http://proxmox:9000
+  - Tailscale - Connect via Tailscale app (if enabled)
+  - Authelia - Configured via nginx (if enabled)
+
+  Getting started with nginx Proxy Manager:
+  1. Open http://proxmox:81
+  2. Default login - admin@example.com / changeme
+  3. CHANGE PASSWORD immediately!
+  4. Add Proxy Hosts for your services
+  5. Enable SSL with Let's Encrypt (automatic)
+
+  Example proxy setup:
+  1. Create proxy host - jellyfin.yourdomain.com → proxmox:8096
+  2. Enable SSL certificate (Let's Encrypt)
+  3. Add Authelia middleware for 2FA protection
+  4. Access - https://jellyfin.yourdomain.com
+
+  Tailscale setup (if enabled):
+  1. SSH to Tailscale container - pct enter (vmid)
+  2. Run - tailscale up
+  3. Authenticate via URL
+  4. Install Tailscale on devices
+  5. Access Proxmox via Tailscale IP from anywhere
+
+  Authelia 2FA setup (if enabled):
+  1. Deploy Authelia via Portainer
+  2. Configure nginx Proxy Manager to use Authelia
+  3. Set up authentication rules
+  4. Enable TOTP (Google Authenticator)
+  5. All proxied services now require 2FA
+
+  WireGuard setup (if enabled):
+  1. SSH to WireGuard container
+  2. Generate client configs
+  3. Download QR codes for mobile
+  4. Import config to WireGuard app
+  5. Connect from anywhere
+
+  Security best practices:
+  - Keep Proxmox admin interface on private network only
+  - Use Tailscale/VPN for admin access
+  - Enable 2FA on all exposed services
+  - Use strong, unique passwords
+  - Regular security updates
+  - Monitor access logs
+
+# DOCKER COMPOSE - Using official images
+docker_compose:
+  sources:
+    - name: nginx-proxy-manager
+      image: "jc21/nginx-proxy-manager:latest"
+      ports: ["80:80", "81:81", "443:443"]
+      volumes: ["/data:/data", "/letsencrypt:/etc/letsencrypt"]
+      environment:
+        DB_SQLITE_FILE: "/data/database.sqlite"
+  
+  optional_services:
+    - key: include_tailscale
+      image: "tailscale/tailscale:latest"
+      volumes: ["/config:/var/lib/tailscale"]
+      environment:
+        TS_STATE_DIR: "/var/lib/tailscale"
+    
+    - key: include_authelia
+      image: "authelia/authelia:latest"
+      ports: ["9091:9091"]
+      volumes: ["/config:/config"]
+    
+    - key: include_wireguard
+      image: "linuxserver/wireguard:latest"
+      ports: ["51820:51820/udp"]
+      volumes: ["/config:/config"]
+      cap_add: ["NET_ADMIN", "SYS_MODULE"]
+
+# Storage optimization hints
+storage_hints:
+  "/data":
+    profile: dev
+    size_estimate: "5GB"
+    why: "Proxy configs and SSL certificates. Fast access for config changes."
+    mount_as: /data
+  
+  "/config":
+    profile: dev
+    size_estimate: "1GB"
+    why: "VPN and auth configs. Minimal storage with fast access."
+    mount_as: /config
+
+# Container resources
+container:
+  memory: 2048
+  cores: 2
+  template: debian-12-standard
+  post_install:
+    - tteck/docker
+    - tteck/portainer
+  why: "2GB RAM sufficient for proxy and VPN services. Low resource overhead."
+
+  Common use cases:
+
+  Home access:
+  - Tailscale for easy mobile access
+  - nginx proxy for web services with HTTPS
+  - Authelia 2FA for extra security
+
+  Public services:
+  - nginx proxy with Let's Encrypt SSL
+  - Authelia for authentication
+  - Cloudflare for DDoS protection
+
+  Development:
+  - WireGuard for secure remote development
+  - nginx proxy for staging environments
+  - Code-Server with SSL
+
+  Next steps:
+  - Set up domain name (Cloudflare recommended)
+  - Configure DNS records
+  - Enable fail2ban for brute-force protection
+  - Set up monitoring (Uptime Kuma)
+  - Regular backups of proxy configs
+

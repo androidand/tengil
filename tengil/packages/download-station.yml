@@ -1,0 +1,161 @@
+# Download Station - Automated media acquisition
+# Perfect for: Automating TV/movie downloads with quality control
+# What you get: qBittorrent + Sonarr + Radarr + Prowlarr (the *arr stack)
+
+name: Download Station
+description: Automated downloads with qBittorrent and *arr stack
+category: Media
+tags: [downloads, arr, automation, sonarr, radarr, qbittorrent]
+components:
+  - qBittorrent (torrent client)
+  - Sonarr (TV show automation)
+  - Radarr (movie automation)
+  - Prowlarr (indexer manager)
+  - Organized storage (downloads + media)
+  - Hardlink support (same pool = save space)
+
+requirements:
+  min_ram_mb: 4096
+  min_disk_gb: 100
+  recommended_ram_mb: 8192
+  recommended_cores: 4
+
+customize:
+  - key: pool_name
+    prompt: "ZFS pool name (must have at least 100GB free)"
+    default: tank
+    type: string
+    help: "Downloads and media MUST be on same pool for hardlinks to work"
+
+  - key: downloads_ram
+    prompt: "RAM for downloads container (MB)"
+    default: 2048
+    type: int
+    min: 1024
+    max: 8192
+    help: "Runs qBittorrent + Sonarr + Radarr + Prowlarr. 2GB minimum, 4GB+ recommended for many torrents"
+
+  - key: include_appdata
+    prompt: "Use separate dataset for app configs?"
+    default: true
+    type: bool
+    help: "Recommended: Keeps database/config separate from media. Easier backups."
+
+related:
+  - media-server  # Add Jellyfin to watch your downloads
+  - nas-basic     # Add general file sharing
+
+notes: |
+  Your download automation is ready!
+
+  Access points:
+  - qBittorrent - http://proxmox:8080 (username: admin, password: adminadmin - CHANGE THIS!)
+  - Sonarr (TV) - http://proxmox:8989
+  - Radarr (Movies) - http://proxmox:7878
+  - Prowlarr (Indexers) - http://proxmox:9696
+
+  Setup steps:
+  1. Configure Prowlarr with your indexers (trackers)
+  2. In Sonarr/Radarr - Settings > Download Clients > Add qBittorrent
+     - Host - localhost, Port - 8080
+     - Category - tv (Sonarr) / movies (Radarr)
+  3. In Sonarr/Radarr - Settings > Connect > Add Prowlarr
+  4. Add shows/movies and let automation handle the rest!
+
+  Important paths:
+  - Downloads folder - /downloads (active torrents)
+  - Media folder - /media (completed files)
+  - Both on SAME pool for instant hardlinks (saves space!)
+
+  Next steps:
+  - Install media-server package to watch with Jellyfin
+  - Set up VPN for downloads (not included, add manually)
+
+# DOCKER COMPOSE - Using official images
+# CRITICAL: All services must share same volumes for hardlinks to work!
+docker_compose:
+  sources:
+    - name: qbittorrent
+      image: "linuxserver/qbittorrent:latest"
+      ports: ["8080:8080"]
+      volumes: ["/downloads:/downloads", "/appdata/qbittorrent:/config"]
+      environment:
+        PUID: "1000"
+        PGID: "1000"
+        WEBUI_PORT: "8080"
+    
+    - name: sonarr
+      image: "linuxserver/sonarr:latest"
+      ports: ["8989:8989"]
+      volumes: ["/downloads:/downloads", "/media:/media", "/appdata/sonarr:/config"]
+      environment:
+        PUID: "1000"
+        PGID: "1000"
+    
+    - name: radarr
+      image: "linuxserver/radarr:latest"
+      ports: ["7878:7878"]
+      volumes: ["/downloads:/downloads", "/media:/media", "/appdata/radarr:/config"]
+      environment:
+        PUID: "1000"
+        PGID: "1000"
+    
+    - name: prowlarr
+      image: "linuxserver/prowlarr:latest"
+      ports: ["9696:9696"]
+      volumes: ["/appdata/prowlarr:/config"]
+      environment:
+        PUID: "1000"
+        PGID: "1000"
+
+# Storage optimization hints
+storage_hints:
+  "/downloads":
+    profile: downloads
+    size_estimate: "200GB"
+    why: "Active downloads with many small writes (torrent pieces). Downloads profile optimized for this."
+    mount_as: /downloads
+  
+  "/media":
+    profile: media
+    size_estimate: "2TB"
+    why: "Completed media files. MUST be on same pool as /downloads for instant hardlinks!"
+    mount_as: /media
+  
+  "/appdata":
+    profile: dev
+    size_estimate: "5GB"
+    why: "App configs and databases. Fast storage for frequent access."
+    mount_as: /appdata
+
+# Share recommendations
+share_recommendations:
+  "/downloads":
+    smb: true
+    name: "Downloads"
+    browseable: true
+    comment: "Active downloads (incomplete torrents)"
+  
+  "/media":
+    smb: true
+    name: "Media"
+    browseable: true
+    comment: "Completed media files ready for Jellyfin"
+
+# Container resources
+container:
+  memory: "{{ downloads_ram }}"
+  cores: 4
+  template: debian-12-standard
+  post_install:
+    - tteck/docker
+    - tteck/portainer
+  why: "User-configurable RAM. 4 cores for parallel torrent handling and media processing."
+
+# CRITICAL: downloads and media MUST be on same pool for hardlinks
+# How hardlinks work:
+#   - Sonarr moves file from /downloads/Show.mkv to /media/Show/Show.mkv
+#   - Same pool = instant hardlink (same inode, no copy)
+#   - Different pools = slow copy (10GB file takes minutes)
+# Result: Save space + instant file organization!
+

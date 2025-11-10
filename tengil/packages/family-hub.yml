@@ -1,0 +1,195 @@
+# Family Hub - Collaboration and organization for the whole household
+# Perfect for: Shared calendars, task management, notes, reminders, routines
+# What you get: Tools to keep everyone organized and on the same page
+
+name: Family Hub
+description: Shared calendars, tasks, notes, and routines for the household
+category: Collaboration
+tags: [family, collaboration, nextcloud, tasks, calendar, recipes, organization]
+components:
+  - Nextcloud (files, calendars, contacts, tasks)
+  - Vikunja (project and task management with reminders)
+  - Memos (quick notes and journaling)
+  - Tandoor Recipes (meal planning and shopping lists)
+  - Monica (personal relationship management)
+  - Grocy (household inventory and chores)
+  - Visual routine boards and timers
+
+requirements:
+  min_ram_mb: 4096
+  min_disk_gb: 30
+  recommended_ram_mb: 8192
+  recommended_cores: 4
+
+customize:
+  - key: pool_name
+    prompt: "ZFS pool name"
+    default: tank
+    type: string
+    help: "The ZFS pool where family collaboration datasets will be created"
+
+  - key: include_nextcloud
+    prompt: "Include Nextcloud (main hub)?"
+    default: true
+    type: bool
+    help: "Central hub for files, calendars, contacts. Like Google Workspace but self-hosted."
+
+  - key: include_tasks
+    prompt: "Include Vikunja (visual task management)?"
+    default: true
+    type: bool
+    help: "Kanban boards, lists, Gantt charts. Great for family projects and chores."
+
+  - key: include_notes
+    prompt: "Include Memos (quick notes)?"
+    default: true
+    type: bool
+    help: "Quick notes and journaling. Like Apple Notes but self-hosted."
+
+  - key: include_recipes
+    prompt: "Include Tandoor (meal planning)?"
+    default: true
+    type: bool
+    help: "Recipe management, meal planning, shopping lists. Great for family cooking."
+
+  - key: include_household
+    prompt: "Include Grocy (inventory/chores)?"
+    default: true
+    type: bool
+    help: "Pantry inventory, expiration tracking, chore management."
+
+  - key: include_contacts
+    prompt: "Include Monica (relationship management)?"
+    default: false
+    type: bool
+    help: "Track relationships, reminders, gift ideas. Like a personal CRM."
+
+related:
+  - media-server  # Add Jellyfin for family movie nights
+  - nas-basic  # Add more storage for family files/photos
+
+notes: |
+  Your family collaboration hub is ready! Stay organized together.
+
+  Access points:
+  - Portainer - http://proxmox:9000 (manage all apps)
+  - Nextcloud - http://proxmox:443 (if enabled)
+  - Vikunja - http://proxmox:3456 (if enabled)
+  - Memos - http://proxmox:5230 (if enabled)
+  - Tandoor - http://proxmox:8002 (if enabled)
+  - Grocy - http://proxmox:9283 (if enabled)
+  - Monica - http://proxmox:8080 (if enabled)
+
+  Getting started with Nextcloud (if enabled):
+  1. Open http://proxmox:443
+  2. Create admin account
+  3. Install mobile apps (iOS/Android)
+  4. Set up Calendar and Contacts sync
+  5. Share folders with family members
+
+  Setting up family workflows:
+
+  Morning routine:
+  - Vikunja - Daily task boards for each family member
+  - Memos - Quick breakfast notes, reminders
+  - Grocy - Check what's for breakfast (inventory)
+
+  Meal planning:
+  - Tandoor - Plan weekly meals, generate shopping list
+  - Grocy - Track pantry inventory, expiration dates
+  - Nextcloud - Share recipes via Files app
+
+  Household management:
+  - Vikunja - Chore assignments and tracking
+  - Grocy - Cleaning supplies inventory
+  - Monica - Remember family birthdays, gift ideas
+  - Nextcloud - Shared calendar for appointments
+
+  Mobile access:
+  - Nextcloud - Official iOS/Android app
+  - Vikunja - Progressive web app (add to home screen)
+  - Tandoor - Mobile-friendly web interface
+  - Grocy - Mobile-optimized UI
+
+  Performance tips:
+  - Use SSD for faster Nextcloud database
+  - 8GB RAM recommended for full stack
+  - Set up automated backups (especially Nextcloud)
+  - Consider reverse proxy for HTTPS and single URL
+
+  Privacy & security:
+  - All data stays on your server
+  - Set up user accounts for each family member
+  - Configure 2FA in Nextcloud for extra security
+  - Regular backups protect against data loss
+
+  Next steps:
+  - Configure email notifications
+  - Set up calendar sync with phones
+  - Create shared task boards in Vikunja
+  - Import recipes into Tandoor
+  - Set up remote access (VPN recommended)
+
+# DOCKER COMPOSE - Using official images
+docker_compose:
+  sources:
+    - name: nextcloud
+      image: "nextcloud:latest"
+      ports: ["443:80"]
+      volumes: ["/data:/var/www/html"]
+      environment:
+        POSTGRES_HOST: "postgres"
+        POSTGRES_DB: "nextcloud"
+  
+  optional_services:
+    - key: include_tasks
+      image: "vikunja/vikunja:latest"
+      ports: ["3456:3456"]
+      volumes: ["/data:/app/vikunja/files"]
+    
+    - key: include_notes
+      image: "ghcr.io/usememos/memos:latest"
+      ports: ["5230:5230"]
+      volumes: ["/data:/var/opt/memos"]
+    
+    - key: include_recipes
+      image: "vabene1111/recipes:latest"
+      ports: ["8002:8080"]
+      volumes: ["/data:/opt/recipes/mediafiles"]
+    
+    - key: include_household
+      image: "linuxserver/grocy:latest"
+      ports: ["9283:80"]
+      volumes: ["/data:/config"]
+    
+    - key: include_contacts
+      image: "monicahq/monica:latest"
+      ports: ["8080:80"]
+      volumes: ["/data:/var/www/html/storage"]
+
+# Storage optimization hints
+storage_hints:
+  "/data":
+    profile: dev
+    size_estimate: "50GB"
+    why: "Collaboration data with frequent database writes. Fast storage optimal."
+    mount_as: /data
+
+# Share recommendations
+share_recommendations:
+  "/data/nextcloud":
+    smb: true
+    name: "Family-Files"
+    browseable: true
+    comment: "Shared family documents and calendars"
+
+# Container resources
+container:
+  memory: 8192
+  cores: 4
+  template: debian-12-standard
+  post_install:
+    - tteck/docker
+    - tteck/portainer
+  why: "8GB RAM handles Nextcloud + multiple services. 4 cores for parallel access."
+

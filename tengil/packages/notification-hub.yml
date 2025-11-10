@@ -1,0 +1,141 @@
+# Notification & Automation Hub - The nervous system of your homelab
+# Perfect for: Alerts, notifications, automation, dashboards, monitoring
+# What you get: Complete notification system + automation platform + dashboards
+
+name: Notification Hub
+description: Alerts, dashboards, automation workflows, and integrations
+category: Infrastructure
+tags: [monitoring, alerts, automation, notifications, dashboards, n8n, grafana]
+components:
+  - Uptime Kuma (uptime monitoring + alerts)
+  - Grafana (dashboards and visualization)
+  - n8n (workflow automation with 400+ integrations)
+  - Gotify (push notifications to mobile)
+  - ntfy (simple pub/sub notifications)
+  - Webhook relay and integrations
+  - Log aggregation (Loki)
+  - MQTT broker (for IoT and cross-service messaging)
+  - Telegram bot support
+  - Email notifications
+  - Home Assistant integration
+  - Git webhooks
+
+requirements:
+  min_ram_mb: 4096
+  min_disk_gb: 20
+  recommended_ram_mb: 8192
+  recommended_cores: 4
+
+customize:
+  - key: pool_name
+    prompt: "ZFS pool name"
+    default: tank
+    type: string
+    help: "The ZFS pool where notification/monitoring datasets will be created"
+
+  - key: include_n8n
+    prompt: "Include n8n (workflow automation)?"
+    default: true
+    type: bool
+    help: "Connect 400+ services with visual workflows. Like Zapier but self-hosted."
+
+  - key: include_grafana
+    prompt: "Include Grafana (dashboards)?"
+    default: true
+    type: bool
+    help: "Beautiful dashboards for metrics and monitoring. Pairs with Prometheus/Loki."
+
+  - key: include_gotify
+    prompt: "Include Gotify (push notifications)?"
+    default: true
+    type: bool
+    help: "Push notifications to mobile apps. Great for critical alerts."
+
+  - key: include_ntfy
+    prompt: "Include ntfy (simple notifications)?"
+    default: true
+    type: bool
+    help: "Simple pub/sub notifications. Easier than Gotify for basic alerts."
+
+  - key: include_mqtt
+    prompt: "Include MQTT broker?"
+    default: true
+    type: bool
+    help: "Message broker for cross-service communication and IoT devices."
+
+  - key: include_loki
+    prompt: "Include Loki (log aggregation)?"
+    default: true
+    type: bool
+    help: "Centralized logging. View logs from all services in Grafana."
+
+  - key: include_changedetection
+    prompt: "Include Changedetection (website monitoring)?"
+    default: false
+    type: bool
+    help: "Monitor website changes and get notified. Great for price tracking."
+
+notes: "Your notification and automation hub is ready! Access Uptime Kuma at http://proxmox:3001 for uptime monitoring, and Portainer at http://proxmox:9000. Optional services (if enabled) include Grafana for dashboards, n8n for workflow automation, Gotify/ntfy for push notifications, Changedetection for website monitoring, MQTT for message brokering, and Loki for log aggregation. Use n8n to connect 400+ services with visual workflows. Install mobile apps (Gotify, ntfy, Home Assistant, Telegram) for notifications on-the-go."
+
+# DOCKER COMPOSE - Using official images
+docker_compose:
+  sources:
+    - name: uptime-kuma
+      image: "louislam/uptime-kuma:latest"
+      ports: ["3001:3001"]
+      volumes: ["/data:/app/data"]
+  
+  optional_services:
+    - key: include_grafana
+      image: "grafana/grafana:latest"
+      ports: ["3000:3000"]
+      volumes: ["/data:/var/lib/grafana"]
+    
+    - key: include_n8n
+      image: "n8nio/n8n:latest"
+      ports: ["5678:5678"]
+      volumes: ["/data:/home/node/.n8n"]
+    
+    - key: include_gotify
+      image: "gotify/server:latest"
+      ports: ["8082:80"]
+      volumes: ["/data:/app/data"]
+    
+    - key: include_ntfy
+      image: "binwiederhier/ntfy:latest"
+      ports: ["8083:80"]
+      volumes: ["/data:/var/cache/ntfy"]
+    
+    - key: include_mqtt
+      image: "eclipse-mosquitto:latest"
+      ports: ["1883:1883", "9001:9001"]
+      volumes: ["/data:/mosquitto/data"]
+    
+    - key: include_loki
+      image: "grafana/loki:latest"
+      ports: ["3100:3100"]
+      volumes: ["/data:/loki"]
+    
+    - key: include_changedetection
+      image: "ghcr.io/dgtlmoon/changedetection.io:latest"
+      ports: ["5000:5000"]
+      volumes: ["/data:/datastore"]
+
+# Storage optimization hints
+storage_hints:
+  "/data":
+    profile: dev
+    size_estimate: "20GB"
+    why: "Monitoring data, workflow configs, notification logs. Fast I/O for real-time operations."
+    mount_as: /data
+
+# Container resources
+container:
+  memory: 8192
+  cores: 4
+  template: debian-12-standard
+  post_install:
+    - tteck/docker
+    - tteck/portainer
+  why: "8GB RAM for n8n workflows + Grafana dashboards + log aggregation. 4 cores for parallel monitoring."
+

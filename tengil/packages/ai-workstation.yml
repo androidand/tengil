@@ -1,0 +1,211 @@
+# AI Workstation - LLM and image generation
+# Perfect for: Local AI chatbots, image generation, development
+# What you get: Ollama, Stable Diffusion, code servers
+
+name: AI Workstation
+description: Local AI tools (LLMs, image generation, development)
+category: Development
+tags: [ai, llm, ollama, stablediffusion, ml, jupyter, development]
+
+components:
+  - Ollama (local LLMs like Llama, Mistral)
+  - Stable Diffusion (image generation)
+  - Code Server (VS Code in browser)
+  - Jupyter (notebooks for ML)
+  - High RAM allocation for AI workloads
+
+requirements:
+  min_ram_mb: 16384
+  min_disk_gb: 150
+  recommended_ram_mb: 32768
+  recommended_cores: 8
+
+# DOCKER COMPOSE INTEGRATION
+docker_compose:
+  # Main service: Ollama
+  # Tengil tries: cache → image → source (in that order)
+  cache: "compose_cache/ollama/docker-compose.yml"  # Curated, tested config
+  image: "ollama/ollama:latest"                     # Fallback: generate from image
+  ports: ["11434:11434"]
+  volumes:
+    - "/root/.ollama:/root/.ollama"  # Model storage
+  environment:
+    OLLAMA_HOST: "0.0.0.0"
+  
+  # Optional service: Jupyter
+  optional_services:
+    - key: include_jupyter
+      cache: "compose_cache/jupyter/docker-compose.yml"  # Curated config
+      image: "jupyter/scipy-notebook:latest"             # Fallback
+      ports: ["8888:8888"]
+      volumes:
+        - "/notebooks:/home/jovyan/work"  # Notebooks
+      environment:
+        JUPYTER_ENABLE_LAB: "yes"
+        GRANT_SUDO: "yes"
+
+# TENGIL'S VALUE-ADD: Storage optimization hints
+storage_hints:
+  "/root/.ollama":
+    profile: dev  # 128K recordsize, lz4 compression
+    size_estimate: "200GB"
+    why: "AI models are large files (2-40GB each). Dev profile balances speed and compression for large sequential reads."
+    mount_as: /models
+    
+  "/notebooks":
+    profile: dev
+    size_estimate: "50GB"
+    why: "Jupyter notebooks, Python code, small datasets. Dev profile optimal for code and documents."
+    mount_as: /notebooks
+    
+  "/outputs":
+    profile: media  # For Stable Diffusion output
+    size_estimate: "100GB"
+    why: "Generated images and videos. Media profile (1M recordsize) optimal for large image files."
+    mount_as: /outputs
+
+# TENGIL'S VALUE-ADD: Network share recommendations
+share_recommendations:
+  "/root/.ollama":
+    smb: true
+    smb_name: "AI-Models"
+    read_only: false
+    browseable: yes
+    comment: "AI model storage - copy models here for Ollama"
+    why: "Easy model sharing across machines and backup from desktop"
+    
+  "/notebooks":
+    smb: true
+    smb_name: "AI-Notebooks"
+    read_only: false
+    browseable: yes
+    comment: "Jupyter notebooks and datasets"
+    
+  "/outputs":
+    smb: true
+    smb_name: "AI-Images"
+    read_only: true
+    browseable: yes
+    comment: "Generated images and videos (read-only for safety)"
+
+# TENGIL'S VALUE-ADD: Container resource sizing
+container:
+  memory: "{{ ollama_memory }}"
+  cores: "{{ ollama_cores }}"
+  disk_size: 100
+  template: debian-12-standard
+  post_install:
+    - tteck/docker
+    - tteck/portainer
+  why: "Portainer provides easy Docker Compose management. Memory/cores configurable based on model size."
+
+# DEPLOYMENT OPTIONS
+deployment:
+  runtime: docker
+  method: lxc
+  gpu_passthrough: auto  # Auto-detected via hwdetect
+  why: |
+    GPU passthrough highly recommended for AI workloads:
+    - Ollama: 10-50x faster inference with GPU
+    - Stable Diffusion: Required for reasonable image generation speed
+    
+    Tengil auto-detects GPU via `tg doctor` and configures passthrough.
+    Supports Intel iGPU, AMD, and NVIDIA GPUs.
+
+customize:
+  - key: pool_name
+    prompt: "ZFS pool name"
+    default: tank
+    type: string
+    help: "The ZFS pool where AI datasets will be created (needs 150GB+ free space)"
+
+  - key: ollama_memory
+    prompt: "RAM for Ollama in MB"
+    default: 16384
+    type: int
+    min: 8192
+    max: 32768
+    help: "8GB for small models (7B), 16GB for medium (13B), 32GB for large (70B+)"
+
+  - key: ollama_cores
+    prompt: "CPU cores for Ollama"
+    default: 8
+    type: int
+    min: 4
+    max: 16
+    help: "More cores = faster inference. 4 minimum, 8+ recommended for production use"
+
+  - key: include_jupyter
+    prompt: "Include Jupyter notebooks?"
+    default: true
+    type: bool
+    help: "Python notebooks for ML experimentation. Access via http://proxmox:8888"
+
+related:
+  - devops-playground  # Add more development tools
+  - nas-basic  # Add storage for AI models and datasets
+
+notes: |
+  🧠 Your AI workstation is ready! Local AI without cloud APIs.
+
+  Hardware detection:
+  - Run `tg doctor` to see detected GPU
+  - GPU passthrough auto-configured if available
+  - Fallback to CPU mode if no GPU detected
+
+  Access points:
+  - Ollama API - http://proxmox:11434
+  - Portainer - http://proxmox:9000
+  - Jupyter - http://proxmox:8888 (if enabled)
+
+  Getting started with Ollama:
+  1. Access Portainer at http://proxmox:9000
+  2. Navigate to Stacks → ollama
+  3. Start the compose stack
+  4. SSH into container: pct enter <vmid>
+  5. Pull a model: ollama pull llama3.2
+  6. Test it: ollama run llama3.2
+  7. Use API: curl http://localhost:11434/api/generate -d '{"model":"llama3.2","prompt":"Hello"}'
+
+  Popular models (RAM requirements):
+  - llama3.2 (3B) - 4GB RAM - Fast, good for chat
+  - mistral (7B) - 8GB RAM - Excellent reasoning
+  - codellama (13B) - 16GB RAM - Code generation
+  - llama3.1 (70B) - 40GB+ RAM - Best quality, slow
+
+  GPU recommendations:
+  - Intel iGPU (11th gen+): Good for 7B models
+  - NVIDIA RTX 3060 (12GB): Good for 13B models
+  - NVIDIA RTX 4090 (24GB): Can run 70B models
+  - AMD GPU: Supported via ROCm (experimental)
+
+  Stable Diffusion setup (manual via Portainer):
+  1. Access Portainer
+  2. Add new stack with AUTOMATIC1111 compose
+  3. Map /outputs dataset as volume
+  4. GPU passthrough will be auto-configured
+  5. Access WebUI at http://proxmox:7860
+
+  Performance tips:
+  - Use NVMe pool for model storage (faster loading)
+  - Allocate more RAM for larger models
+  - GPU gives 10-50x speedup for inference
+  - Consider dedicated hardware for 24/7 AI workloads
+
+  Network shares:
+  - \\proxmox\AI-Models - Upload custom models
+  - \\proxmox\AI-Notebooks - Access from desktop
+  - \\proxmox\AI-Images - View generated content
+
+  Next steps:
+  - Install Open WebUI for ChatGPT-like interface
+  - Set up model library sharing via NAS
+  - Explore LangChain for RAG applications
+  - Fine-tune models with your own data
+  - Connect to VSCode via Remote-SSH for development
+
+  Resource monitoring:
+  - `tg doctor` - View system resources
+  - `nvidia-smi` - GPU utilization (if NVIDIA)
+  - `htop` - CPU/RAM usage in container
+  - Portainer stats - Container resource usage

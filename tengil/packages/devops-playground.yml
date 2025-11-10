@@ -1,0 +1,155 @@
+# DevOps Playground - Development and monitoring tools
+# Perfect for: Software development, CI/CD, infrastructure monitoring
+# What you get: Git hosting, CI/CD, code editor, monitoring stack
+
+name: DevOps Playground
+description: Development tools, CI/CD, and monitoring
+category: Development
+tags: [development, devops, git, ci-cd, monitoring, docker, code]
+components:
+  - Gitea (self-hosted GitHub)
+  - Woodpecker CI (lightweight CI/CD)
+  - Code-Server (VS Code in browser)
+  - Grafana + Prometheus (monitoring)
+  - Portainer (container management)
+
+requirements:
+  min_ram_mb: 4096
+  min_disk_gb: 40
+  recommended_ram_mb: 8192
+  recommended_cores: 4
+
+customize:
+  - key: pool_name
+    prompt: "ZFS pool name"
+    default: tank
+    type: string
+    help: "The ZFS pool where development datasets will be created"
+
+  - key: include_gitea
+    prompt: "Include Gitea (Git hosting)?"
+    default: true
+    type: bool
+    help: "Self-hosted GitHub alternative. Lightweight, great for private repos and small teams."
+
+  - key: include_ci
+    prompt: "Include CI/CD (Woodpecker)?"
+    default: true
+    type: bool
+    help: "Lightweight CI/CD pipeline. Integrates with Gitea for automated builds/tests."
+
+  - key: include_monitoring
+    prompt: "Include monitoring stack?"
+    default: true
+    type: bool
+    help: "Prometheus + Grafana for system and app monitoring. Deploy via Portainer."
+
+related:
+  - ai-workstation  # Add AI/ML tools to your dev environment
+  - nas-basic  # Add storage for code repositories and artifacts
+
+notes: |
+  Your DevOps playground is ready! Everything you need for development.
+
+  Access points:
+  - Code-Server - http://proxmox:8443 (VS Code in browser)
+  - Portainer - http://proxmox:9000 (Docker management)
+  - Cockpit - http://proxmox:9090 (System dashboard)
+  - Gitea - http://proxmox:3000 (if enabled)
+
+  Getting started:
+  1. Open Code-Server and start coding
+  2. Use Portainer to deploy Docker apps
+  3. (Optional) Set up Gitea for Git hosting
+  4. (Optional) Connect Woodpecker CI to Gitea
+
+  Code-Server setup:
+  - First login - Check container logs for password
+  - Install extensions from marketplace
+  - Access workspace via SMB share - \\proxmox\Code
+  - Supports terminal, debugging, git integration
+
+  Gitea setup (if enabled):
+  1. Open http://proxmox:3000
+  2. Complete initial setup wizard
+  3. Create admin account
+  4. Push your repos - git remote add origin http://proxmox:3000/username/repo.git
+
+  Monitoring stack (if enabled):
+  1. Deploy Prometheus + Grafana via Portainer
+  2. Access Grafana - http://proxmox:3001
+  3. Add Prometheus data source
+  4. Import dashboards from grafana.com
+
+  Performance tips:
+  - Use SSD/NVMe pool for faster builds
+  - Allocate more RAM for CI/CD (8GB+ recommended)
+  - Share Code workspace over network for easy access
+  - Back up Gitea repos regularly
+
+  Next steps:
+  - Set up automated backups for code/config
+  - Configure reverse proxy for HTTPS
+  - Explore Portainer app templates
+  - Add Jenkins or GitLab CI if needed
+
+# DOCKER COMPOSE - Using official images
+docker_compose:
+  sources:
+    - name: code-server
+      image: "linuxserver/code-server:latest"
+      ports: ["8443:8443"]
+      volumes: ["/workspace:/config/workspace"]
+      environment:
+        PUID: "1000"
+        PGID: "1000"
+  
+  optional_services:
+    - key: include_gitea
+      image: "gitea/gitea:latest"
+      ports: ["3000:3000", "222:22"]
+      volumes: ["/data:/data"]
+    
+    - key: include_ci
+      image: "woodpeckerci/woodpecker-server:latest"
+      ports: ["8000:8000"]
+      volumes: ["/data:/var/lib/woodpecker"]
+    
+    - key: include_monitoring
+      image: "grafana/grafana:latest"
+      ports: ["3001:3000"]
+      volumes: ["/data:/var/lib/grafana"]
+
+# Storage optimization hints
+storage_hints:
+  "/workspace":
+    profile: dev
+    size_estimate: "50GB"
+    why: "Code workspace with git repos and build artifacts. Fast storage for development."
+    mount_as: /config/workspace
+  
+  "/data":
+    profile: dev
+    size_estimate: "20GB"
+    why: "Service configs and databases. Dev profile for fast access."
+    mount_as: /data
+
+# Share recommendations
+share_recommendations:
+  "/workspace":
+    smb: true
+    name: "Code"
+    browseable: true
+    comment: "Development workspace - edit code from any device"
+
+# Container resources
+container:
+  memory: 8192
+  cores: 4
+  template: debian-12-standard
+  post_install:
+    - tteck/docker
+    - tteck/portainer
+    - tteck/cockpit
+  why: "8GB RAM for code editing + builds + CI/CD. 4 cores for parallel builds."
+
