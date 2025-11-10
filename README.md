@@ -114,12 +114,10 @@ tg apply
 ### Installation & First Deploy
 
 ```bash
-# Install
 git clone https://github.com/androidand/tengil.git
 cd tengil
 poetry install
 
-# Deploy your first NAS
 alias tg="poetry run python -m tengil.cli"
 tg packages list              # Browse 13 packages
 tg init --package nas-basic   # Interactive setup
@@ -127,17 +125,10 @@ tg diff                       # Preview changes
 tg apply                      # Deploy to Proxmox
 ```
 
-**Result:** ZFS datasets with SMB shares ready to mount from your Mac/PC.
+**Result:** ZFS datasets + SMB shares ready in 2 minutes.
 
-📖 **[Complete installation guide & Mac mounting instructions →](docs/USER_GUIDE.md#installation)**
-
-**What just happened:**
-- ✅ Created optimized ZFS datasets (media, downloads, etc.)
-- ✅ Downloaded LXC templates
-- ✅ Created containers with proper resources
-- ✅ Mounted storage with correct permissions
-- ✅ Configured Samba shares
-- ✅ Generated `tengil.yml` for version control
+📖 **[Installation Guide](docs/USER_GUIDE.md#installation)** - Workstation vs Proxmox install, SSH setup, troubleshooting
+📖 **[Mac/Windows Mounting](docs/USER_GUIDE.md#accessing-shares-from-mac)** - Connect to your shares
 
 ---
 
@@ -306,42 +297,18 @@ storage_hints:
 
 ## CLI Reference
 
-### Package Management
+**Core Commands:**
 ```bash
-tg packages list                    # List all 13 packages
-tg packages list --category media   # Filter by category
-tg packages show nas-complete       # Show package details
+tg packages list           # Browse 13 preset packages
+tg init --package X        # Generate tengil.yml
+tg diff                    # Preview changes (terraform plan)
+tg apply                   # Deploy to Proxmox (terraform apply)
+tg compose analyze FILE    # Analyze Docker Compose files
 ```
 
-### Configuration
-```bash
-tg init --package media-server      # Initialize from package (interactive)
-tg init --package nas-complete --non-interactive  # Use defaults
-tg diff                             # Preview changes
-tg apply                            # Apply configuration
-tg apply --yes                      # Skip confirmation
-tg apply --dry-run                  # Show plan without executing
-```
+**15 commands available:** packages, init, diff, apply, compose, discover, doctor, import, install, rollback, snapshot, suggest, templates, version
 
-### Docker Compose
-```bash
-tg compose analyze ./docker-compose.yml  # Analyze compose file
-tg compose validate ./compose.yml        # Validate Tengil compatibility
-tg compose resolve ai-workstation        # Test package resolution
-```
-
-### Discovery
-```bash
-tg discover --containers            # List existing containers
-tg discover --docker-containers     # Show running Docker containers
-tg discover --compose-reverse abc123  # Reverse-engineer container to tengil.yml
-```
-
-### State Management
-```bash
-tg rollback --to 2025-11-10         # Restore from checkpoint
-tg snapshot --name before-upgrade   # Create manual snapshot
-```
+📖 **[Complete CLI Reference →](docs/USER_GUIDE.md#configuration)** - All commands, flags, and examples
 
 ---
 
@@ -399,6 +366,8 @@ storage_hints:
     size_estimate: "2TB"
 ```
 
+📖 **[More Examples →](docs/USER_GUIDE.md#configuration)** - Multi-pool, containers, profiles, customization
+
 ---
 
 ## Feature Status
@@ -425,47 +394,15 @@ storage_hints:
 
 ---
 
-## Troubleshooting
-
-**"Pool 'tank' not found"**:
-```bash
-zpool list  # Check pool name
-# Edit tengil.yml to match actual pool name
-```
-
-**"Template not found"**:
-```bash
-pveam available | grep debian
-pveam download local debian-12-standard_12.2-1_amd64.tar.zst
-```
-
-**"Container already exists"**:
-```bash
-pct list  # Check existing VMIDs
-# Edit tengil.yml, change vmid field
-```
-
-**"Permission denied"**:
-```bash
-# Tengil needs root for ZFS/Proxmox operations
-```
-
----
-
 ## Production Readiness
 
 **✅ Safe for production**: ZFS operations, mount management, share configuration
 
 **⚠️ Test first**: Container auto-creation, Docker installation, compose deployment
 
-**Before production**:
-1. Test in dev Proxmox environment
-2. Always run `tg diff` before `tg apply`
-3. Backup container configs: `pct config <VMID>`
-4. Version control your `tengil.yml` with git
-5. Use Proxmox Backup Server for data backups
-
 **Safety**: Tengil creates but never destroys. Your data is safe.
+
+📖 **[Troubleshooting Guide →](docs/USER_GUIDE.md#troubleshooting)** - Common errors, SSH issues, ZFS problems, rollback
 
 ---
 

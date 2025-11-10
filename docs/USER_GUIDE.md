@@ -6,6 +6,18 @@ Complete reference for using Tengil to manage Proxmox infrastructure.
 
 ### Installation
 
+Tengil can be installed in two ways depending on your workflow:
+
+#### Option 1: Install on Your Workstation (Recommended)
+
+Run Tengil from your Mac/Linux workstation and manage Proxmox remotely via SSH.
+
+**Prerequisites:**
+- Python 3.10+ on your workstation
+- SSH access to Proxmox server
+- Git
+
+**Installation:**
 ```bash
 # Clone and install
 git clone https://github.com/androidand/tengil.git
@@ -13,12 +25,78 @@ cd tengil
 poetry install
 
 # Create alias for convenience
-echo 'alias tg="poetry run python -m tengil.cli"' >> ~/.zshrc
+echo 'alias tg="poetry run python -m tengil.cli"' >> ~/.zshrc  # or ~/.bashrc
 source ~/.zshrc
 
 # Verify installation
 tg --version
 ```
+
+**Benefits:**
+- ✅ Keep your configs local (version control with git)
+- ✅ Edit tengil.yml in your favorite editor
+- ✅ Manage multiple Proxmox servers
+- ✅ Safer (review changes before applying)
+
+---
+
+#### Option 2: Deploy Directly to Proxmox (For Testing)
+
+Deploy Tengil directly to your Proxmox server for quick testing or development.
+
+**Prerequisites:**
+- `rsync` installed on your workstation
+- SSH keys set up: `ssh-copy-id root@proxmox-ip`
+- Python 3.10+ on Proxmox server
+
+**Deployment:**
+```bash
+# From your workstation
+git clone https://github.com/androidand/tengil.git
+cd tengil
+./scripts/dev-deploy.sh root@proxmox-ip
+
+# Script does:
+# 1. Syncs code to /tmp/tengil-dev on Proxmox
+# 2. Creates Python venv
+# 3. Installs dependencies
+# 4. Sets up mock mode (TG_MOCK=1)
+```
+
+**Usage on Proxmox:**
+```bash
+# SSH to Proxmox
+ssh root@proxmox-ip
+cd /tmp/tengil-dev
+
+# Run commands
+.venv/bin/poetry run tg packages list
+.venv/bin/poetry run tg diff
+.venv/bin/poetry run tg apply --dry-run
+
+# For real operations (disable mock mode)
+export TG_MOCK=0
+.venv/bin/poetry run tg apply
+```
+
+**Use cases:**
+- 🧪 Testing Tengil before installing locally
+- 🔬 Development and debugging on actual hardware
+- 🚀 Quick demos without local setup
+
+**Note:** This deploys to `/tmp/tengil-dev` and sets mock mode by default for safety. Not recommended for production use—install on your workstation instead.
+
+---
+
+**Which option should you choose?**
+
+| Scenario | Recommended Option |
+|----------|-------------------|
+| Normal use | Option 1 (workstation) |
+| Testing Tengil | Option 2 (Proxmox) |
+| Managing multiple servers | Option 1 (workstation) |
+| Development/debugging | Option 2 (Proxmox) |
+| Production homelab | Option 1 (workstation) |
 
 ### First Deploy - NAS Shares
 
