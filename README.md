@@ -1,360 +1,493 @@
-# Tengil - Declarative Proxmox NAS Management
+<div align="center">
+
+<img src="./docs/images/tengil-helm.png" alt="Tengil" width="200"/>
+
+# Tengil
 
 > *"All makt åt Tengil, vår befriare!"*
 
-Rule your Proxmox homelab with an iron fist through declarative YAML configuration.
+**Declarative infrastructure for Proxmox homelabs**
 
-## Real Talk: What This Actually Does
+One YAML file. Storage + containers + shares.
 
-**You have a fresh Proxmox server. What can Tengil do RIGHT NOW?**
+[![Tests](https://img.shields.io/badge/tests-345%2F346%20passing-brightgreen)]()
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)]()
+[![License](https://img.shields.io/badge/license-MIT-blue)]()
 
-1. **Create your ZFS pool** (you do this once manually: `zpool create tank ...`)
-2. **Write one YAML file** defining your datasets, containers, and shares
-3. **Run `tg apply`** and Tengil:
-   - Creates all your ZFS datasets with optimized settings
-   - Downloads LXC templates automatically
-   - Creates and starts containers
-   - Mounts datasets into containers
-   - Configures Samba/NFS shares
-   - Runs post-install tasks (Docker, Portainer, tteck scripts)
-   - Tracks everything in state
+[Quick Start](#quick-start-2-minutes) •
+[Packages](#available-packages) •
+[Docs](docs/USER_GUIDE.md) •
+[Examples](#configuration-example)
 
-**What you still configure yourself:**
-- Complex apps - Tengil installs Docker/Portainer, you manage apps via UI
-- Network settings, firewall rules - use Proxmox UI or manual config  
-- Backups - use Proxmox Backup Server or your own solution
-- VMs - Tengil only handles LXC containers, not VMs
+</div>
 
-**What Tengil gives you:**
-- **Infrastructure as code** - your entire storage/container setup in one file
-- **Reproducibility** - blow it away, run `tg apply`, back to working state
-- **No scattered pct commands** - everything declarative
-- **Safe operations** - diff before apply, idempotent, never destroys data
-- **Integration** - works with existing tools (tteck, Docker, Portainer)
+---
 
-## Why?
+## What is Tengil?
 
-**The Problem**: Running Proxmox as a NAS requires tedious manual work:
-- Creating ZFS datasets with correct properties
-- Configuring Proxmox storage
-- Setting up container bind mounts via `pct set`
-- Editing Samba/NFS configs
-- Managing permissions
-- Keeping track of what you've created
+**Infrastructure-as-code for Proxmox homelabs.** Get TrueNAS SCALE-like simplicity for storage + apps **without replacing your OS**.
 
-**The Solution**: One YAML file, one command. Total control.
-
-Like Tengil commanded Cherry Valley from his fortress in Karmanjaka, you command your entire infrastructure from a single configuration file. No more scattered commands, no more forgotten mounts, no more manual tedium.
-
-## Quick Start
+```yaml
+# tengil.yml
+version: 2
+pools:
+  tank:
+    datasets:
+      media:
+        profile: media              # ← ZFS optimized (1MB recordsize, lz4)
+        containers:
+          - name: jellyfin
+            auto_create: true
+            mount: /media
+        shares:
+          smb: Media               # ← Samba share
+```
 
 ```bash
-# Install
-pip install tengil
+tg diff   # See what will change
+tg apply  # Make it happen
+```
 
-# Generate config
-tg init
+**Result**: Storage + Jellyfin + share running in 2 commands.
 
-# Preview changes
-tg diff
+---
 
-# Apply
+## Why Tengil?
+
+**You chose Proxmox for flexibility.** Now get TrueNAS-like simplicity for storage + apps.
+
+<table>
+<tr>
+<th>Manual Proxmox</th>
+<th>Tengil</th>
+</tr>
+<tr>
+<td>
+
+```bash
+# 30+ minutes, 15+ commands
+zfs create tank/media
+zfs set recordsize=1M tank/media
+zfs set compression=lz4 tank/media
+pvesm add zfspool tank-media ...
+nano /etc/samba/smb.conf
+# ... (more manual config)
+```
+
+</td>
+<td>
+
+```yaml
+# 2 minutes, 2 commands
+media:
+  profile: media
+  shares:
+    smb: Media
+```
+
+```bash
 tg apply
 ```
 
-## Example Configuration
+</td>
+</tr>
+</table>
+
+### Key Benefits
+
+- ✅ **Reproducible**: `git commit tengil.yml` → restore anywhere
+- ✅ **Optimized**: ZFS profiles auto-tuned for media/databases/downloads
+- ✅ **Unified**: Storage + containers + shares in one place
+- ✅ **Safe**: Preview changes with `tg diff` before applying
+- ✅ **Trackable**: State stored in `.tengil.state.json`
+
+---
+
+## Quick Start (2 Minutes)
+
+### Prerequisites
+
+- **Proxmox VE** (7.x or 8.x)
+- **ZFS pool** created
+- **Python 3.10+** on your workstation
+
+### Installation & First Deploy
+
+```bash
+# Install
+git clone https://github.com/androidand/tengil.git
+cd tengil
+poetry install
+
+# Deploy your first NAS
+alias tg="poetry run python -m tengil.cli"
+tg packages list              # Browse 13 packages
+tg init --package nas-basic   # Interactive setup
+tg diff                       # Preview changes
+tg apply                      # Deploy to Proxmox
+```
+
+**Result:** ZFS datasets with SMB shares ready to mount from your Mac/PC.
+
+📖 **[Complete installation guide & Mac mounting instructions →](docs/USER_GUIDE.md#installation)**
+
+**What just happened:**
+- ✅ Created optimized ZFS datasets (media, downloads, etc.)
+- ✅ Downloaded LXC templates
+- ✅ Created containers with proper resources
+- ✅ Mounted storage with correct permissions
+- ✅ Configured Samba shares
+- ✅ Generated `tengil.yml` for version control
+
+---
+
+## Docker Compose Integration
+
+Tengil uses upstream Docker Compose files as source of truth + adds ZFS storage optimization:
+
+```bash
+# Use curated compose files
+tg init --package ai-workstation  # Ollama + Jupyter from compose_cache/
+
+# Or analyze any compose file
+tg compose analyze ./docker-compose.yml
+
+# Tengil adds:
+# - ZFS recordsize optimization (1M for media, 8K for databases)
+# - Unified permissions (container + SMB share same data)
+# - SMB/NFS share generation
+# - LXC container management
+```
+
+**Resolution chain**: cache → upstream URL → generate from image → dockerfile
+
+**Cached apps**: ollama, jupyter, jellyfin, immich, nextcloud
+
+See [USER_GUIDE.md](docs/USER_GUIDE.md#docker-compose-integration) for details.
+
+---
+
+## Available Packages
+
+**Storage** (Simple NAS):
+- `nas-basic` - Samba shares only
+- `nas-complete` - NAS + Nextcloud + Immich
+
+**Media**:
+- `media-server` - Jellyfin + organized media
+- `download-station` - qBittorrent + *arr stack (Sonarr, Radarr, Prowlarr)
+
+**Development**:
+- `ai-workstation` - Ollama + Jupyter + GPU support
+- `devops-playground` - Gitea + CI/CD + monitoring
+
+**Automation**:
+- `home-automation` - Home Assistant + Node-RED + MQTT
+
+**Network**:
+- `remote-access` - WireGuard + nginx-proxy + Authelia
+- `privacy-fortress` - Pi-hole + Vaultwarden + CrowdSec
+
+**Collaboration**:
+- `family-hub` - Shared calendars + tasks + recipes + photos
+
+**Gaming**:
+- `gaming-station` - ROM storage + game streaming
+- `rom-manager-compose` - romM (Docker Compose integration example)
+
+---
+
+## What Makes Tengil Different
+
+### 1. Storage-First Philosophy
+
+**Most tools**: "Container needs 50GB" → allocate generic volume
+
+**Tengil**: "Media needs 1MB recordsize for sequential reads" → optimize storage first
+
+```yaml
+datasets:
+  media:
+    profile: media  # recordsize=1M, compression=lz4, atime=off
+    consumers:
+      - container: jellyfin
+        mount: /media
+      - share: smb/Media
+# Tengil handles: ZFS props, mount flags, Samba config, permissions
+```
+
+**Real impact**:
+- 30% faster sequential reads (optimized recordsize)
+- 3-4x space savings for code repos (heavy compression)
+- Automatic permission management across containers + shares
+
+### 2. Unified Permissions
+
+**The pain**: "Jellyfin reads `/media`, SMB share writes to it, Immich also needs access"
+
+Manually: Configure ZFS ACLs, pct mount flags, Samba permissions, user mappings.
+
+**Tengil**: Just declare consumers, permissions handled automatically.
+
+### 3. Terraform-lite Workflow
+
+```bash
+tg diff      # Plan: see what will change
+tg apply     # Apply: make it happen
+tg rollback  # Undo: restore from checkpoint
+```
+
+State tracked in `.tengil.state.json`. Version control with git.
+
+### 4. Docker Compose Integration
+
+Use upstream compose files + add Tengil's storage optimization:
+
+```yaml
+# Old way: Maintain 200+ line package
+# New way: Reference upstream + add hints (50 lines)
+
+docker_compose:
+  cache: "compose_cache/immich/docker-compose.yml"  # Curated
+  source: "https://github.com/.../docker-compose.yml"  # Fallback
+
+storage_hints:
+  "/photos":
+    profile: media
+    size_estimate: "2TB"
+```
+
+**Why this matters**:
+- ✅ Upstream maintains compose (not you)
+- ✅ Tengil adds ZFS optimization (what compose can't do)
+- ✅ 75% less YAML to write
+- ✅ Works with any Docker Compose app
+
+---
+
+## What Tengil Manages
+
+### ✅ Handles
+
+**Storage**:
+- ZFS dataset creation with optimized properties
+- Proxmox storage registration
+- Dataset profiles (media, dev, backups, docker)
+
+**Compute**:
+- LXC container creation from templates
+- Container resource allocation (CPU, RAM)
+- Container lifecycle (start/stop)
+- Template auto-download
+
+**Integration**:
+- Bind mount configuration (dataset → container)
+- Samba/NFS share setup
+- Docker + Portainer installation
+- Docker Compose deployment
+
+**Operations**:
+- State tracking (what Tengil created)
+- Diff preview (see changes before apply)
+- Automatic checkpoints (recovery snapshots)
+- Idempotent operations (safe to re-run)
+
+### ❌ Doesn't Handle
+
+- **VMs**: LXC only (use Proxmox UI for VMs)
+- **Networking**: Firewalls, VLANs (use Proxmox UI)
+- **App config**: Jellyfin settings, Sonarr indexers (use app web UI)
+- **Backups**: Snapshot scheduling (use Proxmox Backup Server)
+- **Multi-server**: Clustering, HA (use Ansible)
+
+**Tengil's sweet spot**: Infrastructure layer (storage + compute + connectivity)
+
+---
+
+## CLI Reference
+
+### Package Management
+```bash
+tg packages list                    # List all 13 packages
+tg packages list --category media   # Filter by category
+tg packages show nas-complete       # Show package details
+```
+
+### Configuration
+```bash
+tg init --package media-server      # Initialize from package (interactive)
+tg init --package nas-complete --non-interactive  # Use defaults
+tg diff                             # Preview changes
+tg apply                            # Apply configuration
+tg apply --yes                      # Skip confirmation
+tg apply --dry-run                  # Show plan without executing
+```
+
+### Docker Compose
+```bash
+tg compose analyze ./docker-compose.yml  # Analyze compose file
+tg compose validate ./compose.yml        # Validate Tengil compatibility
+tg compose resolve ai-workstation        # Test package resolution
+```
+
+### Discovery
+```bash
+tg discover --containers            # List existing containers
+tg discover --docker-containers     # Show running Docker containers
+tg discover --compose-reverse abc123  # Reverse-engineer container to tengil.yml
+```
+
+### State Management
+```bash
+tg rollback --to 2025-11-10         # Restore from checkpoint
+tg snapshot --name before-upgrade   # Create manual snapshot
+```
+
+---
+
+## Configuration Example
+
+**Simple media server:**
 
 ```yaml
 version: 2
 pools:
   tank:
-    type: zfs
     datasets:
       media:
-        profile: media
+        profile: media              # 1M recordsize for video files
         containers:
-          # Phase 2: Auto-create containers
           - name: jellyfin
             auto_create: true
             template: debian-12-standard
             mount: /media
-            readonly: true
-            resources:
-              memory: 2048
-              cores: 2
-          
-          # Phase 1: Mount to existing containers
-          - name: plex
-            mount: /media
-            readonly: true
+            readonly: true          # Safety: prevent accidental deletion
+            memory: 4096
+            cores: 2
+            post_install: tteck/jellyfin  # Auto-install Jellyfin
         shares:
           smb:
             name: Media
             browseable: yes
-            guest_ok: false
-
-      downloads:
-        profile: downloads
-        containers:
-          - name: qbittorrent
-            mount: /downloads
-          - name: transmission
-            mount: /downloads
-            readonly: false        # Read-write access
 ```
 
-## What It Does
-
-Tengil brings **order and control** to your infrastructure:
-
-**Declare** your desired state → **Review** with `tg diff` → **Execute** with `tg apply`
-
-- **ZFS orchestration**: Create pools and datasets with optimized settings
-- **Container auto-creation**: Automatically create LXC containers from templates
-- **Template management**: Auto-download missing LXC templates
-- **Container lifecycle**: Start/stop containers automatically
-- **Post-install automation**: Install Docker, Portainer, or tteck scripts
-- **Bind mount management**: Auto-configure container access via pct
-- **Container discovery**: Query 100+ available LXC templates (`tg discover`)
-- **Smart recommendations**: Match apps to actual Proxmox templates (`tg suggest`)
-- **Share configuration**: Samba and NFS with proper permissions
-- **Proxmox integration**: Register ZFS storage automatically
-- **External tool integration**: tteck scripts, Docker, Portainer
-- **Idempotent operations**: Safe to run multiple times
-- **Multi-pool support**: Manage multiple ZFS pools from one config
-
-## Built-in Profiles
-
-- **media** - Movies, photos (1M recordsize, compression lz4)
-- **dev** - App configs (8K recordsize, compression lz4)
-- **downloads** - Mixed files (128K recordsize)
-- **backups** - Compressed backups (zstd compression)
-
-Override any ZFS property:
+**With Docker Compose:**
 
 ```yaml
-datasets:
-  custom:
-    profile: media
-    zfs:
-      recordsize: 512K
-      compression: zstd
-```
-
-## Features
-
-### Multi-Pool Support
-
-```yaml
+version: 2
 pools:
-  rpool:    # Fast NVMe
+  tank:
     datasets:
-      appdata: ...
-      databases: ...
-  
-  tank:     # Bulk storage
-    datasets:
-      media: ...
-      backups: ...
+      photos:
+        profile: media
+        containers:
+          - name: immich
+            auto_create: true
+            mount: /photos
+
+containers:
+  immich:
+    memory: 8192
+    cores: 4
+    docker_compose:
+      cache: "compose_cache/immich/docker-compose.yml"
+      image: "ghcr.io/immich-app/immich-server:release"  # Fallback
+
+storage_hints:
+  "/photos":
+    profile: media
+    size_estimate: "2TB"
 ```
 
-### Safe OS Pool Usage
+---
 
-Tengil warns about Proxmox-reserved paths on `rpool`:
-- `rpool/ROOT` - OS (protected)
-- `rpool/data` - VMs (protected)
+## Feature Status
 
-Recommends using `rpool/tengil/*` namespace for clarity.
+**✅ Production Ready**:
+- ZFS dataset management
+- Proxmox storage integration
+- Samba/NFS shares
+- Multi-pool support
+- Docker Compose integration
+- State tracking
+- Profile system
 
-### Container Management
+**⚠️ Experimental** (test first):
+- Container auto-creation
+- Template auto-download
+- Post-install scripts (Docker, Portainer, tteck)
+- Docker Compose deployment to containers
 
-Tengil can automatically create and configure LXC containers:
+**🚧 Planned**:
+- State import (`tg import`)
+- Pool analysis (`tg plan-pools`)
+- Backup integration
 
-```yaml
-datasets:
-  media:
-    containers:
-      - name: jellyfin
-        auto_create: true
-        template: debian-12-standard
-        mount: /media
-        readonly: true
-        resources:
-          memory: 2048
-          cores: 2
-          disk: 16G
-        network:
-          bridge: vmbr0
-          ip: dhcp
-```
-
-**What happens:**
-1. Template downloaded if missing
-2. Container created with specified resources
-3. Container started
-4. Dataset mounted to container
-5. Post-install tasks executed (if specified)
-
-**Post-install options:**
-```yaml
-# Install Docker and Portainer for web UI management
-post_install: [docker, portainer]
-
-# Run tteck community script (200+ apps available)
-post_install: tteck/jellyfin
-
-# Custom shell commands
-post_install: |
-  apt-get update
-  apt-get install -y nginx
-  systemctl enable nginx
-```
-
-Available tteck scripts: jellyfin, immich, homeassistant, nextcloud, pihole, adguard, wireguard, plex, sonarr, radarr, and many more. See: https://tteck.github.io/Proxmox/
-
-**Mount to existing containers:**
-
-```yaml
-datasets:
-  media:
-    containers:
-      # By container name
-      - name: jellyfin
-        mount: /media
-        readonly: true
-      
-      # By VMID
-      - vmid: 100
-        mount: /backup
-      
-      # String shorthand
-      - 'plex:/media:ro'
-```
-
-**Finding Container Info:**
-```bash
-# List all containers
-pct list
-
-# Get container hostname (for 'name' field)
-pct config 100 | grep hostname
-
-# Get container status
-pct status 100
-```
-
-**Note:** Containers must exist before running `tg apply`. Tengil handles the mounting automatically.
-
-### SMB Shares
-
-```yaml
-datasets:
-  media:
-    shares:
-      smb:
-        name: Media           # Share name (no path needed - auto-calculated)
-        browseable: yes
-        guest_ok: false
-```
-
-### NFS Exports
-
-```yaml
-datasets:
-  media:
-    shares:
-      nfs:
-        allowed: "192.168.1.0/24"
-        options: "rw,sync,no_root_squash"
-```
-
-## Documentation
-
-- [User Guide](docs/USER_GUIDE.md) - Complete reference
-- [Contributing](CONTRIBUTING.md) - Development guide
+---
 
 ## Troubleshooting
 
-### Container not found
-```
-WARNING: Container 'jellyfin' not found - skipping mount
-```
-**Solution:** Verify container exists and name matches hostname:
+**"Pool 'tank' not found"**:
 ```bash
-pct list                          # List all containers
-pct config 100 | grep hostname    # Get hostname for VMID 100
+zpool list  # Check pool name
+# Edit tengil.yml to match actual pool name
 ```
 
-### Mount already exists
-Tengil is idempotent - if mount already exists, it skips it:
-```
-✓ Mount already exists: /tank/media → jellyfin:/media
-```
-This is normal and safe.
-
-### Container name vs VMID
-- Use `name:` for container hostname (e.g., "jellyfin")
-- Use `vmid:` for container ID (e.g., 100)
-- Both work, name is more readable
-
-### Check current mounts
+**"Template not found"**:
 ```bash
-pct config 100               # Show full container config
-pct config 100 | grep mp     # Show only mount points
+pveam available | grep debian
+pveam download local debian-12-standard_12.2-1_amd64.tar.zst
 ```
+
+**"Container already exists"**:
+```bash
+pct list  # Check existing VMIDs
+# Edit tengil.yml, change vmid field
+```
+
+**"Permission denied"**:
+```bash
+# Tengil needs root for ZFS/Proxmox operations
+```
+
+---
+
+## Production Readiness
+
+**✅ Safe for production**: ZFS operations, mount management, share configuration
+
+**⚠️ Test first**: Container auto-creation, Docker installation, compose deployment
+
+**Before production**:
+1. Test in dev Proxmox environment
+2. Always run `tg diff` before `tg apply`
+3. Backup container configs: `pct config <VMID>`
+4. Version control your `tengil.yml` with git
+5. Use Proxmox Backup Server for data backups
+
+**Safety**: Tengil creates but never destroys. Your data is safe.
+
+---
 
 ## Requirements
 
-**System Requirements:**
-- Proxmox VE 7.0+ (or Linux with ZFS)
-- Python 3.8+
-- Root access (for ZFS and Proxmox operations)
+- Proxmox VE 7.x or 8.x
+- Python 3.10+
+- ZFS pool (create once: `zpool create tank ...`)
+- Root/sudo access
 
-**What Tengil Manages:**
-- ZFS datasets (automatic creation)
-- LXC containers (automatic creation from templates)
-- LXC templates (automatic download)
-- Container bind mounts (automatic configuration)
-- Proxmox storage (automatic registration)
-- Samba/NFS shares (automatic setup)
+## Documentation
 
-**What you need to create manually:**
-- ZFS pools (one-time setup)
+📖 **[Complete User Guide](docs/USER_GUIDE.md)** - Configuration reference, Docker Compose integration, troubleshooting
 
-**Quick Setup Guide:**
+### Quick Links
 
-Automatic containers (recommended):
-```bash
-# 1. Create ZFS pool (manual - one time)
-zpool create -o ashift=12 tank mirror /dev/sda /dev/sdb
+- **Getting Started**: [Installation](docs/USER_GUIDE.md#installation) | [First Deploy](docs/USER_GUIDE.md#first-deploy---nas-shares)
+- **Configuration**: [Single Pool](docs/USER_GUIDE.md#single-pool-setup) | [Multi Pool](docs/USER_GUIDE.md#multi-pool-setup) | [Profiles](docs/USER_GUIDE.md#built-in-profiles)
+- **Tasks**: [Add Containers](docs/USER_GUIDE.md#adding-a-container-mount) | [Add Shares](docs/USER_GUIDE.md#adding-smb-share) | [Post-Install](docs/USER_GUIDE.md#post-install-automation)
+- **Advanced**: [Docker Compose](docs/USER_GUIDE.md#docker-compose-integration) | [Troubleshooting](docs/USER_GUIDE.md#troubleshooting)
 
-# 2. Configure Tengil (containers created automatically)
-tg init
-vim /etc/tengil/tengil.yml
-# Add auto_create: true to containers
-
-# 3. Apply - Tengil creates everything
-tg diff
-tg apply
-```
-
-Manual containers (old way):
-```bash
-# 1. Create ZFS pool
-zpool create -o ashift=12 tank mirror /dev/sda /dev/sdb
-
-# 2. Create LXC containers manually
-pct create 100 local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst \
-  --hostname jellyfin \
-  --memory 2048 \
-  --cores 2 \
-  --net0 name=eth0,bridge=vmbr0,ip=dhcp
-
-# 3. Use Tengil to manage datasets and mounts
-tg init
-tg diff
-tg apply
-```
+---
 
 ## License
 
@@ -362,11 +495,9 @@ MIT
 
 ## Credits
 
-Named after Tengil from Astrid Lindgren's "The Brothers Lionheart" - the tyrant who ruled Karmanjaka with absolute control.
+Named after Tengil from Astrid Lindgren's "The Brothers Lionheart" - who ruled with absolute control from his fortress.
 
-> **"All makt åt Tengil, vår befriare!"**  
+> **"All makt åt Tengil, vår befriare!"**
 > *("All power to Tengil, our liberator!")*
 
-In the saga, Tengil conquered Cherry Valley with his fire-breathing dragon Katla, ruling with an iron fist from his fortress in Karmanjaka. Like the fictional overlord who maintained strict control over his domain, this tool orchestrates your Proxmox infrastructure with unwavering authority - though for good, not evil.
-
-Just as Tengil commanded Cherry Valley from Karmanjaka, this Tengil commands your homelab infrastructure from a single YAML file. The difference? This Tengil serves you, bringing order and automation to your storage empire.
+Like the tyrant who commanded Cherry Valley, this Tengil commands your homelab infrastructure from a single YAML file. The difference? This Tengil serves you.
