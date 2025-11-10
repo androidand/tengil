@@ -177,7 +177,9 @@ class PackageLoader:
             data = yaml.safe_load(metadata_yaml)
             
             # Store config section as template (will be rendered later)
-            config_template = config_section
+            # Dedent the template since it was indented under config:
+            import textwrap
+            config_template = textwrap.dedent(config_section)
         else:
             # No config section with templates
             data = yaml.safe_load(raw_content)
