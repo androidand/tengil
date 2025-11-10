@@ -342,7 +342,7 @@ def init(
         return
     
     # Check for existing config
-    config_path = Path("tengil.yml")
+    config_path = Path.home() / "tengil-configs" / "tengil.yml"
     if config_path.exists():
         console.print("[yellow]Warning:[/yellow] tengil.yml already exists")
         if not typer.confirm("Overwrite?"):
