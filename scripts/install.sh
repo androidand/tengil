@@ -58,11 +58,11 @@ if [[ -n "$REMOTE_HOST" ]]; then
             "$REPO_ROOT/" "$REMOTE_HOST:$TEMP_DIR/"
         
         echo "🔧 Running installer on remote host..."
-        ssh -t "$REMOTE_HOST" "cd $TEMP_DIR && sudo ./scripts/install.sh --local && rm -rf $TEMP_DIR"
+        ssh -t "$REMOTE_HOST" "cd $TEMP_DIR && ./scripts/install.sh --local && rm -rf $TEMP_DIR"
     else
         # Just download and run install script from GitHub
         echo "📥 Installing from GitHub on remote host..."
-        ssh -t "$REMOTE_HOST" "curl -fsSL https://raw.githubusercontent.com/androidand/tengil/main/scripts/install.sh | sudo bash"
+        ssh -t "$REMOTE_HOST" "curl -fsSL https://raw.githubusercontent.com/androidand/tengil/main/scripts/install.sh | bash"
     fi
     
     echo ""
