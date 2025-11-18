@@ -67,8 +67,7 @@ notes: |
   - Add nas-complete package to upgrade to full-featured NAS with Nextcloud
 
 config:
-  version: 2
-  pools:
+    pools:
     {{ pool_name }}:
       type: zfs
       datasets:

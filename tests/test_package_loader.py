@@ -119,8 +119,9 @@ class TestPackageLoader:
         else:
             actual_config = config
 
-        assert actual_config.get("version") == 2
         assert "pools" in actual_config
+        assert actual_config["pools"] is not None
+        assert "data" in actual_config["pools"]
 
     def test_render_config_substitution(self, loader):
         """Test Jinja2 variable substitution in config."""

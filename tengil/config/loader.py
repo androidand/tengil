@@ -2,8 +2,15 @@
 import yaml
 import warnings
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional, Set
 
+from tengil.core.app_repo_spec import AppRepoSpec, AppRepoSpecError, iter_app_repo_specs
+from tengil.core.smart_permissions import (
+    SmartPermissionEvent,
+    apply_smart_defaults,
+    validate_permissions,
+    _match_known_container,
+)
 from tengil.models.config import ConfigValidationError
 from tengil.config.profiles import PROFILES
 from tengil.config.validator import MultiPoolValidator
@@ -12,11 +19,15 @@ from tengil.config.validator import MultiPoolValidator
 class ConfigLoader:
     """Loads and processes Tengil configuration files."""
 
+    smart_permission_events: List[SmartPermissionEvent]
+
     def __init__(self, config_path: str = "tengil.yml"):
         self.config_path = Path(config_path)
         self.raw_config = None
         self.processed_config = None
         self.validator = MultiPoolValidator()
+        self.app_repos: List[AppRepoSpec] = []
+        self.smart_permission_events = []
 
     @property
     def PROFILES(self) -> Dict[str, Dict[str, str]]:
@@ -34,10 +45,6 @@ class ConfigLoader:
         # Handle empty config file
         if not self.raw_config:
             raise ConfigValidationError("Config file is empty. Run 'tg init' to create a config.")
-
-        # Validate version
-        if self.raw_config.get('version') != 2:
-            raise ConfigValidationError("Only version 2 configs are supported. Please update your config.")
 
         # Validate and fix deprecated formats BEFORE validation
         self.raw_config = self._validate_and_fix_format(self.raw_config)
@@ -63,6 +70,34 @@ class ConfigLoader:
                         # Apply profile if specified
                         if 'profile' in dataset:
                             self._apply_profile(dataset)
+
+                        dataset_path = f"{pool_name}/{name}"
+                        if 'profile' not in dataset:
+                            warnings.warn(
+                                (
+                                    f"Dataset '{dataset_path}' does not define a profile. "
+                                    "Smart permission defaults will assume conservative readonly access."
+                                ),
+                                UserWarning,
+                                stacklevel=2,
+                            )
+
+                        containers = dataset.get('containers', [])
+                        explicit_readonly = self._capture_explicit_readonly(containers)
+
+                        events: List[SmartPermissionEvent] = []
+                        apply_smart_defaults(dataset, dataset_path, events=events)
+
+                        self._strip_inferred_readonly(containers, explicit_readonly, dataset.get('profile'))
+
+                        if events:
+                            self.smart_permission_events.extend(events)
+
+                        for warning_message in validate_permissions(dataset, dataset_path):
+                            warnings.warn(warning_message, UserWarning, stacklevel=2)
+
+        # Parse application repository specifications (Epic 1)
+        self.app_repos = self._parse_app_repos(processed)
 
         return processed
 
@@ -125,6 +160,14 @@ class ConfigLoader:
     def get_pools(self) -> Dict[str, Any]:
         """Return all pools configuration."""
         return self.processed_config.get('pools', {})
+
+    def get_app_repos(self) -> List[AppRepoSpec]:
+        """Return configured app repository specifications."""
+        return list(self.app_repos)
+
+    def get_smart_permission_events(self) -> List[SmartPermissionEvent]:
+        """Return telemetry emitted during smart permission inference."""
+        return list(self.smart_permission_events)
 
     def _validate_and_fix_format(self, config: Dict) -> Dict:
         """Validate config format and auto-fix deprecated patterns.
@@ -225,6 +268,25 @@ class ConfigLoader:
                                 )
 
         return config
+
+    def _parse_app_repos(self, config: Dict[str, Any]) -> List[AppRepoSpec]:
+        """Parse app repository specifications from config."""
+        apps_section = config.get('apps')
+        if not isinstance(apps_section, dict):
+            return []
+
+        repos_section = apps_section.get('repos')
+        if repos_section is None:
+            return []
+
+        if not isinstance(repos_section, list):
+            raise ConfigValidationError("'apps.repos' must be a list of repository definitions")
+
+        base_path: Optional[Path] = self.config_path.parent if self.config_path else None
+        try:
+            return iter_app_repo_specs(repos_section, base_path=base_path)
+        except AppRepoSpecError as exc:
+            raise ConfigValidationError(f"Invalid app repo specification: {exc}") from exc
 
     def _parse_consumers(self, dataset_config: Dict, dataset_path: str) -> Dict:
         """Parse consumers section and convert to internal format.
@@ -467,30 +529,188 @@ class ConfigLoader:
                 # Validate and keep string format
                 parsed.append(container)
                 continue
-            
+
             # Dict format
             if not isinstance(container, dict):
                 raise ConfigValidationError(
                     f"Invalid container type in '{dataset_path}': {type(container)}"
                 )
-            
-            # Keep original dict mostly as-is, just validate
+
+            # Keep original dict mostly as-is, just validate and merge defaults
             container_data = container.copy()
-            
+
             # Handle deprecated 'id' field (already warned in _fix_container_format)
             # Map 'id' to 'vmid' for internal consistency
             if 'id' in container_data and 'vmid' not in container_data:
                 container_data['vmid'] = container_data['id']
-            
+
             # Validate mount point
             if not container_data.get('mount'):
                 raise ConfigValidationError(
                     f"Container in '{dataset_path}' missing required 'mount' field"
                 )
+
+            if 'pool' in container_data and container_data['pool'] is not None:
+                pool_value = container_data['pool']
+                if not isinstance(pool_value, str):
+                    raise ConfigValidationError(
+                        f"Container in '{dataset_path}' has invalid pool value: {pool_value}\n"
+                        f"  'pool' must be a string matching an existing Proxmox resource pool."
+                    )
+                container_data['pool'] = pool_value.strip()
+
+            if 'privileged' in container_data:
+                privileged_value = container_data['privileged']
+                if not isinstance(privileged_value, bool):
+                    raise ConfigValidationError(
+                        f"Container in '{dataset_path}' has invalid privileged flag: {privileged_value}\n"
+                        f"  'privileged' must be true or false."
+                    )
             
+            if 'description' in container_data and container_data['description'] is not None:
+                if not isinstance(container_data['description'], str):
+                    raise ConfigValidationError(
+                        f"Container in '{dataset_path}' has invalid description (must be string)."
+                    )
+                container_data['description'] = container_data['description'].strip()
+            
+            if 'tags' in container_data and container_data['tags'] is not None:
+                tags_value = container_data['tags']
+                if isinstance(tags_value, str):
+                    tags_value = [tag.strip() for tag in tags_value.split(',') if tag.strip()]
+                if not isinstance(tags_value, list) or not all(isinstance(tag, str) for tag in tags_value):
+                    raise ConfigValidationError(
+                        f"Container in '{dataset_path}' has invalid 'tags'. Use list of strings."
+                    )
+                container_data['tags'] = [tag.strip() for tag in tags_value if tag.strip()]
+
+            if 'startup_order' in container_data and container_data['startup_order'] is not None:
+                order_val = container_data['startup_order']
+                try:
+                    order_int = int(order_val)
+                except (TypeError, ValueError):
+                    raise ConfigValidationError(
+                        f"Container in '{dataset_path}' has invalid startup_order '{order_val}'. Must be integer."
+                    )
+                if order_int < 0:
+                    raise ConfigValidationError(
+                        f"Container in '{dataset_path}' has negative startup_order '{order_int}'."
+                    )
+                container_data['startup_order'] = order_int
+
+            if 'startup_delay' in container_data and container_data['startup_delay'] is not None:
+                delay_val = container_data['startup_delay']
+                try:
+                    delay_int = int(delay_val)
+                except (TypeError, ValueError):
+                    raise ConfigValidationError(
+                        f"Container in '{dataset_path}' has invalid startup_delay '{delay_val}'. Must be integer seconds."
+                    )
+                if delay_int < 0:
+                    raise ConfigValidationError(
+                        f"Container in '{dataset_path}' has negative startup_delay '{delay_int}'."
+                    )
+                container_data['startup_delay'] = delay_int
+
+            if 'startup' in container_data and container_data['startup'] is not None:
+                if not isinstance(container_data['startup'], str):
+                    raise ConfigValidationError(
+                        f"Container in '{dataset_path}' has invalid startup string. Must be text."
+                    )
+                container_data['startup'] = container_data['startup'].strip()
+
+            container_data = self._merge_container_defaults(container_data)
+
             parsed.append(container_data)
-        
+
         return parsed
+
+    def _merge_container_defaults(self, container: Dict) -> Dict:
+        """Merge top-level container defaults into dataset container specs."""
+        container_name = container.get('name')
+        if not container_name:
+            return container
+
+        global_containers = {}
+        if isinstance(self.raw_config, dict):
+            global_containers = self.raw_config.get('containers', {})
+
+        if not isinstance(global_containers, dict):
+            return container
+
+        defaults = global_containers.get(container_name)
+        if not isinstance(defaults, dict):
+            return container
+
+        merged = defaults.copy()
+        merged.update(container)
+
+        resources: Dict[str, Any] = {}
+
+        def apply_resource(source: Dict[str, Any]):
+            if not isinstance(source, dict):
+                return
+            if 'resources' in source and isinstance(source['resources'], dict):
+                resources.update(source['resources'])
+            if 'memory' in source:
+                resources['memory'] = source['memory']
+            if 'cores' in source:
+                resources['cores'] = source['cores']
+            if 'swap' in source:
+                resources['swap'] = source['swap']
+            if 'disk' in source:
+                resources['disk'] = source['disk']
+            if 'disk_size' in source:
+                resources['disk'] = self._format_disk_size(source['disk_size'])
+
+        apply_resource(defaults)
+        apply_resource(container)
+
+        if resources:
+            merged['resources'] = resources
+
+        if 'auto_create' not in merged:
+            if merged.get('template'):
+                merged['auto_create'] = True
+
+        return merged
+
+    @staticmethod
+    def _capture_explicit_readonly(containers: List[Any]) -> Set[int]:
+        indices: Set[int] = set()
+        for idx, container in enumerate(containers):
+            if isinstance(container, dict) and 'readonly' in container:
+                indices.add(idx)
+        return indices
+
+    @staticmethod
+    def _strip_inferred_readonly(containers: List[Any], explicit_indices: Set[int], profile: Optional[str]) -> None:
+        readonly_profiles = {"media", "photos", "documents", "backups"}
+        profile_name = (profile or "").lower()
+
+        for idx, container in enumerate(containers):
+            if idx in explicit_indices:
+                continue
+            if isinstance(container, dict):
+                if 'readonly' not in container:
+                    continue
+
+                if not container['readonly']:
+                    continue
+
+                if profile_name not in readonly_profiles:
+                    continue
+
+                match = _match_known_container(container.get('name', '') or '')
+                if match and match[2]:  # Exact known match
+                    container.pop('readonly', None)
+
+    @staticmethod
+    def _format_disk_size(value: Any) -> str:
+        """Normalize disk size to Proxmox-compatible string."""
+        if isinstance(value, (int, float)):
+            return f"{int(value)}G"
+        return str(value)
 
     def _fix_smb_format(self, smb_config, dataset_path: str):
         """Fix deprecated SMB/Samba share formats.

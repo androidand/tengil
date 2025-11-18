@@ -34,7 +34,6 @@ class OpinionMerger:
             Dictionary ready to write as tengil.yml
         """
         config = {
-            'version': 2,
             'pools': {
                 'tank': {
                     'type': 'zfs',

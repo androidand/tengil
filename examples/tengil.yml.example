@@ -1,13 +1,10 @@
-# Tengil Configuration Example - Version 2 (Multi-Pool)
+# Tengil Configuration Example (Multi-Pool)
 # Copy this to tengil.yml and customize for your setup
 #
 # For more examples:
 # - examples/multi-pool.yml - Complete homelab (Phase 1: existing containers)
 # - examples/phase2-auto-create.yml - Auto-create containers (Phase 2)
 # - examples/multi-pool-simple.yml - Simple multi-pool setup
-
-version: 2
-mode: converged-nas
 
 # Define one or more ZFS pools
 pools:
@@ -60,5 +57,15 @@ pools:
             allowed: "192.168.1.0/24"
             options: "rw,sync"
 
-# NOTE: For legacy single-pool configs (version: 1), see examples/single-pool-legacy.yml
-# Your existing v1 configs will be automatically converted to v2 format
+# Application repositories synced into containers
+apps:
+  repos:
+    - name: jellyfin-config
+      target: jellyfin
+      repo: https://github.com/example/jellyfin-config.git
+      path: /srv/apps/jellyfin-config
+      manifests:
+        glob: "*.app.yml"
+        depth: 2
+
+

@@ -59,8 +59,6 @@ Templates use dataset references instead of inline definitions:
 ```yaml
 description: Brief description of what this template provides
 
-version: 1
-mode: converged-nas
 pool: ${pool}  # Will be substituted with --pool value
 
 datasets:
@@ -105,15 +103,13 @@ movies:
 1. Create a new YAML file in this directory
 2. Add a `description` field
 3. List dataset references under `datasets`
-4. Optionally set `mode`, `version`, etc.
+4. Optionally set additional metadata fields if needed.
 
 Example:
 
 ```yaml
 description: My custom media setup
 
-version: 1
-mode: converged-nas
 pool: ${pool}
 
 datasets:

@@ -1,0 +1,75 @@
+"""Container helper CLI commands."""
+from __future__ import annotations
+
+from typing import Dict, List, Optional
+
+import typer
+from rich.console import Console
+
+from tengil.cli_container_resolution import ContainerResolutionError, resolve_container_target
+from tengil.cli_support import is_mock
+from tengil.services.proxmox.containers.lifecycle import ContainerLifecycle
+
+ContainerTyper = typer.Typer(help="Interact with Proxmox containers")
+
+
+def register_container_commands(root: typer.Typer, console: Console) -> None:
+    """Attach container-related commands to the main CLI."""
+
+    @ContainerTyper.command("exec")
+    def exec_command(
+        target: str = typer.Argument(..., help="Container target (name, vmid, or pool/dataset:name)."),
+        command: List[str] = typer.Argument(..., help="Command to run inside the container.", metavar="COMMAND..."),
+        user: Optional[str] = typer.Option(None, "--user", "-u", help="Run command as specific user inside the container."),
+        env: Optional[List[str]] = typer.Option(None, "--env", "-e", help="Environment variable (KEY=VALUE).", metavar="KEY=VALUE"),
+        workdir: Optional[str] = typer.Option(None, "--workdir", "-w", help="Working directory inside the container."),
+        config: Optional[str] = typer.Option(None, "--config", "-c", help="Explicit Tengil config for dataset resolution."),
+    ) -> None:
+        if not command:
+            console.print("[red]Error:[/red] Provide a command to execute.")
+            raise typer.Exit(2)
+
+        try:
+            resolved = resolve_container_target(target, config_path=config)
+        except ContainerResolutionError as exc:
+            console.print(f"[red]Error:[/red] {exc}")
+            raise typer.Exit(2) from exc
+
+        env_dict: Dict[str, str] = {}
+        if env:
+            for item in env:
+                if "=" not in item:
+                    raise typer.BadParameter("Environment variables must be KEY=VALUE", param_name="env")
+                key, value = item.split("=", 1)
+                env_dict[key] = value
+
+        lifecycle = ContainerLifecycle(mock=is_mock())
+        result = lifecycle.exec_container_command(
+            resolved.vmid,
+            command,
+            user=user,
+            env=env_dict,
+            workdir=workdir,
+        )
+
+        if result != 0:
+            raise typer.Exit(result)
+
+    @ContainerTyper.command("shell")
+    def shell_command(
+        target: str = typer.Argument(..., help="Container target (name, vmid, or pool/dataset:name)."),
+        user: Optional[str] = typer.Option(None, "--user", "-u", help="User for the interactive shell."),
+        config: Optional[str] = typer.Option(None, "--config", "-c", help="Explicit Tengil config for dataset resolution."),
+    ) -> None:
+        try:
+            resolved = resolve_container_target(target, config_path=config)
+        except ContainerResolutionError as exc:
+            console.print(f"[red]Error:[/red] {exc}")
+            raise typer.Exit(2) from exc
+
+        lifecycle = ContainerLifecycle(mock=is_mock())
+        result = lifecycle.enter_container_shell(resolved.vmid, user=user)
+        if result != 0:
+            raise typer.Exit(result)
+
+    root.add_typer(ContainerTyper, name="container")

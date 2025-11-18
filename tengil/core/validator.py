@@ -7,7 +7,7 @@ logger = get_logger(__name__)
 class ConfigValidator:
     """Validates Tengil configuration files."""
     
-    REQUIRED_FIELDS = ['version', 'pool']
+    REQUIRED_FIELDS = ['pool']
     VALID_PROFILES = ['media', 'documents', 'photos', 'backups', 'dev']
     
     def __init__(self):
@@ -23,10 +23,6 @@ class ConfigValidator:
         for field in self.REQUIRED_FIELDS:
             if field not in config:
                 self.errors.append(f"Missing required field: {field}")
-        
-        # Validate version
-        if 'version' in config and config['version'] != 1:
-            self.errors.append(f"Unsupported config version: {config['version']}")
         
         # Validate datasets
         if 'datasets' in config:

@@ -95,7 +95,6 @@ def test_merge_real_romm_config(romm_compose_file, romm_package):
     config = merger.merge(requirements, romm_package)
     
     # Verify structure
-    assert config['version'] == 2
     assert 'pools' in config
     assert 'tank' in config['pools']
     
@@ -192,7 +191,6 @@ def test_generated_config_is_valid_tengil_yml(romm_compose_file, romm_package):
     
     # Should be parseable back
     parsed = yaml.safe_load(yaml_str)
-    assert parsed['version'] == 2
     assert 'pools' in parsed
     
     # Verify critical structure

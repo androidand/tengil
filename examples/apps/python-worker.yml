@@ -1,0 +1,48 @@
+# Example: Python Background Worker
+#
+# This example shows a Python application that processes background jobs.
+#
+# Usage:
+#   1. Set secrets in .env.local:
+#      REDIS_URL=redis://redis-host:6379
+#      POSTGRES_URL=postgres://user:pass@db:5432/jobs
+#
+#   2. Deploy:
+#      source .env.local
+#      tg app deploy examples/apps/python-worker.yml
+
+name: python-worker
+description: Background job processor with Redis and PostgreSQL
+
+container:
+  template: debian-12-standard
+  pool: production
+  memory: 1024
+  cores: 1
+  network:
+    ip: dhcp
+
+source:
+  type: git
+  url: https://github.com/yourname/python-worker
+  branch: main
+  path: /app
+
+runtime:
+  secrets:
+    - REDIS_URL
+    - POSTGRES_URL
+    - WORKER_CONCURRENCY
+
+  packages:
+    - python3
+    - python3-pip
+    - python3-venv
+    - git
+
+  startup_command: |
+    cd /app
+    python3 -m venv venv
+    source venv/bin/activate
+    pip install -r requirements.txt
+    python worker.py

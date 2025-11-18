@@ -4,14 +4,16 @@ music:
   profile: media
   zfs:
     recordsize: 128K
-  containers:
-    - name: jellyfin
+  consumers:
+    - type: container
+      name: jellyfin
+      access: read
       mount: /music
-      readonly: true
-    - name: plex
-      mount: /music
-      readonly: true
-  shares:
-    smb:
-      name: "Music"
-      guest_ok: true
+      auto_create: true
+      template: debian-12-standard
+      resources:
+        memory: 2048
+        cores: 2
+    - type: smb
+      name: Music
+      access: read

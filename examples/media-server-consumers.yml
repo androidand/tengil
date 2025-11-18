@@ -1,20 +1,18 @@
 # Media Server Package - Consumers Model Example
 #
-# This shows the NEW consumers model (Phase 3) vs OLD manual config
-# Both work! But consumers give you automatic permission orchestration.
+# This shows the consumers model for unified permission management.
 
 name: Media Server (Consumers Demo)
 description: Media server with unified permission management
 category: Media
 
 config:
-  version: 2
-  pools:
+    pools:
     tank:
       type: zfs
       datasets:
         
-        # ==================== NEW: Consumers Model ====================
+        # ==================== Consumers Model ====================
         # Declare WHO accesses WHAT with WHAT permissions
         # Tengil orchestrates everything automatically
         
@@ -40,29 +38,7 @@ config:
           # 3. SMB config: read only = yes
           # Result: Consistent permissions across ALL layers!
         
-        # ==================== OLD: Manual Config (still works!) ====================
-        # You specify each layer separately
-        
-        tvshows_old_style:
-          profile: media
-          
-          # Manual container config:
-          containers:
-            - name: jellyfin
-              mount: /tvshows
-              readonly: true  # YOU set readonly flag
-          
-          # Manual SMB config:
-          shares:
-            smb:
-              name: TVShows
-              read only: yes  # YOU set SMB permissions
-              browseable: yes
-          
-          # Problem: Easy to have mismatched permissions
-          # - Forgot readonly on container? Now Jellyfin can delete files
-          # - Forgot "read only" on SMB? Users can delete via network share
-          # - Have to remember to set BOTH every time
+
         
         # ==================== MIXED ACCESS (Consumers shines here!) ====================
         # Some read, some write - Tengil figures it out
@@ -109,28 +85,7 @@ config:
           # 
           # You declared intent, Tengil handled the details!
         
-        # ==================== MIGRATION PATH ====================
-        # You can mix both formats!
-        
-        music:
-          profile: media
-          
-          # New consumers for some access
-          consumers:
-            - type: container
-              name: jellyfin
-              access: read
-              mount: /music
-          
-          # Old manual config for others (maybe legacy systems)
-          shares:
-            smb:
-              name: Music
-              browseable: yes
-              guest_ok: no
-          
-          # Both work together. Consumers provide validation,
-          # manual config gives you escape hatch for edge cases.
+
 
 # ==================== Benefits ====================
 #

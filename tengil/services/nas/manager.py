@@ -89,32 +89,59 @@ class NASManager:
 
         # Configure SMB share
         if 'shares' in dataset_config and 'smb' in dataset_config['shares']:
-            smb_config = dataset_config['shares']['smb']
+            smb_entries = dataset_config['shares']['smb']
 
-            # Handle both dict and string formats
-            if isinstance(smb_config, str):
-                smb_name = smb_config
-                smb_options = {}
+            # Allow single share or list of shares
+            if isinstance(smb_entries, (list, tuple)):
+                smb_iterable = smb_entries
             else:
-                smb_name = smb_config.get('name', dataset_name)
-                smb_options = smb_config
+                smb_iterable = [smb_entries]
 
-            if not self.add_smb_share(smb_name, dataset_path, smb_options):
-                success = False
+            for entry in smb_iterable:
+                if isinstance(entry, str):
+                    smb_name = entry
+                    smb_options = {}
+                elif isinstance(entry, dict):
+                    smb_name = entry.get('name', dataset_name)
+                    smb_options = entry
+                else:
+                    logger.warning(
+                        "Unsupported SMB share format for dataset %s: %s",
+                        dataset_name,
+                        entry,
+                    )
+                    success = False
+                    continue
+
+                if not self.add_smb_share(smb_name, dataset_path, smb_options):
+                    success = False
 
         # Configure NFS export
         if 'shares' in dataset_config and 'nfs' in dataset_config['shares']:
-            nfs_config = dataset_config['shares']['nfs']
+            nfs_entries = dataset_config['shares']['nfs']
 
-            # Handle both dict and bool formats
-            if isinstance(nfs_config, bool) and nfs_config:
-                nfs_options = {}
-            elif isinstance(nfs_config, dict):
-                nfs_options = nfs_config
+            if isinstance(nfs_entries, (list, tuple)):
+                nfs_iterable = nfs_entries
             else:
-                nfs_options = None
+                nfs_iterable = [nfs_entries]
 
-            if nfs_options is not None:
+            for entry in nfs_iterable:
+                # Handle bool shorthand
+                if isinstance(entry, bool):
+                    if not entry:
+                        continue
+                    nfs_options = {}
+                elif isinstance(entry, dict):
+                    nfs_options = entry
+                else:
+                    logger.warning(
+                        "Unsupported NFS export format for dataset %s: %s",
+                        dataset_name,
+                        entry,
+                    )
+                    success = False
+                    continue
+
                 if not self.add_nfs_export(dataset_path, nfs_options):
                     success = False
 

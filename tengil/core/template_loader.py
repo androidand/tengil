@@ -133,20 +133,21 @@ class TemplateLoader:
         Returns:
             Merged configuration dictionary
         """
-        merged = {
-            "version": 1,
-            "mode": "converged-nas",
-            "pool": "tank",
-            "datasets": {}
-        }
+        pool_name = "tank"
+        pool_type = "zfs"
+        datasets_accum: Dict[str, dict] = {}
         
         for config in configs:
             if "pool" in config:
-                merged["pool"] = config["pool"]
-            if "mode" in config:
-                merged["mode"] = config["mode"]
-            if "version" in config:
-                merged["version"] = config["version"]
+                pool_name = config["pool"]
+            if "pool_type" in config:
+                pool_type = config["pool_type"]
+            if "pools" in config and isinstance(config["pools"], dict):
+                # Merge already structured pools
+                for pool, pool_data in config["pools"].items():
+                    datasets = pool_data.get("datasets", {})
+                    datasets_accum.update(datasets)
+                continue
                 
             if "datasets" in config:
                 datasets = config["datasets"]
@@ -156,12 +157,19 @@ class TemplateLoader:
                     for dataset_ref in datasets:
                         # Load the actual dataset definition
                         dataset_data = self.load_dataset(dataset_ref)
-                        merged["datasets"].update(dataset_data)
+                        datasets_accum.update(dataset_data)
                 # Handle dict of dataset definitions (direct definitions)
                 elif isinstance(datasets, dict):
-                    merged["datasets"].update(datasets)
+                    datasets_accum.update(datasets)
         
-        return merged
+        return {
+            "pools": {
+                pool_name: {
+                    "type": pool_type,
+                    "datasets": datasets_accum
+                }
+            }
+        }
     
     def substitute_pool(self, config: dict, pool: str) -> dict:
         """Replace ${pool} variable in configuration.

@@ -2,22 +2,19 @@ description: Photo library with Immich/PhotoPrism support and family access
 
 photos:
   profile: photos
-  containers:
-    - name: immich
+  consumers:
+    - type: container
+      name: immich
+      access: write
       mount: /photos
-      readonly: false
-    - name: photoprism
-      mount: /photos
-      readonly: true
-  shares:
-    smb:
-      name: "Photos"
-      valid_users: "@family"
-      browseable: true
-    nfs:
-      allowed: "192.168.1.0/24"
-      options: "rw,sync,no_subtree_check"
-  permissions:
-    uid: nobody
-    gid: users
-    mode: "0775"
+      auto_create: true
+      template: debian-12-standard
+      resources:
+        memory: 4096
+        cores: 4
+    - type: smb
+      name: Photos
+      access: write
+    - type: nfs
+      name: photos_export
+      access: write

@@ -1,5 +1,28 @@
 """Tests for Phase 2 Task 4: Container creation."""
 import pytest
+from types import SimpleNamespace
+
+from tengil.services.proxmox.containers.lifecycle import ContainerLifecycle
+
+
+def _setup_lifecycle(monkeypatch):
+    """Return lifecycle instance with subprocess captured."""
+    lifecycle = ContainerLifecycle(mock=False)
+    monkeypatch.setattr(lifecycle.templates, "ensure_template_available", lambda template: True)
+    monkeypatch.setattr(lifecycle.discovery, "container_exists", lambda vmid: False)
+
+    captured = {}
+
+    def fake_run(cmd, capture_output, text, check):
+        captured['cmd'] = cmd
+        return SimpleNamespace(stdout="", stderr="")
+
+    monkeypatch.setattr(
+        "tengil.services.proxmox.containers.lifecycle.subprocess.run",
+        fake_run
+    )
+
+    return lifecycle, captured
 
 
 class TestContainerCreation:
@@ -89,9 +112,58 @@ class TestContainerCreation:
 
         assert vmid == 150
 
+    def test_create_container_with_pool_flag(self, monkeypatch):
+        """Test that resource pool flag is passed to pct create."""
+        lifecycle, captured = _setup_lifecycle(monkeypatch)
+        spec = {
+            'name': 'pool-test',
+            'vmid': 999,
+            'template': 'debian-12-standard',
+            'resources': {
+                'memory': 1024
+            },
+            'pool': 'production'
+        }
+
+        vmid = lifecycle.create_container(spec, storage='local')
+
+        assert vmid == 999
+        assert '--pool' in captured['cmd']
+        pool_index = captured['cmd'].index('--pool')
+        assert captured['cmd'][pool_index + 1] == 'production'
+
+    def test_create_container_unprivileged_by_default(self, monkeypatch):
+        """Ensure unprivileged flag is set when privileged not requested."""
+        lifecycle, captured = _setup_lifecycle(monkeypatch)
+        spec = {
+            'name': 'unprivileged-test',
+            'vmid': 998,
+            'template': 'debian-12-standard',
+        }
+
+        lifecycle.create_container(spec, storage='local')
+
+        assert '--unprivileged' in captured['cmd']
+        assert '--privileged' not in captured['cmd']
+
+    def test_create_container_privileged_flag(self, monkeypatch):
+        """Ensure privileged flag is used when requested."""
+        lifecycle, captured = _setup_lifecycle(monkeypatch)
+        spec = {
+            'name': 'priv-test',
+            'vmid': 997,
+            'template': 'debian-12-standard',
+            'privileged': True,
+        }
+
+        lifecycle.create_container(spec, storage='local')
+
+        assert '--privileged' in captured['cmd']
+        assert '--unprivileged' not in captured['cmd']
+
 
 class TestContainerLifecycle:
-    """Test container lifecycle operations (start/stop)."""
+    """Test container lifecycle operations (start/stop/restart)."""
 
     def test_start_container(self, mock_pm):
         """Test starting a container."""
@@ -105,11 +177,25 @@ class TestContainerLifecycle:
 
         assert success is True
 
+    def test_restart_container(self, mock_pm):
+        """Test restarting a container."""
+        success = mock_pm.restart_container(100)
+
+        assert success is True
+
     def test_start_multiple_containers(self, mock_pm):
         """Test starting multiple containers."""
         results = []
         for vmid in [100, 101, 102]:
             results.append(mock_pm.start_container(vmid))
+
+        assert all(results)
+
+    def test_restart_multiple_containers(self, mock_pm):
+        """Test restarting multiple containers."""
+        results = []
+        for vmid in [100, 101, 102]:
+            results.append(mock_pm.restart_container(vmid))
 
         assert all(results)
 
@@ -272,3 +358,196 @@ class TestContainerCreationEdgeCases:
 
         assert vmids == [201, 202, 203]
         assert len(set(vmids)) == 3  # All unique
+
+
+class TestContainerResourcePool:
+    """Test resource pool assignment."""
+
+    def test_create_container_with_pool(self, mock_pm, basic_container_spec):
+        """Test creating container with resource pool assignment."""
+        spec = {
+            **basic_container_spec,
+            'name': 'production-app',
+            'vmid': 600,
+            'pool': 'production'
+        }
+
+        vmid = mock_pm.create_container(spec)
+
+        assert vmid == 600
+
+    def test_create_container_with_pool_in_resources(self, mock_pm, basic_container_spec):
+        """Test creating container with pool in resources dict."""
+        spec = {
+            **basic_container_spec,
+            'name': 'staging-app',
+            'vmid': 601,
+            'resources': {
+                'memory': 2048,
+                'cores': 2,
+                'pool': 'staging'
+            }
+        }
+
+        vmid = mock_pm.create_container(spec)
+
+        assert vmid == 601
+
+    def test_create_container_pool_priority(self, mock_pm, basic_container_spec):
+        """Test that top-level pool takes priority over resources.pool."""
+        spec = {
+            **basic_container_spec,
+            'name': 'test-priority',
+            'vmid': 602,
+            'pool': 'production',  # Top-level
+            'resources': {
+                'pool': 'staging'  # Should be overridden
+            }
+        }
+
+        vmid = mock_pm.create_container(spec)
+
+        assert vmid == 602
+
+    def test_create_container_without_pool(self, mock_pm, basic_container_spec):
+        """Test creating container without pool (should work fine)."""
+        spec = {
+            **basic_container_spec,
+            'name': 'no-pool',
+            'vmid': 603
+        }
+
+        vmid = mock_pm.create_container(spec)
+
+        assert vmid == 603
+
+
+class TestContainerPrivileged:
+    """Test privileged container creation."""
+
+    def test_create_unprivileged_container_default(self, mock_pm, basic_container_spec):
+        """Test that containers are unprivileged by default."""
+        spec = {
+            **basic_container_spec,
+            'name': 'unprivileged-default',
+            'vmid': 700
+        }
+
+        vmid = mock_pm.create_container(spec)
+
+        assert vmid == 700
+
+    def test_create_privileged_container(self, mock_pm, basic_container_spec):
+        """Test creating privileged container."""
+        spec = {
+            **basic_container_spec,
+            'name': 'privileged-docker',
+            'vmid': 701,
+            'privileged': True
+        }
+
+        vmid = mock_pm.create_container(spec)
+
+        assert vmid == 701
+
+    def test_create_explicitly_unprivileged_container(self, mock_pm, basic_container_spec):
+        """Test creating explicitly unprivileged container."""
+        spec = {
+            **basic_container_spec,
+            'name': 'explicitly-unprivileged',
+            'vmid': 702,
+            'privileged': False
+        }
+
+        vmid = mock_pm.create_container(spec)
+
+        assert vmid == 702
+
+    def test_privileged_flag_in_pct_command(self, monkeypatch):
+        """Test that privileged flag is correctly passed to pct create."""
+        lifecycle, captured = _setup_lifecycle(monkeypatch)
+
+        # Test privileged container
+        spec = {
+            'name': 'privileged-test',
+            'vmid': 999,
+            'template': 'debian-12-standard',
+            'privileged': True
+        }
+
+        vmid = lifecycle.create_container(spec, storage='local')
+
+        assert vmid == 999
+        assert '--privileged' in captured['cmd']
+        assert '--unprivileged' not in captured['cmd']
+
+    def test_unprivileged_flag_in_pct_command(self, monkeypatch):
+        """Test that unprivileged flag is correctly passed to pct create."""
+        lifecycle, captured = _setup_lifecycle(monkeypatch)
+
+        # Test unprivileged container (default)
+        spec = {
+            'name': 'unprivileged-test',
+            'vmid': 998,
+            'template': 'debian-12-standard'
+            # privileged not specified, should default to False
+        }
+
+        vmid = lifecycle.create_container(spec, storage='local')
+
+        assert vmid == 998
+        assert '--unprivileged' in captured['cmd']
+        unpriv_index = captured['cmd'].index('--unprivileged')
+        assert captured['cmd'][unpriv_index + 1] == '1'  # 1 means unprivileged
+
+    def test_description_and_tags_flags(self, monkeypatch):
+        """Ensure description and tags are passed to pct create."""
+        lifecycle, captured = _setup_lifecycle(monkeypatch)
+        spec = {
+            'name': 'metadata-test',
+            'vmid': 996,
+            'template': 'debian-12-standard',
+            'description': 'Media server',
+            'tags': ['media', 'auto']
+        }
+
+        lifecycle.create_container(spec, storage='local')
+
+        assert '--description' in captured['cmd']
+        assert captured['cmd'][captured['cmd'].index('--description') + 1] == 'Media server'
+        assert '--tags' in captured['cmd']
+        tags_value = captured['cmd'][captured['cmd'].index('--tags') + 1]
+        assert tags_value == 'media,auto'
+
+    def test_startup_order_and_delay_flags(self, monkeypatch):
+        """Ensure startup order/delay are converted to pct flags."""
+        lifecycle, captured = _setup_lifecycle(monkeypatch)
+        spec = {
+            'name': 'startup-test',
+            'vmid': 995,
+            'template': 'debian-12-standard',
+            'startup_order': 1,
+            'startup_delay': 30,
+        }
+
+        lifecycle.create_container(spec, storage='local')
+
+        assert '--startup' in captured['cmd']
+        startup_value = captured['cmd'][captured['cmd'].index('--startup') + 1]
+        assert startup_value == 'order=1,up=30'
+
+    def test_custom_startup_string_passed_through(self, monkeypatch):
+        """Ensure explicit startup string is used as-is."""
+        lifecycle, captured = _setup_lifecycle(monkeypatch)
+        spec = {
+            'name': 'startup-custom',
+            'vmid': 994,
+            'template': 'debian-12-standard',
+            'startup': 'order=5,down=60',
+        }
+
+        lifecycle.create_container(spec, storage='local')
+
+        assert '--startup' in captured['cmd']
+        startup_value = captured['cmd'][captured['cmd'].index('--startup') + 1]
+        assert startup_value == 'order=5,down=60'

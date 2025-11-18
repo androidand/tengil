@@ -39,7 +39,6 @@ def mock_container_config(temp_dir):
     """Configuration with container auto-creation."""
     config_path = temp_dir / "tengil.yml"
     config = {
-        'version': 2,
         'pools': {
             'tank': {
                 'type': 'zfs',
@@ -81,8 +80,7 @@ def mock_existing_container_config(temp_dir):
     """Configuration with existing container (mount only)."""
     config_path = temp_dir / "tengil.yml"
     config = {
-        'version': 2,
-        'pools': {
+                'pools': {
             'tank': {
                 'type': 'zfs',
                 'datasets': {
@@ -110,8 +108,7 @@ def mock_mixed_container_config(temp_dir):
     """Configuration with mix of new and existing containers."""
     config_path = temp_dir / "tengil.yml"
     config = {
-        'version': 2,
-        'pools': {
+                'pools': {
             'tank': {
                 'type': 'zfs',
                 'datasets': {
@@ -235,6 +232,41 @@ def test_diff_format_includes_containers(mock_container_config):
     assert ("will create" in plan or "will mount" in plan)
 
 
+def test_diff_skips_mount_when_already_configured():
+    """No container change should be reported when mount already matches."""
+
+    class StubContainerManager:
+        def list_containers(self):
+            return [{'vmid': 100, 'name': 'jellyfin', 'status': 'running'}]
+
+        def get_container_mounts(self, vmid):
+            return {'mp0': {'volume': '/tank/media', 'mp': '/media', 'ro': '0'}}
+
+        def find_container_by_name(self, name):
+            return 100 if name == 'jellyfin' else None
+
+    desired = {
+        'tank/media': {
+            'containers': [
+                {
+                    'vmid': 100,
+                    'name': 'jellyfin',
+                    'mount': '/media'
+                }
+            ]
+        }
+    }
+    current = {'tank/media': {'compression': 'lz4'}}
+
+    container_mgr = StubContainerManager()
+
+    engine = DiffEngine(desired, current, container_manager=container_mgr)
+    engine.calculate_diff()
+
+    assert engine.changes == []
+    assert engine.container_changes == []
+
+
 # ==================== Apply Workflow Tests ====================
 
 def test_apply_creates_containers(mock_container_config, state_store):
@@ -255,7 +287,7 @@ def test_apply_creates_containers(mock_container_config, state_store):
     console = Console()
     
     applicator = ChangeApplicator(zfs, proxmox, nas, state_store, console)
-    applicator.apply_changes(changes, all_desired)
+    applicator.apply_changes(changes, all_desired, engine.container_changes)
     
     # Check state tracking
     stats = state_store.get_stats()
@@ -285,7 +317,7 @@ def test_apply_mounts_existing_containers(mock_existing_container_config, state_
     console = Console()
     
     applicator = ChangeApplicator(zfs, proxmox, nas, state_store, console)
-    applicator.apply_changes(changes, all_desired)
+    applicator.apply_changes(changes, all_desired, engine.container_changes)
     
     # Container should be tracked as managed but not created by us
     managed_containers = state_store.get_managed_containers()
@@ -313,11 +345,46 @@ def test_apply_mixed_containers(mock_mixed_container_config, state_store):
     console = Console()
     
     applicator = ChangeApplicator(zfs, proxmox, nas, state_store, console)
-    applicator.apply_changes(changes, all_desired)
+    applicator.apply_changes(changes, all_desired, engine.container_changes)
     
     # Both containers should be tracked
     stats = state_store.get_stats()
     assert stats.get('containers_managed', 0) >= 2
+
+
+def test_apply_container_changes_without_dataset_delta(state_store):
+    """Apply should process container plan even when dataset already exists."""
+    desired = {
+        'tank/photos': {
+            'containers': [
+                {
+                    'vmid': 100,
+                    'name': 'jellyfin',
+                    'mount': '/photos',
+                    'auto_create': False
+                }
+            ]
+        }
+    }
+    current = {'tank/photos': {'compression': 'lz4'}}
+
+    container_mgr = ContainerOrchestrator(mock=True)
+    engine = DiffEngine(desired, current, container_manager=container_mgr)
+    changes = engine.calculate_diff()
+
+    assert changes == []
+    assert len(engine.container_changes) == 1
+
+    zfs = ZFSManager(mock=True, state_store=state_store)
+    proxmox = ProxmoxManager(mock=True)
+    nas = NASManager(mock=True)
+    console = Console()
+
+    applicator = ChangeApplicator(zfs, proxmox, nas, state_store, console)
+    applicator.apply_changes(changes, desired, engine.container_changes)
+
+    stats = state_store.get_stats()
+    assert stats.get('containers_managed', 0) >= 1
 
 
 # ==================== State Tracking Tests ====================
@@ -388,8 +455,7 @@ def test_apply_continues_on_container_failure(temp_dir, state_store):
     """Apply should continue with other operations if one container fails."""
     config_path = temp_dir / "tengil.yml"
     config = {
-        'version': 2,
-        'pools': {
+                'pools': {
             'tank': {
                 'type': 'zfs',
                 'datasets': {
@@ -428,7 +494,7 @@ def test_apply_continues_on_container_failure(temp_dir, state_store):
     
     # Should not crash, just warn
     applicator = ChangeApplicator(zfs, proxmox, nas, state_store, console)
-    applicator.apply_changes(changes, all_desired)
+    applicator.apply_changes(changes, all_desired, engine.container_changes)
     
     # Dataset should still be created even if container failed
     assert state_store.is_managed_dataset('tank/data')

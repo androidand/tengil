@@ -26,6 +26,7 @@ typer = "^0.9.0"
 rich = "^13.0"
 pydantic = "^2.0"
 jinja2 = "^3.1.6"
+click = ">=8.1,<8.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0"
@@ -80,5 +81,5 @@ line-ending = "lf"
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-ra -q --color=yes"
-testpaths = ["src/tests"]
+testpaths = ["tests", "src/tests"]
 python_files = ["test_*.py", "*_test.py"]

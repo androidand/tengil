@@ -18,7 +18,6 @@
 #
 # No manual container creation required!
 
-version: 2
 mode: converged-nas
 
 pools:

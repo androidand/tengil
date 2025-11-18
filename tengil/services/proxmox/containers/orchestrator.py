@@ -27,9 +27,9 @@ class ContainerOrchestrator:
     # Delegate to subsystems for backward compatibility
 
     # Lifecycle operations
-    def create_container(self, spec, storage='local-lvm'):
+    def create_container(self, spec, storage='local-lvm', pool: Optional[str] = None):
         """Create a new LXC container (delegates to lifecycle)."""
-        return self.lifecycle.create_container(spec, storage)
+        return self.lifecycle.create_container(spec, storage, pool=pool)
 
     def start_container(self, vmid):
         """Start a container (delegates to lifecycle)."""
@@ -38,6 +38,25 @@ class ContainerOrchestrator:
     def stop_container(self, vmid):
         """Stop a container (delegates to lifecycle)."""
         return self.lifecycle.stop_container(vmid)
+
+    def restart_container(self, vmid):
+        """Restart a container (delegates to lifecycle)."""
+        return self.lifecycle.restart_container(vmid)
+
+    def exec_container_command(self, vmid: int, command: List[str], user: Optional[str] = None,
+                               env: Optional[Dict[str, str]] = None, workdir: Optional[str] = None) -> int:
+        """Execute command inside container via pct exec."""
+        return self.lifecycle.exec_container_command(
+            vmid,
+            command,
+            user=user,
+            env=env,
+            workdir=workdir,
+        )
+
+    def shell_container(self, vmid: int, user: Optional[str] = None) -> int:
+        """Open interactive shell inside container via pct enter."""
+        return self.lifecycle.enter_container_shell(vmid, user=user)
 
     def container_exists(self, vmid):
         """Check if container exists (delegates to discovery)."""
@@ -137,6 +156,8 @@ class ContainerOrchestrator:
         host_path = f"/{pool}/{dataset_name}"
 
         for idx, container_spec in enumerate(containers):
+            was_created = False
+            auto_create = False
             # Parse container specification
             if isinstance(container_spec, dict):
                 vmid = container_spec.get('vmid')
@@ -168,7 +189,11 @@ class ContainerOrchestrator:
                     if not existing_vmid:
                         # Create new container
                         logger.info(f"Creating container '{container_name}' from template {template}")
-                        created_vmid = self.lifecycle.create_container(container_spec, storage='local-lvm')
+                        created_vmid = self.lifecycle.create_container(
+                            container_spec,
+                            storage='local-lvm',
+                            pool=container_spec.get('pool')
+                        )
 
                         if not created_vmid:
                             msg = f"Failed to create container '{container_name}'"
@@ -177,6 +202,7 @@ class ContainerOrchestrator:
                             continue
 
                         logger.info(f"✓ Created container '{container_name}' (vmid={created_vmid})")
+                        was_created = True
 
                         # Start container
                         if self.lifecycle.start_container(created_vmid):
@@ -277,8 +303,11 @@ class ContainerOrchestrator:
 
             if success:
                 msg = f"Mounted {host_path} → {container_name}:{mount_path}"
+                if auto_create and was_created:
+                    results.append((vmid, True, "created and mounted"))
+                else:
+                    results.append((vmid, True, "mounted"))
                 logger.info(f"✓ {msg}")
-                results.append((vmid, True, "mounted"))
             else:
                 msg = f"Failed to mount {host_path} → {container_name}"
                 logger.error(msg)

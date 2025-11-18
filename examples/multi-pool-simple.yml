@@ -1,5 +1,4 @@
 # Example: Simple Multi-Pool Configuration
-version: 2
 mode: converged-nas
 
 pools:

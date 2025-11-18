@@ -1,6 +1,7 @@
 """Test system discovery and recommendations."""
 import pytest
 from tengil.discovery import SystemDiscovery, PoolRecommender
+from tengil.discovery.datasets import DatasetDiscovery
 from tengil.models.disk import DiskType
 from tengil.models.pool import PoolPurpose
 from tengil.services.proxmox.manager import ProxmoxManager
@@ -252,3 +253,59 @@ class TestContainerInfoStructure:
             assert 'vmid' in container
             assert 'name' in container
             assert 'status' in container
+
+
+def test_dataset_discovery_builds_config(monkeypatch):
+    """Dataset discovery should build config entries with shares."""
+    discovery = DatasetDiscovery(mock=True)
+
+    def fake_list_datasets(pool):
+        return {
+            f"{pool}": {
+                'used': '0',
+                'available': '0',
+                'mountpoint': f"/{pool}",
+                'compression': 'lz4',
+                'recordsize': '128K',
+                'atime': 'on',
+                'sync': 'standard'
+            },
+            f"{pool}/media": {
+                'used': '0',
+                'available': '0',
+                'mountpoint': f"/{pool}/media",
+                'compression': 'off',
+                'recordsize': '1M',
+                'atime': 'off',
+                'sync': 'standard'
+            },
+            f"{pool}/backups": {
+                'used': '0',
+                'available': '0',
+                'mountpoint': f"/{pool}/backups",
+                'compression': 'zstd',
+                'recordsize': '128K',
+                'atime': 'on',
+                'sync': 'standard'
+            }
+        }
+
+    monkeypatch.setattr(discovery.zfs, "list_datasets", fake_list_datasets)
+    monkeypatch.setattr(discovery.smb, "parse_smb_conf", lambda: {
+        'Movies': {'path': '/tank/media', 'browseable': 'yes'}
+    })
+    monkeypatch.setattr(discovery.nfs, "parse_nfs_exports", lambda: {
+        '/tank/backups': {'clients': []}
+    })
+
+    result = discovery.discover_pool('tank')
+
+    assert 'media' in result
+    media = result['media']
+    assert media['profile'] == 'media'
+    assert media['shares']['smb']['name'] == 'Movies'
+
+    assert 'backups' in result
+    backups = result['backups']
+    assert backups['profile'] == 'backups'
+    assert backups['shares']['nfs'] is True

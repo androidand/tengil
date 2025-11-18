@@ -2,18 +2,25 @@ description: TV Shows library for streaming services with automation (Sonarr)
 
 tv:
   profile: media
-  containers:
-    - name: jellyfin
+  consumers:
+    - type: container
+      name: jellyfin
+      access: read
       mount: /tv
-      readonly: true
-    - name: plex
+      auto_create: true
+      template: debian-12-standard
+      resources:
+        memory: 2048
+        cores: 2
+    - type: container
+      name: sonarr
+      access: write
       mount: /tv
-      readonly: true
-    - name: sonarr
-      mount: /tv
-      readonly: false
-  shares:
-    smb:
+      auto_create: true
+      template: debian-12-standard
+      resources:
+        memory: 1024
+        cores: 2
+    - type: smb
       name: "TV Shows"
-      guest_ok: true
-      browseable: true
+      access: read

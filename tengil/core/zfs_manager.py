@@ -1,6 +1,5 @@
 """ZFS dataset management."""
 import subprocess
-import json
 from typing import Dict, List, Optional
 from pathlib import Path
 import os
@@ -23,33 +22,108 @@ class ZFSManager:
         if self.mock:
             logger.info(f"MOCK: Would list datasets in {pool}")
             return {}
-            
+
         try:
-            # Get all datasets with properties in JSON format
-            cmd = ["zfs", "list", "-H", "-p", "-o", 
-                   "name,used,available,mountpoint,compression,recordsize",
-                   "-t", "filesystem", pool]
-            
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            
-            datasets = {}
-            for line in result.stdout.strip().split('\n'):
-                if line:
-                    parts = line.split('\t')
-                    name = parts[0]
-                    datasets[name] = {
-                        'used': parts[1],
-                        'available': parts[2],
-                        'mountpoint': parts[3],
-                        'compression': parts[4],
-                        'recordsize': parts[5]
-                    }
-                    
+            datasets: Dict[str, Dict] = {}
+
+            list_cmd = [
+                "zfs",
+                "list",
+                "-H",
+                "-p",
+                "-r",
+                "-o",
+                "name,used,available,mountpoint",
+                "-t",
+                "filesystem",
+                pool,
+            ]
+            list_result = subprocess.run(list_cmd, capture_output=True, text=True, check=True)
+
+            for line in list_result.stdout.strip().split('\n'):
+                if not line:
+                    continue
+                parts = line.split('\t')
+                if len(parts) < 4:
+                    continue
+                name = parts[0]
+                datasets[name] = {
+                    'used': parts[1],
+                    'available': parts[2],
+                    'mountpoint': parts[3],
+                }
+
+            if not datasets:
+                return {}
+
+            props_cmd = [
+                "zfs",
+                "get",
+                "-H",
+                "-p",
+                "-r",
+                "-o",
+                "name,property,value",
+                "atime,compression,recordsize,sync",
+                pool,
+            ]
+            props_result = subprocess.run(props_cmd, capture_output=True, text=True, check=True)
+
+            for line in props_result.stdout.strip().split('\n'):
+                if not line:
+                    continue
+                parts = line.split('\t')
+                if len(parts) < 3:
+                    continue
+                name, prop, value = parts[0], parts[1], parts[2]
+                dataset = datasets.get(name)
+                if dataset is None:
+                    # Dataset may exist but wasn't in list output (e.g., snapshot) - skip
+                    continue
+                if prop == 'recordsize':
+                    value = self._format_recordsize(value)
+                dataset[prop] = value
+
+            # Ensure recordsize/compression keys exist even if zfs get skipped them
+            for name, info in datasets.items():
+                if 'recordsize' not in info:
+                    info['recordsize'] = None
+                if 'compression' not in info:
+                    info['compression'] = None
+                if 'atime' not in info:
+                    info['atime'] = None
+                if 'sync' not in info:
+                    info['sync'] = None
+
             return datasets
-            
+
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to list datasets: {e}")
             return {}
+        except Exception as e:
+            logger.error(f"Unexpected error while listing datasets: {e}")
+            return {}
+
+    @staticmethod
+    def _format_recordsize(value: Optional[str]) -> Optional[str]:
+        """Convert recordsize in bytes to human-readable unit (K/M/G)."""
+        if value is None:
+            return None
+
+        try:
+            size = int(value)
+        except (TypeError, ValueError):
+            return value
+
+        units = ['', 'K', 'M', 'G', 'T', 'P']
+        unit_index = 0
+        while size % 1024 == 0 and unit_index < len(units) - 1:
+            size //= 1024
+            unit_index += 1
+
+        if unit_index == 0:
+            return str(size)
+        return f"{size}{units[unit_index]}"
     
     def create_dataset(self, name: str, properties: Dict[str, str]) -> bool:
         """Create a ZFS dataset with specified properties.

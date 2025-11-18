@@ -20,7 +20,6 @@ def test_rpool_reserved_paths_warning(temp_dir, caplog):
     """Test warning when using Proxmox-reserved paths on rpool."""
     config_path = temp_dir / "tengil.yml"
     config = {
-        'version': 2,
         'pools': {
             'rpool': {
                 'type': 'zfs',
@@ -48,7 +47,6 @@ def test_rpool_data_reserved_warning(temp_dir, caplog):
     """Test warning for rpool/data."""
     config_path = temp_dir / "tengil.yml"
     config = {
-        'version': 2,
         'pools': {
             'rpool': {
                 'type': 'zfs',
@@ -74,7 +72,6 @@ def test_rpool_tengil_namespace_safe(temp_dir, caplog):
     """Test that rpool/tengil/* is considered safe."""
     config_path = temp_dir / "tengil.yml"
     config = {
-        'version': 2,
         'pools': {
             'rpool': {
                 'type': 'zfs',
@@ -102,7 +99,6 @@ def test_rpool_suggests_tengil_namespace(temp_dir, caplog):
     """Test suggestion to use tengil namespace (only with multiple datasets)."""
     config_path = temp_dir / "tengil.yml"
     config = {
-        'version': 2,
         'pools': {
             'rpool': {
                 'type': 'zfs',
@@ -132,7 +128,6 @@ def test_tank_no_warnings(temp_dir, caplog):
     """Test that non-rpool pools don't get rpool warnings."""
     config_path = temp_dir / "tengil.yml"
     config = {
-        'version': 2,
         'pools': {
             'tank': {
                 'type': 'zfs',

@@ -1,6 +1,5 @@
 description: Minimal configuration with single general media dataset (1 dataset)
 
-version: 1
 pool: ${pool}
 
 datasets:

@@ -23,8 +23,7 @@ class TestApplyWithConsumers:
     def config_with_consumers(self, tmp_path):
         """Create a config file with consumers model."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'type': 'zfs',
                     'datasets': {

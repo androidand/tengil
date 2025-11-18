@@ -1,6 +1,5 @@
 description: Complete media server + homelab setup with all features (10 datasets)
 
-version: 1
 mode: converged-nas
 pool: ${pool}
 

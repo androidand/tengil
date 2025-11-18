@@ -1,5 +1,5 @@
 """Diff engine for comparing desired vs actual state."""
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -35,6 +35,7 @@ class ContainerChange:
     template: Optional[str] = None
     mount_path: Optional[str] = None
     host_path: Optional[str] = None
+    dataset: Optional[str] = None
     message: str = ""
     
 class DiffEngine:
@@ -110,8 +111,21 @@ class DiffEngine:
         # Get list of existing containers
         try:
             existing_containers = self.container_manager.list_containers()
-            existing_by_vmid = {c['vmid']: c for c in existing_containers}
-            existing_by_name = {c['name']: c for c in existing_containers if c.get('name')}
+            existing_by_vmid = {}
+            existing_by_name = {}
+
+            for container in existing_containers:
+                vmid = container.get('vmid')
+                name = container.get('name')
+
+                if vmid is not None:
+                    try:
+                        existing_by_vmid[int(vmid)] = container
+                    except (TypeError, ValueError):
+                        logger.debug(f"Skipping container with non-numeric vmid: {vmid}")
+
+                if name:
+                    existing_by_name[name] = container
         except Exception as e:
             logger.warning(f"Failed to list containers: {e}")
             return
@@ -121,58 +135,79 @@ class DiffEngine:
             containers = config.get('containers', [])
             if not containers:
                 continue
-            
-            # Extract pool name from full path (e.g., "tank/media" -> "tank")
-            pool = full_name.split('/')[0]
+
             dataset_name = '/'.join(full_name.split('/')[1:]) if '/' in full_name else full_name
             host_path = f"/{full_name}"
-            
+
             for container_spec in containers:
-                if not isinstance(container_spec, dict):
+                parsed = self._parse_container_spec(container_spec, dataset_name)
+                if not parsed:
                     continue
-                
-                vmid = container_spec.get('vmid')
-                name = container_spec.get('name', '')
-                auto_create = container_spec.get('auto_create', False)
-                template = container_spec.get('template')
-                mount_path = container_spec.get('mount', f"/{dataset_name}")
-                
-                # Determine if container exists
+
+                vmid_raw = parsed['vmid']
+                name = parsed['name']
+                auto_create = parsed['auto_create']
+                template = parsed['template']
+                mount_path = parsed['mount_path']
+                readonly = parsed['readonly']
+
+                vmid_int = None
+                if vmid_raw is not None:
+                    try:
+                        vmid_int = int(vmid_raw)
+                    except (TypeError, ValueError):
+                        vmid_int = None
+
                 existing = None
-                if vmid and vmid in existing_by_vmid:
-                    existing = existing_by_vmid[vmid]
+                resolved_vmid = None
+
+                if vmid_int is not None and vmid_int in existing_by_vmid:
+                    existing = existing_by_vmid[vmid_int]
+                    resolved_vmid = vmid_int
                 elif name and name in existing_by_name:
                     existing = existing_by_name[name]
-                    vmid = existing['vmid']
-                
+                    resolved_vmid = existing.get('vmid')
+                    if resolved_vmid is not None:
+                        try:
+                            resolved_vmid = int(resolved_vmid)
+                        except (TypeError, ValueError):
+                            resolved_vmid = None
+
                 if not existing and auto_create:
-                    # Container will be created
                     self.container_changes.append(ContainerChange(
-                        vmid=vmid,
+                        vmid=vmid_int,
                         name=name,
                         action=ContainerAction.CREATE,
                         template=template,
                         mount_path=mount_path,
                         host_path=host_path,
-                        message=f"will create from {template}"
+                        dataset=full_name,
+                        message=f"will create from {template}" if template else "will create"
                     ))
-                elif existing:
-                    # Container exists, check if mount needed
-                    # For now, assume mount is needed (we'll check actual mounts in Phase 2.5)
+                    continue
+
+                if existing and resolved_vmid is not None:
+                    if self._is_mount_configured(resolved_vmid, host_path, mount_path, readonly):
+                        continue
+
                     self.container_changes.append(ContainerChange(
-                        vmid=vmid or existing['vmid'],
-                        name=name or existing['name'],
+                        vmid=resolved_vmid,
+                        name=name or existing.get('name', ''),
                         action=ContainerAction.MOUNT_ONLY,
                         mount_path=mount_path,
                         host_path=host_path,
+                        dataset=full_name,
                         message="exists, will mount"
                     ))
-                elif not auto_create:
-                    # Container specified but not found and auto_create=false
+                    continue
+
+                if not existing and not auto_create:
                     self.container_changes.append(ContainerChange(
-                        vmid=vmid,
+                        vmid=vmid_int,
                         name=name,
                         action=ContainerAction.EXISTS_OK,
+                        host_path=host_path,
+                        dataset=full_name,
                         message="container not found (auto_create=false)"
                     ))
     
@@ -218,3 +253,56 @@ class DiffEngine:
         total_changes = len(self.changes) + len(self.container_changes)
         lines.append(f"Plan: {total_changes} change(s) to apply")
         return "\n".join(lines)
+
+    def _parse_container_spec(self, container_spec: Any, dataset_name: str) -> Optional[Dict[str, Any]]:
+        """Normalize container specification into a standard dict."""
+        default_mount = f"/{dataset_name}" if dataset_name else "/"
+
+        if isinstance(container_spec, dict):
+            return {
+                'vmid': container_spec.get('vmid'),
+                'name': container_spec.get('name', ''),
+                'auto_create': bool(container_spec.get('auto_create', False)),
+                'template': container_spec.get('template'),
+                'mount_path': container_spec.get('mount', default_mount),
+                'readonly': bool(container_spec.get('readonly', False))
+            }
+
+        if isinstance(container_spec, str):
+            parts = container_spec.split(':')
+            name = parts[0]
+            mount_path = parts[1] if len(parts) > 1 and parts[1] else default_mount
+            readonly_flag = parts[2] if len(parts) > 2 else ''
+            readonly = readonly_flag.strip().lower() in {'ro', 'readonly', 'true', '1'}
+            return {
+                'vmid': None,
+                'name': name,
+                'auto_create': False,
+                'template': None,
+                'mount_path': mount_path,
+                'readonly': readonly
+            }
+
+        logger.warning(f"Invalid container specification: {container_spec}")
+        return None
+
+    def _is_mount_configured(self, vmid: int, host_path: str, mount_path: str, readonly: bool) -> bool:
+        """Return True if container already has matching mount configuration."""
+        try:
+            mounts = self.container_manager.get_container_mounts(vmid)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning(f"Failed to inspect mounts for container {vmid}: {exc}")
+            return False
+
+        desired_ro = '1' if readonly else '0'
+        for mount_cfg in mounts.values():
+            if mount_cfg.get('volume') != host_path:
+                continue
+
+            mp = mount_cfg.get('mp') or ''
+            ro_flag = mount_cfg.get('ro', '0')
+
+            if mp == mount_path and ro_flag == desired_ro:
+                return True
+
+        return False

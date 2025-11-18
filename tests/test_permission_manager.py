@@ -314,3 +314,52 @@ def test_auto_register_on_add_consumer():
     assert "tank/photos" in pm.permission_sets
     perm_set = pm.permission_sets["tank/photos"]
     assert len(perm_set.consumers) == 1
+
+
+def test_add_consumer_idempotent():
+    """Adding identical consumers should avoid duplicates."""
+    pm = PermissionManager(mock=True)
+    pm.register_dataset("tank/media")
+    
+    pm.add_consumer(
+        "tank/media",
+        ConsumerType.CONTAINER,
+        "jellyfin",
+        AccessLevel.READ
+    )
+    
+    # Second registration should be ignored
+    pm.add_consumer(
+        "tank/media",
+        ConsumerType.CONTAINER,
+        "jellyfin",
+        AccessLevel.READ
+    )
+    
+    perm_set = pm.permission_sets["tank/media"]
+    assert len(perm_set.consumers) == 1
+
+
+def test_load_from_config_registers_consumers():
+    """load_from_config registers datasets, owners, and consumers."""
+    pm = PermissionManager(mock=True)
+    datasets = {
+        "tank/media": {
+            "permissions": {"uid": "media", "gid": "media"},
+            "consumers": [
+                {"type": "container", "name": "jellyfin", "access": "read"},
+                {"type": "smb", "name": "Media", "access": "write"},
+            ],
+        }
+    }
+    
+    pm.load_from_config(datasets)
+    
+    assert "tank/media" in pm.permission_sets
+    perm_set = pm.permission_sets["tank/media"]
+    assert perm_set.owner_user == "media"
+    assert perm_set.owner_group == "media"
+    assert len(perm_set.consumers) == 2
+    smb_consumer = next(c for c in perm_set.consumers if c.type == ConsumerType.SHARE_SMB)
+    assert smb_consumer.name == "Media"
+    assert smb_consumer.access == AccessLevel.WRITE

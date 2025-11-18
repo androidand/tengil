@@ -26,8 +26,7 @@ def mock_config_simple(temp_dir):
     """Create simple test configuration."""
     config_path = temp_dir / "tengil.yml"
     config = {
-        'version': 2,
-        'pools': {
+                'pools': {
             'testpool': {
                 'type': 'zfs',
                 'datasets': {
@@ -48,8 +47,7 @@ def mock_config_nested(temp_dir):
     """Create configuration with nested datasets."""
     config_path = temp_dir / "tengil.yml"
     config = {
-        'version': 2,
-        'pools': {
+                'pools': {
             'testpool': {
                 'type': 'zfs',
                 'datasets': {
@@ -228,8 +226,7 @@ class TestNestedDatasets:
         """Test multiple levels of nesting."""
         config_path = temp_dir / "tengil.yml"
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'testpool': {
                     'type': 'zfs',
                     'datasets': {
@@ -296,8 +293,7 @@ class TestDatasetValidation:
         """Valid names should pass validation."""
         config_path = temp_dir / "tengil.yml"
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'testpool': {
                     'type': 'zfs',
                     'datasets': {
@@ -322,8 +318,7 @@ class TestDatasetValidation:
         
         config_path = temp_dir / "tengil.yml"
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'testpool': {
                     'type': 'zfs',
                     'datasets': {
@@ -347,8 +342,7 @@ class TestDatasetValidation:
         
         config_path = temp_dir / "tengil.yml"
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'testpool': {
                     'type': 'zfs',
                     'datasets': {

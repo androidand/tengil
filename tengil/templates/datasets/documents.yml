@@ -2,16 +2,16 @@ description: Document storage with Nextcloud integration and restricted access
 
 documents:
   profile: documents
-  containers:
-    - name: nextcloud
+  consumers:
+    - type: container
+      name: nextcloud
+      access: write
       mount: /var/www/html/data
-      readonly: false
-  shares:
-    smb:
-      name: "Documents"
-      valid_users: "@family"
-      browseable: true
-  permissions:
-    uid: www-data
-    gid: www-data
-    mode: "0770"
+      auto_create: true
+      template: debian-12-standard
+      resources:
+        memory: 2048
+        cores: 2
+    - type: smb
+      name: Documents
+      access: write

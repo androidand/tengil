@@ -1,4 +1,5 @@
 """Container lifecycle management (create, start, stop)."""
+import shlex
 import subprocess
 from typing import Dict, List, Optional
 
@@ -17,7 +18,12 @@ class ContainerLifecycle:
         self.templates = TemplateManager(mock=mock)
         self.discovery = ContainerDiscovery(mock=mock)
 
-    def create_container(self, spec: Dict, storage: str = 'local-lvm') -> Optional[int]:
+    def create_container(
+        self,
+        spec: Dict,
+        storage: str = 'local-lvm',
+        pool: Optional[str] = None
+    ) -> Optional[int]:
         """Create a new LXC container.
 
         Args:
@@ -32,6 +38,8 @@ class ContainerLifecycle:
         Returns:
             Container VMID if successful, None if failed
         """
+        pool = pool if pool is not None else spec.get('pool')
+
         # Validate template is specified (required)
         template = spec.get('template')
         if not template:
@@ -87,6 +95,15 @@ class ContainerLifecycle:
             '--swap', str(swap),
         ])
 
+        # Add resource pool if specified (explicit parameter > resources > spec)
+        resource_pool = resources.get('pool')
+        selected_pool = pool
+        if resource_pool:
+            selected_pool = resource_pool
+        if selected_pool:
+            cmd.extend(['--pool', selected_pool])
+            logger.info(f"Assigning container to resource pool: {selected_pool}")
+
         # Add network configuration
         network = spec.get('network', {})
         bridge = network.get('bridge', 'vmbr0')
@@ -108,9 +125,41 @@ class ContainerLifecycle:
 
         cmd.extend(['--net0', net_config])
 
+        description = spec.get('description')
+        if description:
+            cmd.extend(['--description', description])
+
+        tags = spec.get('tags')
+        if tags:
+            if isinstance(tags, str):
+                tags_value = tags
+            else:
+                tags_value = ",".join(tag.strip() for tag in tags if tag)
+            if tags_value:
+                cmd.extend(['--tags', tags_value])
+        
+        startup_value = spec.get('startup')
+        if not startup_value:
+            startup_parts = []
+            if spec.get('startup_order') is not None:
+                startup_parts.append(f"order={spec['startup_order']}")
+            if spec.get('startup_delay') is not None:
+                startup_parts.append(f"up={spec['startup_delay']}")
+            if startup_parts:
+                startup_value = ",".join(startup_parts)
+        if startup_value:
+            cmd.extend(['--startup', startup_value])
+
+        # Privileged vs unprivileged (default: unprivileged for security)
+        privileged = spec.get('privileged', False)
+        if privileged:
+            cmd.extend(['--privileged', '1'])
+            logger.warning(f"⚠️  Creating PRIVILEGED container {vmid} - has full root access!")
+        else:
+            cmd.extend(['--unprivileged', '1'])
+
         # Additional options
         cmd.extend([
-            '--unprivileged', '1',
             '--onboot', '1',
             '--features', 'nesting=1',
         ])
@@ -253,6 +302,107 @@ class ContainerLifecycle:
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to stop container {vmid}: {e}")
             return False
+
+    def restart_container(self, vmid: int) -> bool:
+        """Restart a container.
+
+        Args:
+            vmid: Container ID to restart
+
+        Returns:
+            True if restarted successfully
+        """
+        if self.mock:
+            logger.info(f"MOCK: Would restart container {vmid}")
+            return True
+
+        try:
+            logger.info(f"Restarting container {vmid}")
+            subprocess.run(
+                ['pct', 'restart', str(vmid)],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            logger.info(f"✓ Container {vmid} restarted")
+            return True
+
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to restart container {vmid}: {e}")
+            if e.stderr:
+                logger.error(f"Error output: {e.stderr}")
+            return False
+
+    def exec_container_command(
+        self,
+        vmid: int,
+        command: List[str],
+        user: Optional[str] = None,
+        env: Optional[Dict[str, str]] = None,
+        workdir: Optional[str] = None,
+    ) -> int:
+        """Run a command inside the container using pct exec."""
+        if not command:
+            logger.error("No command provided for pct exec")
+            return 1
+
+        base_cmd: List[str] = ['pct', 'exec', str(vmid)]
+
+        if user:
+            base_cmd.extend(['--user', user])
+
+        if workdir:
+            base_cmd.extend(['--cwd', workdir])
+
+        if env:
+            for key, value in env.items():
+                base_cmd.extend(['--env', f"{key}={value}"])
+
+        base_cmd.append('--')
+        base_cmd.extend(command)
+
+        command_str = shlex.join(base_cmd)
+
+        if self.mock:
+            logger.info(f"MOCK: Would execute: {command_str}")
+            return 0
+
+        try:
+            logger.info(f"Executing in container {vmid}: {command_str}")
+            result = subprocess.run(base_cmd, check=False)
+            if result.returncode != 0:
+                logger.error(f"Command exited with code {result.returncode}")
+            return result.returncode
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error(f"Failed to execute in container {vmid}: {exc}")
+            return 1
+
+    def enter_container_shell(
+        self,
+        vmid: int,
+        user: Optional[str] = None,
+    ) -> int:
+        """Open an interactive shell inside the container using pct enter."""
+        base_cmd: List[str] = ['pct', 'enter', str(vmid)]
+
+        if user:
+            base_cmd.extend(['--user', user])
+
+        command_str = shlex.join(base_cmd)
+
+        if self.mock:
+            logger.info(f"MOCK: Would open shell: {command_str}")
+            return 0
+
+        try:
+            logger.info(f"Opening interactive shell for container {vmid}")
+            result = subprocess.run(base_cmd, check=False)
+            if result.returncode != 0:
+                logger.error(f"Shell exited with code {result.returncode}")
+            return result.returncode
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.error(f"Failed to open shell for container {vmid}: {exc}")
+            return 1
 
     def container_exists(self, vmid: int) -> bool:
         """Check if a container exists (delegates to discovery).

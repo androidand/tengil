@@ -6,9 +6,13 @@ appdata:
     recordsize: 128K
     compression: zstd
     copies: 2
-  containers:
-    - name: portainer
+  consumers:
+    - type: container
+      name: portainer
+      access: write
       mount: /data
-      readonly: false
-  permissions:
-    mode: "0755"
+      auto_create: true
+      template: debian-12-standard
+      resources:
+        memory: 1024
+        cores: 1

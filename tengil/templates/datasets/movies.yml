@@ -6,9 +6,6 @@ movies:
     - name: jellyfin
       mount: /movies
       readonly: true
-    - name: plex
-      mount: /movies
-      readonly: true
     - name: radarr
       mount: /movies
       readonly: false

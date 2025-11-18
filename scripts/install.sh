@@ -178,8 +178,7 @@ if [[ "$MODE" != "dev" ]]; then
     echo "⚙️  Creating working directory..."
     mkdir -p ~/tengil-configs
     if [ ! -f ~/tengil-configs/tengil.yml ]; then
-        echo "version: 2" > ~/tengil-configs/tengil.yml
-        echo "pools: {}" >> ~/tengil-configs/tengil.yml
+        echo "pools: {}" > ~/tengil-configs/tengil.yml
         echo "📝 Created ~/tengil-configs/tengil.yml"
     else
         echo "✓ Config already exists at ~/tengil-configs/tengil.yml"

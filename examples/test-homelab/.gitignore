@@ -1,0 +1,20 @@
+# Secrets and environment files
+.env
+*.key
+*.pem
+
+# Tengil state
+.tengil.state.json
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+.DS_Store
+.vscode/
+*.tmp
+
+# Backup files
+*.bak
+*~

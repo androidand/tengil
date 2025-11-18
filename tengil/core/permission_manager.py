@@ -26,7 +26,7 @@ Tengil generates all the necessary permissions automatically.
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional, Tuple, Any
 from pathlib import Path
 
 from tengil.core.logger import get_logger
@@ -175,7 +175,22 @@ class PermissionManager:
         if not perm_set:
             perm_set = self.register_dataset(dataset_path)
         
-        # Check for conflicts
+        existing = self._find_existing_consumer(perm_set, consumer_type, name)
+        if existing:
+            if existing.access == access:
+                logger.debug(
+                    "Consumer %s (%s) already registered for %s - skipping",
+                    name,
+                    consumer_type.value,
+                    dataset_path,
+                )
+                return existing
+            raise PermissionConflict(
+                f"{name} already has {existing.access.value} access, "
+                f"cannot also have {access.value} access"
+            )
+        
+        # Check for other conflicts (e.g. future cross-consumer rules)
         conflicts = self._check_conflicts(perm_set, consumer_type, name, access)
         if conflicts:
             raise PermissionConflict(
@@ -213,19 +228,7 @@ class PermissionManager:
         Returns:
             Conflict description or None
         """
-        # Check if same consumer already exists with different access
-        for existing in perm_set.consumers:
-            if existing.name == name and existing.type == consumer_type:
-                if existing.access != access:
-                    return (
-                        f"{name} already has {existing.access.value} access, "
-                        f"cannot also have {access.value} access"
-                    )
-        
-        # More conflict checks can be added here
-        # For now, we allow multiple consumers with different access levels
-        # The most permissive wins for the dataset
-        
+        # Placeholder for future cross-consumer conflict detection
         return None
     
     def get_container_mount_flags(self, dataset_path: str, 
@@ -410,3 +413,125 @@ class PermissionManager:
                     lines.append(f"      - {c.name} ({access})")
         
         return "\n".join(lines)
+
+    def load_from_config(self, datasets: Dict[str, Dict[str, Any]]) -> None:
+        """Register datasets and consumers from configuration structures.
+        
+        Args:
+            datasets: Mapping of dataset path -> dataset configuration dict
+        """
+        for dataset_path, dataset_config in datasets.items():
+            if not isinstance(dataset_config, dict):
+                continue
+            
+            owner_user, owner_group = self._extract_owner(dataset_config)
+            self.register_dataset(dataset_path, owner_user, owner_group)
+            
+            consumers = (
+                dataset_config.get('_consumers')
+                or dataset_config.get('consumers')
+                or []
+            )
+            
+            if not isinstance(consumers, list):
+                logger.warning(
+                    "Invalid consumers format for %s (expected list)", dataset_path
+                )
+                continue
+            
+            for idx, consumer in enumerate(consumers):
+                if not isinstance(consumer, dict):
+                    logger.warning(
+                        "Skipping consumer %s[%d]: expected dict, got %s",
+                        dataset_path,
+                        idx,
+                        type(consumer).__name__,
+                    )
+                    continue
+                
+                consumer_type = self._consumer_type_from_config(
+                    consumer.get('type')
+                )
+                access_level = self._access_level_from_config(
+                    consumer.get('access')
+                )
+                name = consumer.get('name')
+                
+                if not consumer_type or not access_level or not name:
+                    logger.warning(
+                        "Skipping consumer %s[%d]: missing or invalid fields",
+                        dataset_path,
+                        idx,
+                    )
+                    continue
+                
+                try:
+                    self.add_consumer(
+                        dataset_path,
+                        consumer_type,
+                        name,
+                        access_level,
+                    )
+                except PermissionConflict as exc:
+                    logger.warning(
+                        "Permission conflict for %s: %s (consumer=%s)",
+                        dataset_path,
+                        exc,
+                        name,
+                    )
+
+    def _extract_owner(self, dataset_config: Dict[str, Any]) -> Tuple[str, str]:
+        """Determine owner user/group from dataset permissions."""
+        permissions = dataset_config.get('permissions') or {}
+        
+        # Support uid/gid keys as well as user/group for future schemas
+        owner_user = permissions.get('user', permissions.get('uid', 'root'))
+        owner_group = permissions.get('group', permissions.get('gid', 'root'))
+        
+        # Also support nested owner definitions if present
+        if isinstance(permissions.get('owner'), dict):
+            owner = permissions['owner']
+            owner_user = owner.get('user', owner_user)
+            owner_group = owner.get('group', owner_group)
+        
+        return str(owner_user), str(owner_group)
+
+    def _consumer_type_from_config(self, raw_type: Optional[str]) -> Optional[ConsumerType]:
+        """Convert config consumer type into enum."""
+        if not raw_type:
+            return None
+        
+        normalized = raw_type.strip().lower()
+        mapping = {
+            'container': ConsumerType.CONTAINER,
+            'smb': ConsumerType.SHARE_SMB,
+            'share': ConsumerType.SHARE_SMB,
+            'nfs': ConsumerType.SHARE_NFS,
+            'user': ConsumerType.USER,
+            'group': ConsumerType.GROUP,
+        }
+        return mapping.get(normalized)
+
+    def _access_level_from_config(self, raw_access: Optional[str]) -> Optional[AccessLevel]:
+        """Convert config access level string into enum."""
+        if not raw_access:
+            return None
+        
+        normalized = raw_access.strip().lower()
+        mapping = {
+            'read': AccessLevel.READ,
+            'write': AccessLevel.WRITE,
+        }
+        return mapping.get(normalized)
+
+    def _find_existing_consumer(
+        self,
+        perm_set: PermissionSet,
+        consumer_type: ConsumerType,
+        name: str,
+    ) -> Optional[Consumer]:
+        """Return existing consumer entry if present."""
+        for consumer in perm_set.consumers:
+            if consumer.name == name and consumer.type == consumer_type:
+                return consumer
+        return None

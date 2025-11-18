@@ -9,7 +9,6 @@
 #
 # Just run: tg apply
 
-version: 2
 
 pools:
   tank:

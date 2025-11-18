@@ -115,7 +115,6 @@ def test_basic_merge(merger, simple_requirements, simple_package):
     config = merger.merge(simple_requirements, simple_package)
     
     # Check structure
-    assert 'version' in config
     assert 'pools' in config
     assert 'tank' in config['pools']
     assert 'datasets' in config['pools']['tank']

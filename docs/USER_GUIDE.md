@@ -165,7 +165,6 @@ tg apply
 ### Single Pool Setup
 
 ```yaml
-version: 2
 pools:
   tank:
     type: zfs
@@ -184,7 +183,6 @@ pools:
 ### Multi-Pool Setup
 
 ```yaml
-version: 2
 pools:
   rpool:
     type: zfs
@@ -459,7 +457,6 @@ tg apply
 From the compose package above, Tengil generates:
 
 ```yaml
-version: 2
 pools:
   tank:
     datasets:

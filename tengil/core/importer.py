@@ -169,10 +169,12 @@ class InfrastructureImporter:
             Configuration dict ready to write as YAML
         """
         config = {
-            'version': 1,
-            'mode': 'converged-nas',
-            'pool': pool,
-            'datasets': {}
+            'pools': {
+                pool: {
+                    'type': 'zfs',
+                    'datasets': {}
+                }
+            }
         }
         
         # Scan ZFS datasets
@@ -184,6 +186,8 @@ class InfrastructureImporter:
         containers = self.list_containers()
         logger.info(f"Found {len(containers)} container(s)")
         
+        dataset_root = config['pools'][pool]['datasets']
+
         for dataset_name, props in zfs_datasets.items():
             dataset_config = {
                 'profile': props['profile'],
@@ -210,7 +214,7 @@ class InfrastructureImporter:
             if dataset_containers:
                 dataset_config['containers'] = dataset_containers
             
-            config['datasets'][dataset_name] = dataset_config
+            dataset_root[dataset_name] = dataset_config
         
         return config
     

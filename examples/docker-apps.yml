@@ -12,7 +12,6 @@
 #
 # Tengil = orchestration glue, not reimplementation
 
-version: 2
 mode: converged-nas
 
 pools:
@@ -130,11 +129,7 @@ pools:
                 cd /opt/qbittorrent
                 docker-compose up -d
           
-          # Mount to existing manually-configured container
-          - name: old-downloader
-            mount: /downloads
-            readonly: false
-            # No auto_create, no post_install - existing container
+
 
 # ============================================================================
 # Post-Install Options

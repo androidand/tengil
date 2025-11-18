@@ -1,0 +1,61 @@
+# Example: Node.js REST API Application
+#
+# This example demonstrates deploying a Node.js API server with:
+# - Git source code management
+# - Environment variable secrets (loaded from local .env.local)
+# - Package installation
+# - Startup command
+#
+# Usage:
+#   1. Create .env.local with secrets (git-ignored):
+#      DATABASE_URL=postgres://user:pass@host:5432/db
+#      API_KEY=your-secret-key
+#      JWT_SECRET=your-jwt-secret
+#
+#   2. Deploy the app:
+#      source .env.local
+#      tg app deploy examples/apps/node-api.yml
+
+name: node-api-server
+description: Custom Node.js REST API server
+
+container:
+  template: debian-12-standard
+  pool: production
+  memory: 2048
+  cores: 2
+  disk: 16G
+  network:
+    ip: 192.168.1.100/24
+    gateway: 192.168.1.1
+  tags:
+    - nodejs
+    - api
+    - production
+
+source:
+  type: git
+  url: https://github.com/yourname/node-api-server
+  branch: main
+  path: /app
+
+runtime:
+  # These will be loaded from your local environment
+  secrets:
+    - DATABASE_URL
+    - API_KEY
+    - JWT_SECRET
+    - NODE_ENV
+
+  # Packages to install in the container
+  packages:
+    - nodejs
+    - npm
+    - git
+    - curl
+
+  # Command to run after deployment
+  startup_command: |
+    cd /app
+    npm install --production
+    npm start

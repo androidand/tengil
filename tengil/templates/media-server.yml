@@ -1,6 +1,5 @@
 description: Optimized media streaming setup with separate libraries and downloads (4 datasets)
 
-version: 1
 mode: converged-nas
 pool: ${pool}
 

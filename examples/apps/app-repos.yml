@@ -1,0 +1,28 @@
+# Example: Repository sync specifications for `tg app sync` and `tg app list`
+#
+# Usage:
+#   tg app sync --spec examples/apps/app-repos.yml --name jellyfin-config
+#   tg app list --spec examples/apps/app-repos.yml --name jellyfin-config
+#
+# Each entry describes which container to target, which git repo to pull, and
+# where manifests are stored inside the container.
+
+repos:
+  - name: jellyfin-config
+    target: jellyfin
+    repo: https://github.com/example/jellyfin-config.git
+    branch: main
+    path: /srv/apps/jellyfin-config
+    manifests:
+      glob: "*.app.yml"
+      depth: 2
+
+  - name: media-automation
+    target: arr-stack
+    repo: https://github.com/example/media-automation.git
+    branch: develop
+    path: /srv/apps/media-automation
+    manifests:
+      root: /srv/apps/media-automation/stacks
+      glob: "*.yml"
+      depth: 3

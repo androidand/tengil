@@ -9,7 +9,6 @@
 #
 # THE KILLER FEATURE: "This data should be readable by both Jellyfin and SMB" → just declare it!
 
-version: 2
 mode: converged-nas
 
 pools:
@@ -40,16 +39,7 @@ pools:
             name: media_export
             access: read
         
-        # OLD: Still supported for backward compatibility
-        # containers:
-        #   - name: jellyfin
-        #     mount: /media
-        #     readonly: true  # Manual flag
-        #
-        # shares:
-        #   smb:
-        #     name: Media
-        #     read only: yes  # Manual config
+
         
         # What Tengil does automatically:
         # 1. ZFS ACLs: chmod 755 /tank/media (read-only)
@@ -151,8 +141,7 @@ pools:
 # Benefits of Consumers Model:
 #
 # 1. DECLARATIVE: Say what you want, not how to achieve it
-#    Old: Set chmod, pct mount flags, SMB config separately
-#    New: Declare consumers, Tengil handles everything
+#    Declare consumers, Tengil handles everything
 #
 # 2. CONSISTENT: Permissions match across all layers
 #    No more "why can't Jellyfin read but SMB can?"
@@ -170,31 +159,7 @@ pools:
 #    tg permissions show tank/media → lists all consumers
 #    tg permissions summary → overview of all datasets
 
-# Migration from old format:
-#
-# OLD (manual permissions):
-#   datasets:
-#     media:
-#       profile: media
-#       containers:
-#         - name: jellyfin
-#           mount: /media
-#           readonly: true
-#       shares:
-#         smb:
-#           name: Media
-#           read only: yes
-#
-# NEW (consumers model):
-#   datasets:
-#     media:
-#       profile: media
-#       consumers:
-#         - {type: container, name: jellyfin, access: read}
-#         - {type: smb, name: Media, access: read}
-#
-# Both formats work! Old format auto-converts internally.
-# But new format gives you validation and consistency.
+
 
 # Commands:
 # tg diff         → Shows what permissions would be applied

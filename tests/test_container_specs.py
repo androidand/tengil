@@ -18,8 +18,7 @@ class TestContainerAutoCreate:
     def test_basic_auto_create_config(self, temp_dir):
         """Basic auto_create configuration should validate."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -57,8 +56,7 @@ class TestContainerAutoCreate:
     def test_auto_create_with_resources(self, temp_dir):
         """auto_create with custom resources should work."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'ai': {
@@ -98,8 +96,7 @@ class TestContainerAutoCreate:
     def test_auto_create_with_network(self, temp_dir):
         """auto_create with network config should work."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'photos': {
@@ -138,8 +135,7 @@ class TestContainerAutoCreate:
     def test_auto_create_requires_template(self, temp_dir):
         """auto_create without template should fail validation."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -174,8 +170,7 @@ class TestContainerAutoCreate:
     def test_mixed_container_types(self, temp_dir):
         """Mix of existing (Phase 1) and auto-create (Phase 2) containers."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -237,8 +232,7 @@ class TestContainerResourceValidation:
     def test_invalid_memory_type(self, temp_dir):
         """Memory must be integer (MB)."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -273,8 +267,7 @@ class TestContainerResourceValidation:
     def test_invalid_disk_format(self, temp_dir):
         """Disk must be like '8G' or '512M'."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -310,8 +303,7 @@ class TestContainerResourceValidation:
         """Test all valid disk formats."""
         for disk_size in ['8G', '512M', '100g', '2048m']:
             config = {
-                'version': 2,
-                'pools': {
+                                'pools': {
                     'tank': {
                         'datasets': {
                             'media': {
@@ -342,6 +334,64 @@ class TestContainerResourceValidation:
             container = result['pools']['tank']['datasets']['media']['containers'][0]
             assert container['resources']['disk'] == disk_size
 
+    def test_template_resource_values_allowed(self, temp_dir):
+        """Jinja-style placeholders for resources should bypass strict int validation."""
+        config = {
+                        'containers': {
+                'jellyfin': {
+                    'template': 'debian-12-standard',
+                    'memory': '{{ secrets.jellyfin.memory }}',
+                    'cores': '{{ secrets.jellyfin.cores }}',
+                    'disk_size': '{{ secrets.jellyfin.disk_size }}'
+                }
+            },
+            'pools': {
+                'tank': {
+                    'datasets': {
+                        'media': {
+                            'profile': 'media',
+                            'containers': [
+                                {
+                                    'name': 'jellyfin',
+                                    'auto_create': True,
+                                    'mount': '/media'
+                                },
+                                {
+                                    'name': 'plex',
+                                    'auto_create': True,
+                                    'template': 'debian-12-standard',
+                                    'resources': {
+                                        'memory': '{{ secrets.plex.memory }}',
+                                        'cores': '{{ secrets.plex.cores }}',
+                                        'disk': '{{ secrets.plex.disk }}'
+                                    },
+                                    'mount': '/plex'
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+
+        config_path = temp_dir / 'tengil_templates.yml'
+        with open(config_path, 'w') as f:
+            yaml.dump(config, f)
+
+        loader = ConfigLoader(config_path)
+        result = loader.load()
+
+        jellyfin = result['pools']['tank']['datasets']['media']['containers'][0]
+        plex = result['pools']['tank']['datasets']['media']['containers'][1]
+
+        assert jellyfin['resources']['memory'] == '{{ secrets.jellyfin.memory }}'
+        assert jellyfin['resources']['cores'] == '{{ secrets.jellyfin.cores }}'
+        assert jellyfin['resources']['disk'] == '{{ secrets.jellyfin.disk_size }}'
+
+        assert plex['resources']['memory'] == '{{ secrets.plex.memory }}'
+        assert plex['resources']['cores'] == '{{ secrets.plex.cores }}'
+        assert plex['resources']['disk'] == '{{ secrets.plex.disk }}'
+
 
 class TestContainerSetupCommands:
     """Test Phase 3 post-install setup commands."""
@@ -353,8 +403,7 @@ class TestContainerSetupCommands:
     def test_setup_commands_preserved(self, temp_dir):
         """Setup commands should be preserved for Phase 3."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {

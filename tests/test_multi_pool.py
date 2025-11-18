@@ -11,8 +11,7 @@ from tengil.models.config import ConfigValidationError
 def test_v2_multi_pool():
     """Test v2 multi-pool configuration."""
     v2_config = {
-        'version': 2,
-        'pools': {
+                'pools': {
             'rpool': {
                 'type': 'zfs',
                 'datasets': {
@@ -40,7 +39,6 @@ def test_v2_multi_pool():
         loader = ConfigLoader(config_path)
         config = loader.load()
         
-        assert config['version'] == 2
         assert len(config['pools']) == 2
         assert 'rpool' in config['pools']
         assert 'tank' in config['pools']
@@ -51,9 +49,9 @@ def test_v2_multi_pool():
 def test_invalid_pool_name():
     """Test that invalid pool names are rejected."""
     invalid_configs = [
-        {'version': 2, 'pools': {'mirror': {'type': 'zfs', 'datasets': {}}}},  # Reserved word
-        {'version': 2, 'pools': {'-pool': {'type': 'zfs', 'datasets': {}}}},  # Starts with hyphen
-        {'version': 2, 'pools': {'my pool': {'type': 'zfs', 'datasets': {}}}},  # Contains space
+        {'pools': {'mirror': {'type': 'zfs', 'datasets': {}}}},  # Reserved word
+        {'pools': {'-pool': {'type': 'zfs', 'datasets': {}}}},  # Starts with hyphen
+        {'pools': {'my pool': {'type': 'zfs', 'datasets': {}}}},  # Contains space
     ]
     
     for invalid_config in invalid_configs:
@@ -72,8 +70,7 @@ def test_invalid_pool_name():
 def test_cross_pool_hardlink_warning(caplog):
     """Test that cross-pool *arr configurations generate warnings."""
     config = {
-        'version': 2,
-        'pools': {
+                'pools': {
             'nvme': {
                 'type': 'zfs',
                 'datasets': {
@@ -117,8 +114,7 @@ def test_cross_pool_hardlink_warning(caplog):
 def test_profile_application_v2():
     """Test that profiles are applied correctly in v2 config."""
     config = {
-        'version': 2,
-        'pools': {
+                'pools': {
             'tank': {
                 'type': 'zfs',
                 'datasets': {

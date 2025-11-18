@@ -5,25 +5,24 @@ downloads:
   zfs:
     recordsize: 1M
     compression: lz4
-  containers:
-    - name: qbittorrent
+  consumers:
+    - type: container
+      name: qbittorrent
+      access: write
       mount: /downloads
-      readonly: false
-    - name: sabnzbd
+      auto_create: true
+      template: debian-12-standard
+      resources:
+        memory: 1024
+        cores: 2
+    - type: container
+      name: sonarr
+      access: read
       mount: /downloads
-      readonly: false
-    - name: sonarr
+    - type: container
+      name: radarr
+      access: read
       mount: /downloads
-      readonly: true
-    - name: radarr
-      mount: /downloads
-      readonly: true
-  shares:
-    smb:
-      name: "Downloads"
-      valid_users: "@family"
-      browseable: false
-  permissions:
-    uid: nobody
-    gid: users
-    mode: "0775"
+    - type: smb
+      name: Downloads
+      access: write

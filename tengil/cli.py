@@ -9,11 +9,9 @@ from rich import print
 from rich.console import Console
 from typing import Optional, List
 
-from tengil.config.loader import ConfigLoader
 from tengil.core.zfs_manager import ZFSManager
 from tengil.core.diff_engine import DiffEngine
 from tengil.core.logger import get_logger
-from tengil.core.orchestrator import PoolOrchestrator
 from tengil.core.applicator import ChangeApplicator
 from tengil.core.permission_manager import PermissionManager
 from tengil.services.proxmox import ProxmoxManager
@@ -28,6 +26,9 @@ from tengil.core.package_loader import PackageLoader
 from tengil.recommendations import show_all_recommendations, show_dataset_recommendations
 from tengil.discovery import ProxmoxDiscovery
 from tengil.smart_suggestions import SmartContainerMatcher
+from tengil.cli_support import is_mock
+from tengil.cli_app_commands import register_app_commands
+from tengil.cli_container_commands import register_container_commands
 
 app = typer.Typer(
     name="tengil",
@@ -49,36 +50,12 @@ More commands: tg --help
 console = Console()
 logger = get_logger(__name__)
 
-# Default config search paths
-CONFIG_PATHS = [
-    str(Path.home() / "tengil-configs" / "tengil.yml"),  # User config directory
-    "/etc/tengil/tengil.yml",  # System-wide config
-    "./tengil.yml",             # Current directory
-]
-
 # Initialize template loader
 template_loader = TemplateLoader()
 
-def find_config(config_path: Optional[str] = None) -> str:
-    """Find configuration file in search paths."""
-    if config_path:
-        return config_path
-    
-    # Check environment variable
-    if env_config := os.environ.get('TENGIL_CONFIG'):
-        return env_config
-    
-    # Search default paths
-    for path in CONFIG_PATHS:
-        if Path(path).exists():
-            return path
-    
-    # Default to current directory
-    return "tengil.yml"
-
-def is_mock() -> bool:
-    """Check if running in mock mode."""
-    return os.environ.get('TG_MOCK') == '1'
+# Attach modular subcommands
+register_app_commands(app, console)
+register_container_commands(app, console)
 
 @app.command()
 def diff(
@@ -87,42 +64,30 @@ def diff(
     log_file: Optional[str] = typer.Option(None, "--log-file", help="Path to log file")
 ):
     """Plan - Show what changes would be made (like 'terraform plan')."""
+    from tengil.cli_support import setup_file_logging, load_config_and_orchestrate, handle_cli_error, print_success
+
     # Set up file logging
-    from tengil.core.logger import setup_file_logging
     setup_file_logging(log_file=log_file, verbose=verbose)
 
     try:
-        # Load configuration
-        config_path = find_config(config)
-        loader = ConfigLoader(config_path)
-        config = loader.load()
-        
-        # Flatten all pools into full dataset paths
-        orchestrator = PoolOrchestrator(loader, ZFSManager())
-        all_desired, all_current = orchestrator.flatten_pools()
-        
-        # Initialize container manager for diff detection
-        container_mgr = ContainerOrchestrator(mock=False)
-        
+        # Load configuration and set up orchestration
+        _loader, all_desired, all_current, container_mgr = load_config_and_orchestrate(config, dry_run=False)
+
         # Calculate diff across all pools (including containers)
         engine = DiffEngine(all_desired, all_current, container_manager=container_mgr)
         engine.calculate_diff()
-        
+
         # Display plan
         if engine.changes or engine.container_changes:
             plan = engine.format_plan()
             console.print(plan)
         else:
-            console.print("[green]✓[/green] All pools are up to date")
-        
+            print_success(console, "All pools are up to date")
+
     except FileNotFoundError as e:
-        console.print(f"[red]Error:[/red] {e}")
-        raise typer.Exit(1)
+        handle_cli_error(e, console, verbose, exit_code=1)
     except Exception as e:
-        console.print(f"[red]Error:[/red] {e}")
-        if verbose:
-            console.print_exception()
-        raise typer.Exit(1)
+        handle_cli_error(e, console, verbose, exit_code=1)
 
 @app.command()
 def apply(
@@ -138,32 +103,27 @@ def apply(
     Automatically creates a recovery checkpoint before applying changes.
     If apply fails, you can rollback using 'tg rollback'.
     """
+    from tengil.cli_support import (
+        setup_file_logging, load_config_and_orchestrate,
+        confirm_action, print_success, print_warning, print_error
+    )
+
     # Set up file logging
-    from tengil.core.logger import setup_file_logging
     setup_file_logging(log_file=log_file, verbose=verbose)
 
     checkpoint = None
     recovery = None
 
     try:
-        # Load configuration
-        config_path = find_config(config)
-        loader = ConfigLoader(config_path)
-        config = loader.load()
-
-        # Flatten all pools into full dataset paths
-        orchestrator = PoolOrchestrator(loader, ZFSManager(mock=dry_run))
-        all_desired, all_current = orchestrator.flatten_pools()
-
-        # Initialize container manager
-        container_mgr = ContainerOrchestrator(mock=dry_run)
+        # Load configuration and set up orchestration
+        _loader, all_desired, all_current, container_mgr = load_config_and_orchestrate(config, dry_run=dry_run)
 
         # Calculate diff across all pools (including containers)
         engine = DiffEngine(all_desired, all_current, container_manager=container_mgr)
         changes = engine.calculate_diff()
 
         if not changes and not engine.container_changes:
-            console.print("[green]✓[/green] Infrastructure is up to date")
+            print_success(console, "Infrastructure is up to date")
             return
 
         # Display plan
@@ -171,13 +131,12 @@ def apply(
         console.print(plan)
 
         # Confirm unless --yes
-        if not yes and not dry_run:
-            if not typer.confirm("\nDo you want to apply these changes?"):
-                console.print("[yellow]Apply cancelled[/yellow]")
-                return
+        if not dry_run and not confirm_action("\nDo you want to apply these changes?", yes_flag=yes):
+            print_warning(console, "Apply cancelled")
+            return
 
         if dry_run:
-            console.print("\n[yellow]DRY RUN - No changes applied[/yellow]")
+            print_warning(console, "DRY RUN - No changes applied")
             return
 
         # Create recovery checkpoint before applying changes
@@ -194,12 +153,12 @@ def apply(
                         datasets=datasets_to_snapshot,
                         name="pre-apply"
                     )
-                    console.print(f"[green]✓[/green] Checkpoint created")
+                    print_success(console, "Checkpoint created")
                     console.print(f"  [dim]Snapshots: {len(checkpoint.get('snapshots', {}))} dataset(s)[/dim]")
                     console.print(f"  [dim]Config backups: storage.cfg, smb.conf[/dim]")
                 except Exception as e:
-                    console.print(f"[yellow]⚠[/yellow] Checkpoint creation failed: {e}")
-                    console.print("[yellow]Continuing without checkpoint (use --no-checkpoint to suppress this warning)[/yellow]")
+                    print_warning(console, f"Checkpoint creation failed: {e}")
+                    print_warning(console, "Continuing without checkpoint (use --no-checkpoint to suppress this warning)")
                     checkpoint = None
             else:
                 console.print("[dim]No existing datasets to snapshot[/dim]")
@@ -237,35 +196,35 @@ def apply(
         console.print(f"  NFS exports: {stats['nfs_shares']}")
         console.print(f"\n[dim]State saved to: {state.state_file}[/dim]")
 
-        console.print("\n[green]✓[/green] Apply complete")
+        print_success(console, "Apply complete")
 
         if checkpoint and not no_checkpoint:
             console.print(f"\n[dim]Recovery checkpoint available from {checkpoint['timestamp']}[/dim]")
             console.print(f"[dim]Use 'tg rollback --to {checkpoint['timestamp']}' if needed[/dim]")
 
     except Exception as e:
-        console.print(f"\n[red]✗ Apply failed:[/red] {e}")
+        print_error(console, f"Apply failed: {e}")
 
         # Attempt automatic rollback if checkpoint exists
         if checkpoint and recovery and not no_checkpoint:
-            console.print("\n[yellow]⚠ Attempting automatic rollback to checkpoint...[/yellow]")
+            print_warning(console, "Attempting automatic rollback to checkpoint...")
             try:
                 if recovery.rollback(checkpoint, force=True):
-                    console.print("[green]✓ Rollback successful[/green]")
-                    console.print("[yellow]Infrastructure restored to pre-apply state[/yellow]")
+                    print_success(console, "Rollback successful")
+                    print_warning(console, "Infrastructure restored to pre-apply state")
                 else:
-                    console.print("[red]✗ Rollback completed with errors[/red]")
-                    console.print("[yellow]⚠ Manual intervention may be required[/yellow]")
+                    print_error(console, "Rollback completed with errors")
+                    print_warning(console, "Manual intervention may be required")
                     console.print(f"[dim]Check logs at: {log_file or '/var/log/tengil/tengil.log'}[/dim]")
             except Exception as rollback_error:
-                console.print(f"[red]✗ Rollback failed:[/red] {rollback_error}")
-                console.print("[yellow]⚠ Manual recovery required[/yellow]")
+                print_error(console, f"Rollback failed: {rollback_error}")
+                print_warning(console, "Manual recovery required")
                 console.print("\n[cyan]Manual recovery steps:[/cyan]")
                 console.print("  1. Check ZFS snapshots: zfs list -t snapshot")
                 console.print(f"  2. Rollback manually: zfs rollback <dataset>@tengil-pre-apply-*")
                 console.print("  3. Check backups: ls /var/lib/tengil/backups/")
         else:
-            console.print("[yellow]No checkpoint available for automatic rollback[/yellow]")
+            print_warning(console, "No checkpoint available for automatic rollback")
             if verbose:
                 console.print_exception()
 
@@ -1370,6 +1329,9 @@ def doctor(
 compose_app = typer.Typer(help="Docker Compose integration tools")
 app.add_typer(compose_app, name="compose")
 
+env_app = typer.Typer(help="Manage container environment variables")
+app.add_typer(env_app, name="env")
+
 
 @compose_app.command("analyze")
 def compose_analyze(
@@ -1613,6 +1575,149 @@ def compose_resolve(
             logger.exception("Compose resolution failed")
         raise typer.Exit(1)
 
+
+@env_app.command("list")
+def env_list(
+    container: str = typer.Argument(..., help="Container name or VMID"),
+    config: Optional[str] = typer.Option(None, "--config", "-c", help="Config file path"),
+    show_values: bool = typer.Option(False, "--show-values", help="Show environment variable values")
+):
+    """List environment variables for a container."""
+    from tengil.cli_support import resolve_container
+
+    orchestrator = ContainerOrchestrator(mock=is_mock())
+
+    # Resolve container target
+    vmid, display_name = resolve_container(container, orchestrator, console)
+
+    console.print(f"[cyan]Environment variables for {display_name} (vmid {vmid}):[/cyan]")
+
+    # Get environment from container
+    if show_values:
+        cmd = "printenv | sort | grep -v -E '(TOKEN|PASSWORD|SECRET|KEY)=' || true"
+    else:
+        cmd = "printenv | cut -d= -f1 | sort"
+
+    exit_code = orchestrator.exec_container_command(
+        vmid=vmid,
+        command=["bash", "-c", cmd]
+    )
+
+@env_app.command("set")
+def env_set(
+    container: str = typer.Argument(..., help="Container name or VMID"),
+    variable: str = typer.Argument(..., help="Environment variable name"),
+    value: str = typer.Argument(..., help="Environment variable value"),
+    config: Optional[str] = typer.Option(None, "--config", "-c", help="Config file path"),
+    restart_service: Optional[str] = typer.Option(None, "--restart", help="Service to restart after setting variable")
+):
+    """Set an environment variable in a container."""
+    from tengil.cli_support import resolve_container, print_success, print_error
+
+    orchestrator = ContainerOrchestrator(mock=is_mock())
+
+    # Resolve container target
+    vmid, display_name = resolve_container(container, orchestrator, console)
+
+    console.print(f"[cyan]Setting {variable} in {display_name}...[/cyan]")
+
+    # Create or update .env file
+    update_cmd = f"""
+    ENV_FILE="/app/.env"
+    if [ ! -f "$ENV_FILE" ]; then
+        touch "$ENV_FILE"
+        chmod 600 "$ENV_FILE"
+    fi
+
+    # Remove existing variable if present
+    grep -v "^{variable}=" "$ENV_FILE" > "$ENV_FILE.tmp" 2>/dev/null || true
+
+    # Add new variable
+    echo "{variable}={value}" >> "$ENV_FILE.tmp"
+    mv "$ENV_FILE.tmp" "$ENV_FILE"
+
+    echo "✓ Set {variable} in $ENV_FILE"
+    """
+
+    exit_code = orchestrator.exec_container_command(
+        vmid=vmid,
+        command=["bash", "-c", update_cmd]
+    )
+
+    if exit_code == 0:
+        print_success(console, f"Set {variable} in {display_name}")
+
+        # Restart service if requested
+        if restart_service:
+            console.print(f"[cyan]Restarting {restart_service}...[/cyan]")
+            restart_exit = orchestrator.exec_container_command(
+                vmid=vmid,
+                command=["systemctl", "restart", restart_service]
+            )
+            if restart_exit == 0:
+                print_success(console, f"Restarted {restart_service}")
+            else:
+                print_error(console, f"Failed to restart {restart_service}")
+    else:
+        print_error(console, f"Failed to set {variable}")
+        raise typer.Exit(1)
+
+@env_app.command("sync")
+def env_sync(
+    container: str = typer.Argument(..., help="Container name or VMID"),
+    env_file: str = typer.Argument(..., help="Local .env file to sync"),
+    config: Optional[str] = typer.Option(None, "--config", "-c", help="Config file path"),
+    restart_service: Optional[str] = typer.Option(None, "--restart", help="Service to restart after sync")
+):
+    """Sync local .env file to container."""
+    from pathlib import Path
+    from tengil.cli_support import resolve_container, print_success, print_error
+
+    env_path = Path(env_file)
+    if not env_path.exists():
+        print_error(console, f"Environment file not found: {env_file}")
+        raise typer.Exit(1)
+
+    orchestrator = ContainerOrchestrator(mock=is_mock())
+
+    # Resolve container target
+    vmid, display_name = resolve_container(container, orchestrator, console)
+
+    console.print(f"[cyan]Syncing {env_file} to {display_name}...[/cyan]")
+
+    # Read local env file
+    env_content = env_path.read_text()
+
+    # Write to container
+    write_cmd = f"""
+    cat > /app/.env << 'EOF'
+{env_content}EOF
+    chmod 600 /app/.env
+    echo "✓ Synced environment file"
+    """
+
+    exit_code = orchestrator.exec_container_command(
+        vmid=vmid,
+        command=["bash", "-c", write_cmd]
+    )
+
+    if exit_code == 0:
+        print_success(console, f"Synced environment to {display_name}")
+
+        # Restart service if requested
+        if restart_service:
+            console.print(f"[cyan]Restarting {restart_service}...[/cyan]")
+            restart_exit = orchestrator.exec_container_command(
+                vmid=vmid,
+                command=["systemctl", "restart", restart_service]
+            )
+            if restart_exit == 0:
+                print_success(console, f"Restarted {restart_service}")
+            else:
+                print_error(console, f"Failed to restart {restart_service}")
+    else:
+        print_error(console, "Failed to sync environment")
+        raise typer.Exit(1)
 
 @app.command()
 def version():

@@ -37,8 +37,7 @@ class TestContainerMountFormats:
     def test_correct_container_format(self, temp_dir):
         """Standard format with 'name' and 'mount' - Proxmox terminology."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -70,8 +69,7 @@ class TestContainerMountFormats:
     def test_container_mount_path_validation(self, temp_dir):
         """Mount paths must be absolute and follow Linux standards."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -98,8 +96,7 @@ class TestContainerMountFormats:
     def test_deprecated_container_path_field(self, temp_dir):
         """Old 'path' field should warn and auto-convert to 'mount'."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -139,8 +136,7 @@ class TestContainerMountFormats:
     def test_deprecated_container_id_field(self, temp_dir):
         """Old 'id' field should show clear error - we need container name."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -172,8 +168,7 @@ class TestContainerMountFormats:
     def test_container_string_shorthand(self, temp_dir):
         """String shorthand 'container:/mount' should work - YAML idiomatic."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -198,7 +193,83 @@ class TestContainerMountFormats:
         # String format should be preserved (handled by code at runtime)
         containers = result['pools']['tank']['datasets']['media']['containers']
         assert containers[0] == 'jellyfin:/media'
-        assert containers[1] == 'plex:/media'
+
+    def test_container_with_pool_field(self, temp_dir):
+        """Containers can declare Proxmox resource pool."""
+        config = {
+                        'pools': {
+                'tank': {
+                    'datasets': {
+                        'media': {
+                            'profile': 'media',
+                            'containers': [
+                                {
+                                    'name': 'jellyfin',
+                                    'mount': '/media',
+                                    'pool': 'production',
+                                    'privileged': True,
+                                    'description': 'Media server',
+                                    'tags': ['media', 'auto-managed']
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+
+        config_path = temp_dir / "tengil.yml"
+        with open(config_path, 'w') as f:
+            yaml.dump(config, f)
+
+        loader = ConfigLoader(config_path)
+        result = loader.load()
+
+        containers = result['pools']['tank']['datasets']['media']['containers']
+        assert containers[0]['pool'] == 'production'
+        assert containers[0]['privileged'] is True
+        assert containers[0]['description'] == 'Media server'
+        assert containers[0]['tags'] == ['media', 'auto-managed']
+
+    def test_container_startup_fields(self, temp_dir):
+        """Containers can declare startup order/delay."""
+        config = {
+            'pools': {
+                'tank': {
+                    'datasets': {
+                        'media': {
+                            'profile': 'media',
+                            'containers': [
+                                {
+                                    'name': 'jellyfin',
+                                    'mount': '/media',
+                                    'startup_order': 1,
+                                    'startup_delay': 30
+                                },
+                                {
+                                    'name': 'plex',
+                                    'mount': '/media',
+                                    'startup': 'order=5,down=60'
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+
+        config_path = temp_dir / "tengil.yml"
+        with open(config_path, 'w') as f:
+            yaml.dump(config, f)
+
+        loader = ConfigLoader(config_path)
+        result = loader.load()
+
+        containers = result['pools']['tank']['datasets']['media']['containers']
+        assert containers[0]['startup_order'] == 1
+        assert containers[0]['startup_delay'] == 30
+        assert 'startup' not in containers[0]
+        assert containers[1]['startup'] == 'order=5,down=60'
 
 
 class TestSMBShareFormats:
@@ -213,8 +284,7 @@ class TestSMBShareFormats:
     def test_correct_smb_format(self, temp_dir):
         """Standard SMB format following Samba conventions."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -248,8 +318,7 @@ class TestSMBShareFormats:
     def test_deprecated_smb_path_parameter(self, temp_dir):
         """SMB 'path' parameter is wrong - it's auto-calculated from dataset."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -288,8 +357,7 @@ class TestSMBShareFormats:
     def test_smb_list_format_rejected(self, temp_dir):
         """SMB as list is invalid - should be dict."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -317,8 +385,7 @@ class TestSMBShareFormats:
     def test_smb_at_dataset_level_deprecated(self, temp_dir):
         """SMB should be under 'shares:', not at dataset level."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -365,8 +432,7 @@ class TestNFSExportFormats:
     def test_correct_nfs_format(self, temp_dir):
         """Standard NFS format following /etc/exports conventions."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -397,8 +463,7 @@ class TestNFSExportFormats:
     def test_nfs_boolean_shorthand(self, temp_dir):
         """NFS: true is valid shorthand for default export."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -425,8 +490,7 @@ class TestNFSExportFormats:
     def test_nfs_wildcard_allowed(self, temp_dir):
         """NFS can use '*' for all hosts - standard NFS syntax."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -479,8 +543,7 @@ class TestZFSDatasetNaming:
 
         for dataset_name in valid_names:
             config = {
-                'version': 2,
-                'pools': {
+                                'pools': {
                     'tank': {
                         'datasets': {
                             dataset_name: {'profile': 'media'}
@@ -512,8 +575,7 @@ class TestZFSDatasetNaming:
 
         for dataset_name, reason in invalid_cases:
             config = {
-                'version': 2,
-                'pools': {
+                                'pools': {
                     'tank': {
                         'datasets': {
                             dataset_name: {'profile': 'media'}
@@ -549,8 +611,7 @@ class TestProxmoxPoolNaming:
 
         for pool_name in valid_names:
             config = {
-                'version': 2,
-                'pools': {
+                                'pools': {
                     pool_name: {
                         'datasets': {'test': {'profile': 'media'}}
                     }
@@ -577,8 +638,7 @@ class TestProxmoxPoolNaming:
 
         for pool_name, reason in invalid_cases:
             config = {
-                'version': 2,
-                'pools': {
+                                'pools': {
                     pool_name: {
                         'datasets': {'test': {'profile': 'media'}}
                     }
@@ -607,8 +667,7 @@ class TestPermissionsFormat:
     def test_correct_permissions_format(self, temp_dir):
         """Standard Linux permissions format."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -639,8 +698,7 @@ class TestPermissionsFormat:
     def test_numeric_uid_gid(self, temp_dir):
         """Numeric UID/GID are valid."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {
@@ -674,8 +732,7 @@ class TestBackwardsCompatibility:
     def test_multiple_deprecations_all_warned(self, temp_dir):
         """Config with multiple deprecated formats shows all warnings."""
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'datasets': {
                         'media': {

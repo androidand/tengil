@@ -29,7 +29,6 @@ One YAML file. Storage + containers + shares.
 
 ```yaml
 # tengil.yml
-version: 2
 pools:
   tank:
     datasets:
@@ -254,8 +253,7 @@ State tracked in `.tengil.state.json`. Version control with git.
 Use upstream compose files + add Tengil's storage optimization:
 
 ```yaml
-# Old way: Maintain 200+ line package
-# New way: Reference upstream + add hints (50 lines)
+# Reference upstream + add hints (50 lines)
 
 docker_compose:
   cache: "compose_cache/immich/docker-compose.yml"  # Curated
@@ -270,7 +268,7 @@ storage_hints:
 **Why this matters**:
 - ✅ Upstream maintains compose (not you)
 - ✅ Tengil adds ZFS optimization (what compose can't do)
-- ✅ 75% less YAML to write
+- ✅ Minimal YAML to write
 - ✅ Works with any Docker Compose app
 
 ---
@@ -322,10 +320,44 @@ tg packages list           # Browse 13 preset packages
 tg init --package X        # Generate tengil.yml
 tg diff                    # Preview changes (terraform plan)
 tg apply                   # Deploy to Proxmox (terraform apply)
-tg compose analyze FILE    # Analyze Docker Compose files
 ```
 
-**15 commands available:** packages, init, diff, apply, compose, discover, doctor, import, install, rollback, snapshot, suggest, templates, version
+**Container Management:**
+```bash
+tg container exec jellyfin ls /media    # Execute commands in containers
+tg container shell jellyfin             # Open interactive shell
+```
+
+**Docker Compose Integration:**
+```bash
+tg compose analyze ./docker-compose.yml # Analyze compose files
+tg compose validate ./compose.yml       # Validate for Tengil compatibility
+tg compose resolve immich               # Test package compose resolution
+```
+
+**App Repository Management:**
+```bash
+tg app sync jellyfin https://github.com/user/config  # Sync git repos to containers
+tg app list jellyfin                                  # List app manifests
+```
+
+**Discovery & Analysis:**
+```bash
+tg discover --containers               # List LXC containers
+tg discover --docker-containers        # List Docker containers
+tg discover datasets --pool tank       # Discover existing ZFS datasets
+tg doctor                              # System hardware/software info
+```
+
+**Infrastructure Management:**
+```bash
+tg import tank                         # Import existing infrastructure
+tg snapshot --name backup              # Create ZFS snapshots
+tg rollback dataset --to snapshot      # Rollback to snapshot
+tg suggest media                       # Suggest containers for dataset types
+```
+
+**25+ commands available across 8 command groups:** packages, init, diff, apply, container, app, compose, discover, import, snapshot, rollback, suggest, install, templates, doctor, version
 
 📖 **[Complete CLI Reference →](docs/USER_GUIDE.md#configuration)** - All commands, flags, and examples
 
@@ -336,7 +368,6 @@ tg compose analyze FILE    # Analyze Docker Compose files
 **Simple media server:**
 
 ```yaml
-version: 2
 pools:
   tank:
     datasets:
@@ -360,7 +391,6 @@ pools:
 **With Docker Compose:**
 
 ```yaml
-version: 2
 pools:
   tank:
     datasets:

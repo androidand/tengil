@@ -9,7 +9,6 @@ from tengil.models.config import ConfigValidationError
 def test_parse_consumers_basic():
     """Test basic consumers parsing."""
     config_content = """
-version: 2
 mode: converged-nas
 
 pools:
@@ -60,7 +59,6 @@ pools:
 def test_parse_consumers_write_access():
     """Test consumers with write access."""
     config_content = """
-version: 2
 mode: converged-nas
 
 pools:
@@ -102,7 +100,6 @@ pools:
 def test_parse_consumers_mixed_access():
     """Test dataset with both read and write consumers."""
     config_content = """
-version: 2
 mode: converged-nas
 
 pools:
@@ -154,7 +151,6 @@ pools:
 def test_parse_consumers_custom_mount():
     """Test consumer with custom mount path."""
     config_content = """
-version: 2
 mode: converged-nas
 
 pools:
@@ -190,7 +186,6 @@ pools:
 def test_parse_consumers_missing_type():
     """Test consumer validation - missing type."""
     config_content = """
-version: 2
 mode: converged-nas
 
 pools:
@@ -218,7 +213,6 @@ pools:
 def test_parse_consumers_missing_access():
     """Test consumer validation - missing access."""
     config_content = """
-version: 2
 mode: converged-nas
 
 pools:
@@ -246,7 +240,6 @@ pools:
 def test_parse_consumers_invalid_access():
     """Test consumer validation - invalid access level."""
     config_content = """
-version: 2
 mode: converged-nas
 
 pools:
@@ -275,7 +268,6 @@ pools:
 def test_parse_consumers_nfs():
     """Test NFS consumer parsing."""
     config_content = """
-version: 2
 mode: converged-nas
 
 pools:
@@ -313,7 +305,6 @@ pools:
 def test_consumers_and_manual_config_coexist():
     """Test that consumers can coexist with manual container/share config."""
     config_content = """
-version: 2
 mode: converged-nas
 
 pools:

@@ -279,7 +279,27 @@ class PackageLoader:
             rendered_yaml = template.render(**render_context)
 
             # Parse rendered YAML back to dict
-            config = yaml.safe_load(rendered_yaml)
+            config = yaml.safe_load(rendered_yaml) or {}
+
+            # Normalize structure: some templates omit explicit indentation
+            # causing pool definitions to be emitted at the top level with
+            # `pools: null`. In that case, move those pool entries under the
+            # pools mapping so downstream code receives the expected shape.
+            if isinstance(config, dict):
+                # Ensure version metadata exists for downstream tooling.
+                config.setdefault('version', 2)
+                pools_value = config.get('pools')
+                if pools_value is None:
+                    pool_entries: Dict[str, Any] = {}
+                    for key in list(config.keys()):
+                        if key == 'pools':  # keep sentinel for later replacement
+                            continue
+                        value = config[key]
+                        if isinstance(value, dict) and ('datasets' in value or 'type' in value):
+                            pool_entries[key] = config.pop(key)
+                    if pool_entries:
+                        config['pools'] = pool_entries
+
             return config
 
         except TemplateError as e:

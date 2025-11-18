@@ -25,8 +25,7 @@ class TestDeepNesting:
         """Test tank/media/music/flac/classical paths."""
         config_path = temp_dir / "tengil.yml"
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'type': 'zfs',
                     'datasets': {
@@ -63,8 +62,7 @@ class TestDeepNesting:
         """Test that nested datasets work with container mounts."""
         config_path = temp_dir / "tengil.yml"
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'type': 'zfs',
                     'datasets': {
@@ -113,8 +111,7 @@ class TestPoolAddRemove:
         
         # Start with one pool
         config_v1 = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'type': 'zfs',
                     'datasets': {
@@ -134,8 +131,7 @@ class TestPoolAddRemove:
         
         # Now add a second pool
         config_v2 = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'type': 'zfs',
                     'datasets': {
@@ -181,8 +177,7 @@ class TestDatasetMigration:
         
         # Original: media on tank
         config_old = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'type': 'zfs',
                     'datasets': {
@@ -208,8 +203,7 @@ class TestDatasetMigration:
         
         # New: media on fastpool (user migrated with zfs send/recv)
         config_new = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'fastpool': {
                     'type': 'zfs',
                     'datasets': {
@@ -260,8 +254,7 @@ class TestRestructuring:
         
         # Original: flat structure
         config_old = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'type': 'zfs',
                     'datasets': {
@@ -278,8 +271,7 @@ class TestRestructuring:
         
         # New: deeper structure
         config_new = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'type': 'zfs',
                     'datasets': {
@@ -316,8 +308,7 @@ class TestMultiPoolDiff:
         """Test detecting changes in multiple pools simultaneously."""
         config_path = temp_dir / "tengil.yml"
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'rpool': {
                     'type': 'zfs',
                     'datasets': {
@@ -365,8 +356,7 @@ class TestEdgeCases:
         """Test pool with no datasets."""
         config_path = temp_dir / "tengil.yml"
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'type': 'zfs',
                     'datasets': {}
@@ -387,8 +377,7 @@ class TestEdgeCases:
         """Test that single character names work."""
         config_path = temp_dir / "tengil.yml"
         config = {
-            'version': 2,
-            'pools': {
+                        'pools': {
                 'tank': {
                     'type': 'zfs',
                     'datasets': {

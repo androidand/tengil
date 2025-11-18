@@ -41,11 +41,12 @@ class MultiPoolValidator:
                 for dataset_name, dataset_config in pool_config['datasets'].items():
                     if 'containers' in dataset_config and dataset_config['containers']:
                         dataset_path = f"{pool_name}/{dataset_name}"
-                        container_errors = self._validate_container_specs(
+                        container_errors, container_warnings = self._validate_container_specs(
                             dataset_config['containers'],
                             dataset_path
                         )
                         errors.extend(container_errors)
+                        warnings.extend(container_warnings)
 
                 # Collect all dataset names
                 all_dataset_names.extend(
@@ -162,17 +163,18 @@ class MultiPoolValidator:
 
         return warnings
 
-    def _validate_container_specs(self, containers: List, dataset_path: str) -> List[str]:
+    def _validate_container_specs(self, containers: List, dataset_path: str) -> tuple[List[str], List[str]]:
         """Validate container specifications.
-        
+
         Args:
             containers: List of container configurations
             dataset_path: Pool/dataset path for error messages
-            
+
         Returns:
-            List of validation errors
+            Tuple of (errors, warnings)
         """
         errors = []
+        warnings = []
         
         for idx, container in enumerate(containers):
             # String format: validate and continue
@@ -225,24 +227,40 @@ class MultiPoolValidator:
                         )
                     else:
                         # Check memory (MB)
-                        if 'memory' in res and not isinstance(res['memory'], int):
-                            errors.append(
-                                f"Container {idx} in '{dataset_path}': resources.memory must be integer (MB)"
-                            )
+                        if 'memory' in res:
+                            memory_value = res['memory']
+                            if not isinstance(memory_value, int) and not self._is_template_value(memory_value):
+                                errors.append(
+                                    f"Container {idx} in '{dataset_path}': resources.memory must be integer (MB)"
+                                )
                         # Check cores
-                        if 'cores' in res and not isinstance(res['cores'], int):
-                            errors.append(
-                                f"Container {idx} in '{dataset_path}': resources.cores must be integer"
-                            )
+                        if 'cores' in res:
+                            cores_value = res['cores']
+                            if not isinstance(cores_value, int) and not self._is_template_value(cores_value):
+                                errors.append(
+                                    f"Container {idx} in '{dataset_path}': resources.cores must be integer"
+                                )
                         # Check disk format
                         if 'disk' in res:
-                            disk = str(res['disk'])
-                            if not re.match(r'^\d+[GMgm]$', disk):
-                                errors.append(
-                                    f"Container {idx} in '{dataset_path}': resources.disk must be like '8G' or '512M'"
-                                )
-        
-        return errors
+                            disk_value = res['disk']
+                            if not self._is_template_value(disk_value):
+                                disk = str(disk_value)
+                                if not re.match(r'^\d+[GMgm]$', disk):
+                                    errors.append(
+                                        f"Container {idx} in '{dataset_path}': resources.disk must be like '8G' or '512M'"
+                                    )
+
+            # Check for privileged containers (security warning)
+            if container.get('privileged'):
+                container_name = container.get('name', f"container {idx}")
+                warnings.append(
+                    f"⚠️  SECURITY WARNING: Container '{container_name}' in '{dataset_path}' is PRIVILEGED!\n"
+                    f"    Privileged containers have full root access to the host system.\n"
+                    f"    Only use privileged containers when absolutely necessary (e.g., Docker-in-LXC).\n"
+                    f"    Consider using unprivileged containers with specific capabilities instead."
+                )
+
+        return errors, warnings
 
     def _check_hardlink_issues(self, pools: Dict) -> List[str]:
         """Check for potential cross-pool hardlink issues."""
@@ -308,3 +326,12 @@ class MultiPoolValidator:
                     )
 
         return warnings
+
+    @staticmethod
+    def _is_template_value(value: Any) -> bool:
+        """Return True when value looks like a Jinja placeholder."""
+        if not isinstance(value, str):
+            return False
+
+        stripped = value.strip()
+        return stripped.startswith('{{') and stripped.endswith('}}')

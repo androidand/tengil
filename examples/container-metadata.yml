@@ -1,0 +1,192 @@
+# Example: Using Container Description and Tags for Organization
+#
+# This example demonstrates how to use description and tags to organize
+# and document your containers in Proxmox.
+
+
+pools:
+  tank:
+    type: zfs
+    datasets:
+      # Media server with detailed documentation
+      media-production:
+        profile: media
+        containers:
+          - name: jellyfin
+            auto_create: true
+            template: debian-12-standard
+            mount: /media
+            pool: production
+            description: "Jellyfin media server - Movies, TV shows, and music streaming"
+            tags:
+              - media
+              - production
+              - streaming
+              - auto-managed
+            resources:
+              memory: 8192
+              cores: 4
+              disk: 32G
+            network:
+              ip: 192.168.1.50/24
+              gateway: 192.168.1.1
+
+          - name: plex
+            auto_create: true
+            template: ubuntu-22.04-standard
+            mount: /media
+            pool: production
+            description: "Plex Media Server - Alternative streaming platform"
+            tags: [media, production, streaming]
+            resources:
+              memory: 4096
+              cores: 2
+            network:
+              ip: dhcp
+
+      # Photo management
+      photos:
+        profile: media
+        containers:
+          - name: immich
+            auto_create: true
+            template: debian-12-standard
+            mount: /photos
+            pool: production
+            description: "Immich - Self-hosted photo and video backup"
+            tags:
+              - photos
+              - production
+              - backup
+              - auto-managed
+            resources:
+              memory: 4096
+              cores: 2
+              disk: 16G
+            network:
+              ip: 192.168.1.51/24
+
+      # Development environments
+      dev-workspace:
+        profile: dev
+        containers:
+          - name: dev-node
+            auto_create: true
+            template: debian-12-standard
+            mount: /workspace
+            pool: development
+            description: "Node.js development environment"
+            tags:
+              - development
+              - nodejs
+              - testing
+            resources:
+              memory: 2048
+              cores: 2
+
+          - name: dev-python
+            auto_create: true
+            template: debian-12-standard
+            mount: /workspace
+            pool: development
+            description: "Python development environment with ML libraries"
+            tags:
+              - development
+              - python
+              - machine-learning
+            resources:
+              memory: 4096
+              cores: 4
+
+      # Docker hosts (privileged containers)
+      docker-hosts:
+        profile: dev
+        containers:
+          - name: docker-prod
+            auto_create: true
+            template: debian-12-standard
+            mount: /docker
+            pool: production
+            privileged: true  # Required for Docker-in-LXC
+            description: "Production Docker host for containerized services"
+            tags:
+              - docker
+              - production
+              - privileged
+              - auto-managed
+            resources:
+              memory: 16384
+              cores: 8
+              disk: 128G
+            network:
+              ip: 192.168.1.60/24
+
+          - name: docker-staging
+            auto_create: true
+            template: debian-12-standard
+            mount: /docker
+            pool: staging
+            privileged: true
+            description: "Staging Docker host for testing deployments"
+            tags: [docker, staging, privileged]
+            resources:
+              memory: 8192
+              cores: 4
+
+      # Database servers
+      databases:
+        profile: database
+        containers:
+          - name: postgres-main
+            auto_create: true
+            template: debian-12-standard
+            mount: /var/lib/postgresql
+            pool: production
+            description: "PostgreSQL 15 - Main production database"
+            tags:
+              - database
+              - postgresql
+              - production
+              - critical
+            resources:
+              memory: 8192
+              cores: 4
+              disk: 64G
+            network:
+              ip: 192.168.1.70/24
+
+          - name: redis-cache
+            auto_create: true
+            template: debian-12-standard
+            mount: /data
+            pool: production
+            description: "Redis - In-memory cache and session store"
+            tags:
+              - database
+              - redis
+              - cache
+              - production
+            resources:
+              memory: 4096
+              cores: 2
+
+# Tag Organization Strategy:
+#
+# - Environment: production, staging, development, testing
+# - Service Type: media, database, cache, web, api, worker
+# - Technology: docker, nodejs, python, postgresql, redis
+# - Status: auto-managed, manual, critical, experimental
+# - Features: privileged, backup, monitoring
+#
+# Tags appear in Proxmox UI and can be used for filtering/searching.
+# They help with:
+# - Visual organization in the web UI
+# - Batch operations (e.g., "restart all staging containers")
+# - Permission management with resource pools
+# - Documentation and onboarding
+#
+# Description shows in:
+# - Container summary view
+# - Container list tooltips
+# - API responses
+# - Makes it easy to understand what each container does without checking configs

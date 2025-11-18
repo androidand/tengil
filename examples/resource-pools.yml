@@ -1,0 +1,119 @@
+# Example: Using Resource Pools for Container Organization
+#
+# This example demonstrates how to assign containers to Proxmox resource pools
+# for better organization and permission management.
+#
+# Resource pools in Proxmox are organizational units used primarily for:
+# - Grouping related containers/VMs
+# - Managing permissions (assign users/groups access to entire pool)
+# - Organizing multi-tenant environments
+#
+# Note: Resource pools must exist in Proxmox before assigning containers.
+# Create pools in Proxmox UI: Datacenter → Permissions → Pools → Create
+
+
+pools:
+  tank:
+    type: zfs
+    datasets:
+      # Production containers (production pool)
+      production-media:
+        profile: media
+        containers:
+          - name: jellyfin-prod
+            auto_create: true
+            template: debian-12-standard
+            mount: /media
+            pool: production  # ← Assign to production pool
+            resources:
+              memory: 8192
+              cores: 4
+            network:
+              ip: 192.168.1.100/24
+              gateway: 192.168.1.1
+            post_install:
+              - docker
+              - tteck/jellyfin
+
+      production-photos:
+        profile: media
+        containers:
+          - name: immich-prod
+            auto_create: true
+            template: debian-12-standard
+            mount: /photos
+            resources:
+              memory: 8192
+              cores: 4
+              pool: production  # ← Pool in resources dict
+            post_install:
+              - docker
+
+      # Staging containers (staging pool)
+      staging-media:
+        profile: media
+        containers:
+          - name: jellyfin-staging
+            auto_create: true
+            template: debian-12-standard
+            mount: /media
+            pool: staging  # ← Assign to staging pool
+            resources:
+              memory: 2048
+              cores: 2
+            network:
+              ip: 192.168.1.200/24
+
+      # Development containers (dev pool)
+      dev-workspace:
+        profile: dev
+        containers:
+          - name: dev-jupyter
+            auto_create: true
+            template: ubuntu-22.04-standard
+            mount: /notebooks
+            pool: development  # ← Assign to dev pool
+            resources:
+              memory: 4096
+              cores: 2
+
+      # No pool assigned (default - no pool)
+      shared-storage:
+        profile: dev
+        containers:
+          - name: file-browser
+            auto_create: true
+            template: debian-12-standard
+            mount: /data
+            # No pool specified - container created without pool assignment
+            resources:
+              memory: 1024
+              cores: 1
+
+# Alternative: All containers in same pool can be managed together
+# Example workflow:
+#
+# 1. Create pools in Proxmox:
+#    Datacenter → Permissions → Pools → Create:
+#      - production (for prod workloads)
+#      - staging (for testing)
+#      - development (for dev work)
+#
+# 2. Set pool permissions:
+#    Datacenter → Permissions → Add → User Permission:
+#      - Path: /pool/production
+#      - User: ops-team
+#      - Role: PVEVMAdmin
+#
+# 3. Deploy with Tengil:
+#    tg diff
+#    tg apply
+#
+# 4. Verify pool assignment:
+#    pct config 100 | grep pool
+#
+# Result:
+# - Production team has full access to production pool (containers 100, 101)
+# - Staging team has access to staging pool (container 200)
+# - Dev team has access to development pool (container 300)
+# - Shared container (400) accessible to all (no pool)

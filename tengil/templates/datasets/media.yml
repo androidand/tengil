@@ -2,22 +2,19 @@ description: General media storage (audiobooks, podcasts, mixed content) with SM
 
 media:
   profile: media
-  containers:
-    - name: jellyfin
+  consumers:
+    - type: container
+      name: jellyfin
+      access: read
       mount: /media
-      readonly: true
-    - name: plex
-      mount: /media
-      readonly: true
-  shares:
-    smb:
-      name: "Media"
-      guest_ok: true
-      browseable: true
-    nfs:
-      allowed: "192.168.1.0/24"
-      options: "ro,sync,no_subtree_check"
-  permissions:
-    uid: nobody
-    gid: users
-    mode: "0755"
+      auto_create: true
+      template: debian-12-standard
+      resources:
+        memory: 2048
+        cores: 2
+    - type: smb
+      name: Media
+      access: read
+    - type: nfs
+      name: media_export
+      access: read
