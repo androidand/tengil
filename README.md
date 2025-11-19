@@ -10,9 +10,12 @@
 
 One YAML file. Storage + containers + shares.
 
-[![Tests](https://img.shields.io/badge/tests-345%2F346%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-527%20passing-brightgreen)]()
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)]()
+[![Status](https://img.shields.io/badge/status-beta-orange)]()
 [![License](https://img.shields.io/badge/license-MIT-blue)]()
+
+⚠️ **Beta Status:** Storage + shares production-ready. Container auto-creation experimental. [See status](#feature-status)
 
 [Quick Start](#quick-start-2-minutes) •
 [Packages](#available-packages) •
@@ -144,6 +147,28 @@ tg apply
 ```
 
 **Result**: ZFS datasets + SMB shares ready to use.
+
+### Recommended Git Workflow
+
+Tengil works best when your config lives in Git:
+
+```bash
+cd ~/tengil-configs
+git init
+git add tengil.yml
+git commit -m "Initial Tengil config"
+
+# Typical daily flow
+tg scan                         # capture current reality snapshot
+$EDITOR tengil.yml              # make changes
+git commit -am "Add jellyfin datasets"
+tg verify                      # validate config + host resources
+tg plan                         # alias of tg diff
+tg apply                        # apply with drift safeguards
+git push
+```
+
+Run `tg scan` whenever you change things in the Proxmox GUI so drift reports stay accurate.
 
 📖 **[Full Installation Guide](docs/USER_GUIDE.md#installation)** - Multiple install modes, SSH setup, troubleshooting  
 📖 **[Mac/Windows Mounting](docs/USER_GUIDE.md#accessing-shares-from-mac)** - Connect to your shares
@@ -318,14 +343,27 @@ storage_hints:
 ```bash
 tg packages list           # Browse 13 preset packages
 tg init --package X        # Generate tengil.yml
+tg plan                    # Alias of diff (terraform plan naming)
 tg diff                    # Preview changes (terraform plan)
 tg apply                   # Deploy to Proxmox (terraform apply)
 ```
+
+**Hybrid (GUI + YAML) workflows:**
+```bash
+tg scan                    # Capture current reality snapshot (ZFS + containers)
+tg diff                    # Show plan plus drift summary vs. last scan
+tg apply --prefer-gui      # Apply YAML but keep GUI changes (update desired state)
+tg apply --no-drift-auto-merge  # Force confirmations for every drift item
+```
+
+Auto-created containers also undergo a resource sanity check: `tg diff`/`tg apply` warn (or abort) if requested RAM/cores exceed the host capacity detected from Proxmox.
 
 **Container Management:**
 ```bash
 tg container exec jellyfin ls /media    # Execute commands in containers
 tg container shell jellyfin             # Open interactive shell
+tg container update jellyfin            # Update packages (apt update && upgrade)
+tg container start/stop/restart jellyfin  # Lifecycle management
 ```
 
 **Docker Compose Integration:**

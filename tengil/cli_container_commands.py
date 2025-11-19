@@ -148,4 +148,37 @@ def register_container_commands(root: typer.Typer, console: Console) -> None:
             print_error(console, f"Failed to restart {resolved.name}")
             raise typer.Exit(1)
 
+    @ContainerTyper.command("update")
+    def update_command(
+        target: str = typer.Argument(..., help="Container target (name, vmid, or pool/dataset:name)."),
+        no_upgrade: bool = typer.Option(False, "--no-upgrade", help="Only run apt update, skip apt upgrade."),
+        config: Optional[str] = typer.Option(None, "--config", "-c", help="Explicit Tengil config for dataset resolution."),
+    ) -> None:
+        """Update packages in a container (apt update && apt upgrade).
+
+        By default, runs both apt update and apt upgrade.
+        Use --no-upgrade to only update package lists without upgrading.
+        """
+        from tengil.cli_support import print_success, print_error
+
+        try:
+            resolved = resolve_container_target(target, config_path=config)
+        except ContainerResolutionError as exc:
+            console.print(f"[red]Error:[/red] {exc}")
+            raise typer.Exit(2) from exc
+
+        upgrade = not no_upgrade
+        action = "Updating and upgrading" if upgrade else "Updating"
+        console.print(f"[dim]{action} packages in {resolved.name} (VMID {resolved.vmid})...[/dim]")
+
+        lifecycle = ContainerLifecycle(mock=is_mock())
+        success = lifecycle.update_container(resolved.vmid, upgrade=upgrade)
+
+        if success:
+            msg = f"Updated and upgraded {resolved.name}" if upgrade else f"Updated package lists in {resolved.name}"
+            print_success(console, msg)
+        else:
+            print_error(console, f"Failed to update {resolved.name}")
+            raise typer.Exit(1)
+
     root.add_typer(ContainerTyper, name="container")

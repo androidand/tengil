@@ -414,3 +414,47 @@ class ContainerLifecycle:
             True if container exists
         """
         return self.discovery.container_exists(vmid)
+
+    def update_container(self, vmid: int, upgrade: bool = True) -> bool:
+        """Update packages in a container (apt update && apt upgrade).
+
+        Args:
+            vmid: Container VMID
+            upgrade: If True, run apt upgrade. If False, only apt update.
+
+        Returns:
+            True if update successful
+        """
+        if self.mock:
+            logger.info(f"MOCK: Would update container {vmid}")
+            return True
+
+        logger.info(f"Updating container {vmid}...")
+
+        # Build update command
+        if upgrade:
+            cmd = [
+                'pct', 'exec', str(vmid), '--',
+                'bash', '-c',
+                'apt-get update && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y'
+            ]
+        else:
+            cmd = ['pct', 'exec', str(vmid), '--', 'apt-get', 'update']
+
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            logger.info(f"✓ Updated container {vmid}")
+            if result.stdout:
+                logger.debug(result.stdout)
+            return True
+
+        except subprocess.CalledProcessError as e:
+            logger.error(f"✗ Failed to update container {vmid}: {e}")
+            if e.stderr:
+                logger.error(f"Error output: {e.stderr}")
+            return False

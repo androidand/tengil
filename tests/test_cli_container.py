@@ -203,3 +203,79 @@ def test_container_restart_failure(monkeypatch):
     assert result.exit_code == 1
     assert 'Failed to restart' in result.stdout
     monkeypatch.delenv('TG_MOCK', raising=False)
+
+
+def test_container_update_by_name(monkeypatch):
+    """Update container packages by name."""
+    monkeypatch.setenv('TG_MOCK', '1')
+    captured = {}
+
+    def fake_update(self, vmid, upgrade=True):
+        captured['vmid'] = vmid
+        captured['upgrade'] = upgrade
+        return True
+
+    monkeypatch.setattr(ContainerLifecycle, 'update_container', fake_update)
+
+    result = runner.invoke(app, ['container', 'update', 'jellyfin'])
+
+    assert result.exit_code == 0
+    assert captured['vmid'] == 100
+    assert captured['upgrade'] is True  # Default is to upgrade
+    assert 'Updated and upgraded' in result.stdout
+    monkeypatch.delenv('TG_MOCK', raising=False)
+
+
+def test_container_update_no_upgrade(monkeypatch):
+    """Update container with --no-upgrade flag."""
+    monkeypatch.setenv('TG_MOCK', '1')
+    captured = {}
+
+    def fake_update(self, vmid, upgrade=True):
+        captured['vmid'] = vmid
+        captured['upgrade'] = upgrade
+        return True
+
+    monkeypatch.setattr(ContainerLifecycle, 'update_container', fake_update)
+
+    result = runner.invoke(app, ['container', 'update', 'jellyfin', '--no-upgrade'])
+
+    assert result.exit_code == 0
+    assert captured['vmid'] == 100
+    assert captured['upgrade'] is False  # --no-upgrade flag
+    assert 'Updated package lists' in result.stdout
+    monkeypatch.delenv('TG_MOCK', raising=False)
+
+
+def test_container_update_by_vmid(monkeypatch):
+    """Update container packages by VMID."""
+    monkeypatch.setenv('TG_MOCK', '1')
+    captured = {}
+
+    def fake_update(self, vmid, upgrade=True):
+        captured['vmid'] = vmid
+        return True
+
+    monkeypatch.setattr(ContainerLifecycle, 'update_container', fake_update)
+
+    result = runner.invoke(app, ['container', 'update', '101'])
+
+    assert result.exit_code == 0
+    assert captured['vmid'] == 101
+    monkeypatch.delenv('TG_MOCK', raising=False)
+
+
+def test_container_update_failure(monkeypatch):
+    """Handle failed container update."""
+    monkeypatch.setenv('TG_MOCK', '1')
+
+    def fake_update(self, vmid, upgrade=True):
+        return False
+
+    monkeypatch.setattr(ContainerLifecycle, 'update_container', fake_update)
+
+    result = runner.invoke(app, ['container', 'update', 'jellyfin'])
+
+    assert result.exit_code == 1
+    assert 'Failed to update' in result.stdout
+    monkeypatch.delenv('TG_MOCK', raising=False)
