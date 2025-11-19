@@ -79,6 +79,23 @@ export TG_MOCK=1
 .venv/bin/poetry run tg diff
 ```
 
+---
+
+## Drift & Reality Snapshots
+
+Tengil encourages a “hybrid” workflow where GUI/manual tweaks and declarative YAML stay in sync:
+
+1. After making GUI changes (e.g., tweaking mounts in Proxmox), run `tg scan` to capture the new reality snapshot.
+2. `tg diff` always compares your YAML plan plus a drift summary against the last scan, so you know what changed outside Tengil.
+3. `tg apply` supports drift-aware options:
+   - Run `tg verify` before plans/applies if you just want to validate the YAML + host resources without touching anything.
+   - `--prefer-gui`: when safe drift is detected, prefer reality (update YAML) instead of forcing YAML on Proxmox.
+   - `--no-drift-auto-merge`: require interactive confirmation for every drift item, even harmless ones.
+
+When dangerous drift is detected, the CLI highlights it (red section) and prompts before continuing. If you haven’t run `tg scan` since making manual edits, the CLI reminds you to do so.
+
+> Tip: `tg plan` is an alias for `tg diff` for people coming from Terraform. Use whichever name matches your muscle memory.
+
 **Use case:** Quick testing, development, CI/CD  
 **Note:** `/tmp` is cleared on reboot
 

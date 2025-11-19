@@ -189,10 +189,14 @@ class ContainerOrchestrator:
                     if not existing_vmid:
                         # Create new container
                         logger.info(f"Creating container '{container_name}' from template {template}")
+                        # Use pool name from container spec, fallback to tank then local-zfs
+                        # TODO: Pass pool name through dataset context instead of via container spec
+                        storage = container_spec.get('_pool_name') or container_spec.get('pool', 'tank')
                         created_vmid = self.lifecycle.create_container(
                             container_spec,
-                            storage='local-lvm',
-                            pool=container_spec.get('pool')
+                            storage=storage,
+                            pool=container_spec.get('pool'),
+                            template_storage='local'  # Templates are always in 'local' storage
                         )
 
                         if not created_vmid:

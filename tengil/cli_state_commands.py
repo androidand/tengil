@@ -401,7 +401,11 @@ def apply(
 
         # Apply changes using ChangeApplicator
         applicator = ChangeApplicator(zfs, proxmox, nas, state, console)
-        applicator.apply_changes(changes, all_desired)
+        
+        # Debug: show what we're passing
+        console.print(f"\n[dim]Debug: changes={len(changes)}, container_changes={len(engine.container_changes) if engine.container_changes else 0}[/dim]")
+        
+        applicator.apply_changes(changes, all_desired, container_changes=engine.container_changes)
 
         # Show state summary
         stats = state.get_stats()

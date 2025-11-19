@@ -22,7 +22,8 @@ class ContainerLifecycle:
         self,
         spec: Dict,
         storage: str = 'local-lvm',
-        pool: Optional[str] = None
+        pool: Optional[str] = None,
+        template_storage: str = 'local'
     ) -> Optional[int]:
         """Create a new LXC container.
 
@@ -33,6 +34,9 @@ class ContainerLifecycle:
                 - template: Template name (e.g., 'debian-12-standard')
                 - resources: Resource allocation (memory, cores, disk)
                 - network: Network configuration (bridge, ip, gateway)
+            storage: Storage backend for rootfs (default: local-lvm)
+            pool: Resource pool name (optional)
+            template_storage: Storage backend where templates are stored (default: local)
             storage: Storage location for container rootfs
 
         Returns:
@@ -75,9 +79,10 @@ class ContainerLifecycle:
         template_file = template if '.tar' in template else f'{template}.tar.zst'
 
         # Build pct create command
+        # Template is always from template_storage (usually 'local'), rootfs goes to storage
         cmd = [
             'pct', 'create', str(vmid),
-            f'{storage}:vztmpl/{template_file}',
+            f'{template_storage}:vztmpl/{template_file}',
             f'--hostname', name,
         ]
 
@@ -88,10 +93,14 @@ class ContainerLifecycle:
         disk = resources.get('disk', '8G')
         swap = resources.get('swap', 512)
 
+        # For ZFS storage, Proxmox expects size as a number (in GB) without unit suffix
+        # Convert '128G' -> '128', '8G' -> '8', etc.
+        disk_size = str(disk).rstrip('GgMmKkTt') if isinstance(disk, str) else str(disk)
+
         cmd.extend([
             '--memory', str(memory),
             '--cores', str(cores),
-            '--rootfs', f'{storage}:{disk}',
+            '--rootfs', f'{storage}:{disk_size}',
             '--swap', str(swap),
         ])
 
@@ -151,9 +160,11 @@ class ContainerLifecycle:
             cmd.extend(['--startup', startup_value])
 
         # Privileged vs unprivileged (default: unprivileged for security)
+        # Note: In newer Proxmox, containers default to unprivileged, must explicitly set --unprivileged 0
         privileged = spec.get('privileged', False)
         if privileged:
-            cmd.extend(['--privileged', '1'])
+            # Explicitly request privileged container
+            cmd.extend(['--unprivileged', '0'])
             logger.warning(f"⚠️  Creating PRIVILEGED container {vmid} - has full root access!")
         else:
             cmd.extend(['--unprivileged', '1'])

@@ -109,10 +109,10 @@ class DiffEngine:
             return
         
         # Get list of existing containers
+        existing_by_vmid = {}
+        existing_by_name = {}
         try:
             existing_containers = self.container_manager.list_containers()
-            existing_by_vmid = {}
-            existing_by_name = {}
 
             for container in existing_containers:
                 vmid = container.get('vmid')
@@ -127,8 +127,8 @@ class DiffEngine:
                 if name:
                     existing_by_name[name] = container
         except Exception as e:
-            logger.warning(f"Failed to list containers: {e}")
-            return
+            logger.warning(f"Failed to list containers: {e}. Assuming no containers exist.")
+            existing_containers = []
         
         # Check each dataset for container configurations
         for full_name, config in self.desired_datasets.items():

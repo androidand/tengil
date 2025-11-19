@@ -2,8 +2,8 @@
 import os
 import json
 from pathlib import Path
-from datetime import datetime
-from typing import Dict, List, Optional, Set
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 from tengil.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -61,6 +61,10 @@ class StateStore:
             "shares": {
                 "smb": {},
                 "nfs": {}
+            },
+            "reality": {
+                "last_snapshot": None,
+                "history": []
             },
             "external": {
                 "datasets": [],
@@ -401,8 +405,74 @@ class StateStore:
             'containers_created': containers_created,
             'mounts_managed': sum(len(mounts) for mounts in self.state['mounts'].values()),
             'smb_shares': len(self.state['shares']['smb']),
-            'nfs_shares': len(self.state['shares']['nfs'])
+            'nfs_shares': len(self.state['shares']['nfs']),
+            'reality_snapshots': len(self.state.get('reality', {}).get('snapshots', []))
         }
+
+    def record_reality_snapshot(
+        self,
+        snapshot: Dict[str, Any],
+        keep_last: int = 5,
+    ) -> Optional[Path]:
+        """Persist a captured reality snapshot to disk and metadata to state.
+
+        Args:
+            snapshot: Full reality snapshot as produced by RealityStateCollector
+            keep_last: Number of snapshot metadata entries to retain
+        """
+        if not self.enabled:
+            logger.debug("State tracking disabled, skipping reality snapshot")
+            return None
+
+        metadata = snapshot.get("metadata", {})
+        datasets = snapshot.get("zfs", {}).get("datasets", {})
+
+        base_dir = self.state_file.parent / "reality"
+        base_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        snapshot_path = base_dir / f"reality-{timestamp}.json"
+        with snapshot_path.open("w") as handle:
+            json.dump(snapshot, handle, indent=2)
+
+        entry = {
+            "captured_at": metadata.get("generated_at", datetime.now(timezone.utc).isoformat()),
+            "metadata": metadata,
+            "summary": {
+                "containers": len(snapshot.get("containers", [])),
+                "pools": list(datasets.keys()),
+            },
+            "path": str(snapshot_path),
+        }
+
+        reality = self.state.setdefault("reality", {})
+        snapshots = reality.setdefault("snapshots", [])
+        snapshots.append(entry)
+
+        if keep_last and len(snapshots) > keep_last:
+            reality["snapshots"] = snapshots[-keep_last:]
+
+        self.save()
+        return snapshot_path
+
+    def get_last_reality_snapshot(self) -> Optional[Dict[str, Any]]:
+        """Return the most recent reality snapshot stored in state."""
+        snapshots = self.state.get("reality", {}).get("snapshots", [])
+        if not snapshots:
+            return None
+
+        latest = snapshots[-1]
+        if "snapshot" in latest:
+            # Backward compatibility for older state entries
+            return latest["snapshot"]
+
+        path = latest.get("path")
+        if path and Path(path).exists():
+            try:
+                with open(path, "r") as handle:
+                    return json.load(handle)
+            except (OSError, json.JSONDecodeError) as exc:  # pragma: no cover - defensive
+                logger.warning("Failed to load reality snapshot from %s: %s", path, exc)
+        return None
     
     def clear(self) -> None:
         """Clear all state (for testing/cleanup)."""

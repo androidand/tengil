@@ -1,10 +1,6 @@
-# Tengil Configuration Example (Multi-Pool)
-# Copy this to tengil.yml and customize for your setup
-#
-# For more examples:
-# - examples/multi-pool.yml - Complete homelab (Phase 1: existing containers)
-# - examples/phase2-auto-create.yml - Auto-create containers (Phase 2)
-# - examples/multi-pool-simple.yml - Simple multi-pool setup
+# Tengil Configuration Example (modern Phase 2)
+# Copy this to tengil.yml and customize for your setup.
+# For an auto-create focused sample, see examples/phase2-auto-create.yml.
 
 # Define one or more ZFS pools
 pools:
@@ -67,5 +63,4 @@ apps:
       manifests:
         glob: "*.app.yml"
         depth: 2
-
 

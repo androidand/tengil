@@ -37,15 +37,15 @@ class StorageManager:
 
         try:
             with open(self.storage_cfg_path, 'r') as f:
-                for line in f:
-                    line = line.strip()
+                for raw_line in f:
+                    line = raw_line.strip()
 
                     # Skip comments and empty lines
                     if not line or line.startswith('#'):
                         continue
 
-                    # Storage definition starts
-                    if ':' in line and not line.startswith('\t'):
+                    # Storage definition starts (no indentation)
+                    if ':' in line and not raw_line.startswith((' ', '\t')):
                         parts = line.split(':', 1)
                         if len(parts) == 2:
                             storage_type = parts[0].strip()
@@ -53,13 +53,16 @@ class StorageManager:
                             current_storage = storage_name
                             storages[storage_name] = {'type': storage_type}
 
-                    # Storage properties
-                    elif current_storage and line:
-                        if '\t' in line or line.startswith(' '):
-                            line = line.strip()
-                            if ' ' in line:
-                                key, value = line.split(' ', 1)
-                                storages[current_storage][key] = value
+                    # Storage properties (indented)
+                    elif current_storage and raw_line.startswith((' ', '\t')):
+                        # Handle both space and tab separated values
+                        parts = line.split(None, 1)
+                        if len(parts) == 2:
+                            key, value = parts
+                            storages[current_storage][key] = value
+                        else:
+                            # Handle properties without values or weird formatting
+                            pass
 
         except Exception as e:
             logger.error(f"Failed to parse storage.cfg: {e}")

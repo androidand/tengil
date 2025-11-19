@@ -232,6 +232,25 @@ def test_diff_format_includes_containers(mock_container_config):
     assert ("will create" in plan or "will mount" in plan)
 
 
+def test_auto_create_even_if_listing_fails(mock_container_config):
+    """Auto-create should still schedule containers if discovery raise errors."""
+
+    class FailingManager:
+        def list_containers(self):
+            raise RuntimeError("pct list failed")
+
+    loader = ConfigLoader(str(mock_container_config))
+    loader.load()
+
+    orchestrator = PoolOrchestrator(loader, ZFSManager(mock=True))
+    all_desired, all_current = orchestrator.flatten_pools()
+
+    engine = DiffEngine(all_desired, all_current, container_manager=FailingManager())
+    engine.calculate_diff()
+
+    assert any(change.action.value == 'create' for change in engine.container_changes)
+
+
 def test_diff_skips_mount_when_already_configured():
     """No container change should be reported when mount already matches."""
 
