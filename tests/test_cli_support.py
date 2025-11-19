@@ -10,6 +10,7 @@ from tengil.cli_support import (
     is_mock,
     confirm_action,
     resolve_container,
+    get_container_orchestrator,
     print_success,
     print_error,
     print_warning,
@@ -141,6 +142,33 @@ class TestResolveContainer:
 
         console.print.assert_called_once()
         assert "not found" in str(console.print.call_args)
+
+
+class TestGetContainerOrchestrator:
+    """Test helper for orchestrator creation."""
+
+    @patch("tengil.cli_support.ContainerOrchestrator")
+    def test_uses_env_mock_by_default(self, mock_orchestrator, monkeypatch):
+        """Should respect TG_MOCK when mock flag not provided."""
+        monkeypatch.setenv("TG_MOCK", "1")
+        instance = Mock()
+        mock_orchestrator.return_value = instance
+
+        result = get_container_orchestrator()
+
+        mock_orchestrator.assert_called_once_with(mock=True)
+        assert result is instance
+
+    @patch("tengil.cli_support.ContainerOrchestrator")
+    def test_explicit_mock_flag(self, mock_orchestrator):
+        """Should honor explicit mock argument."""
+        instance = Mock()
+        mock_orchestrator.return_value = instance
+
+        result = get_container_orchestrator(mock=False)
+
+        mock_orchestrator.assert_called_once_with(mock=False)
+        assert result is instance
 
 
 class TestPrintHelpers:

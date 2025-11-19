@@ -95,3 +95,111 @@ def test_container_shell_by_vmid(monkeypatch):
     assert captured['vmid'] == 101
     assert captured['user'] == 'root'
     monkeypatch.delenv('TG_MOCK', raising=False)
+
+
+def test_container_start_by_name(monkeypatch):
+    """Start container resolved by name."""
+    monkeypatch.setenv('TG_MOCK', '1')
+    captured = {}
+
+    def fake_start(self, vmid):
+        captured['vmid'] = vmid
+        return True
+
+    monkeypatch.setattr(ContainerLifecycle, 'start_container', fake_start)
+
+    result = runner.invoke(app, ['container', 'start', 'jellyfin'])
+
+    assert result.exit_code == 0
+    assert captured['vmid'] == 100  # mock discovery returns jellyfin with VMID 100
+    assert 'Started' in result.stdout
+    monkeypatch.delenv('TG_MOCK', raising=False)
+
+
+def test_container_start_failure(monkeypatch):
+    """Handle failed container start."""
+    monkeypatch.setenv('TG_MOCK', '1')
+
+    def fake_start(self, vmid):
+        return False
+
+    monkeypatch.setattr(ContainerLifecycle, 'start_container', fake_start)
+
+    result = runner.invoke(app, ['container', 'start', 'jellyfin'])
+
+    assert result.exit_code == 1
+    assert 'Failed to start' in result.stdout
+    monkeypatch.delenv('TG_MOCK', raising=False)
+
+
+def test_container_stop_by_vmid(monkeypatch):
+    """Stop container resolved by VMID."""
+    monkeypatch.setenv('TG_MOCK', '1')
+    captured = {}
+
+    def fake_stop(self, vmid):
+        captured['vmid'] = vmid
+        return True
+
+    monkeypatch.setattr(ContainerLifecycle, 'stop_container', fake_stop)
+
+    result = runner.invoke(app, ['container', 'stop', '101'])
+
+    assert result.exit_code == 0
+    assert captured['vmid'] == 101
+    assert 'Stopped' in result.stdout
+    monkeypatch.delenv('TG_MOCK', raising=False)
+
+
+def test_container_stop_by_name(monkeypatch):
+    """Stop container by name."""
+    monkeypatch.setenv('TG_MOCK', '1')
+    captured = {}
+
+    def fake_stop(self, vmid):
+        captured['vmid'] = vmid
+        return True
+
+    monkeypatch.setattr(ContainerLifecycle, 'stop_container', fake_stop)
+
+    result = runner.invoke(app, ['container', 'stop', 'jellyfin'])
+
+    assert result.exit_code == 0
+    assert captured['vmid'] == 100
+    assert 'Stopped' in result.stdout
+    monkeypatch.delenv('TG_MOCK', raising=False)
+
+
+def test_container_restart_by_name(monkeypatch):
+    """Restart container resolved by name."""
+    monkeypatch.setenv('TG_MOCK', '1')
+    captured = {}
+
+    def fake_restart(self, vmid):
+        captured['vmid'] = vmid
+        return True
+
+    monkeypatch.setattr(ContainerLifecycle, 'restart_container', fake_restart)
+
+    result = runner.invoke(app, ['container', 'restart', 'jellyfin'])
+
+    assert result.exit_code == 0
+    assert captured['vmid'] == 100
+    assert 'Restarted' in result.stdout
+    monkeypatch.delenv('TG_MOCK', raising=False)
+
+
+def test_container_restart_failure(monkeypatch):
+    """Handle failed container restart."""
+    monkeypatch.setenv('TG_MOCK', '1')
+
+    def fake_restart(self, vmid):
+        return False
+
+    monkeypatch.setattr(ContainerLifecycle, 'restart_container', fake_restart)
+
+    result = runner.invoke(app, ['container', 'restart', 'jellyfin'])
+
+    assert result.exit_code == 1
+    assert 'Failed to restart' in result.stdout
+    monkeypatch.delenv('TG_MOCK', raising=False)

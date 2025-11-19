@@ -61,6 +61,7 @@ def register_container_commands(root: typer.Typer, console: Console) -> None:
         user: Optional[str] = typer.Option(None, "--user", "-u", help="User for the interactive shell."),
         config: Optional[str] = typer.Option(None, "--config", "-c", help="Explicit Tengil config for dataset resolution."),
     ) -> None:
+        """Open an interactive shell in the container."""
         try:
             resolved = resolve_container_target(target, config_path=config)
         except ContainerResolutionError as exc:
@@ -71,5 +72,80 @@ def register_container_commands(root: typer.Typer, console: Console) -> None:
         result = lifecycle.enter_container_shell(resolved.vmid, user=user)
         if result != 0:
             raise typer.Exit(result)
+
+    @ContainerTyper.command("start")
+    def start_command(
+        target: str = typer.Argument(..., help="Container target (name, vmid, or pool/dataset:name)."),
+        config: Optional[str] = typer.Option(None, "--config", "-c", help="Explicit Tengil config for dataset resolution."),
+    ) -> None:
+        """Start a stopped container."""
+        from tengil.cli_support import print_success, print_error
+
+        try:
+            resolved = resolve_container_target(target, config_path=config)
+        except ContainerResolutionError as exc:
+            console.print(f"[red]Error:[/red] {exc}")
+            raise typer.Exit(2) from exc
+
+        console.print(f"[dim]Starting container {resolved.name} (VMID {resolved.vmid})...[/dim]")
+
+        lifecycle = ContainerLifecycle(mock=is_mock())
+        success = lifecycle.start_container(resolved.vmid)
+
+        if success:
+            print_success(console, f"Started {resolved.name}")
+        else:
+            print_error(console, f"Failed to start {resolved.name}")
+            raise typer.Exit(1)
+
+    @ContainerTyper.command("stop")
+    def stop_command(
+        target: str = typer.Argument(..., help="Container target (name, vmid, or pool/dataset:name)."),
+        config: Optional[str] = typer.Option(None, "--config", "-c", help="Explicit Tengil config for dataset resolution."),
+    ) -> None:
+        """Stop a running container."""
+        from tengil.cli_support import print_success, print_error
+
+        try:
+            resolved = resolve_container_target(target, config_path=config)
+        except ContainerResolutionError as exc:
+            console.print(f"[red]Error:[/red] {exc}")
+            raise typer.Exit(2) from exc
+
+        console.print(f"[dim]Stopping container {resolved.name} (VMID {resolved.vmid})...[/dim]")
+
+        lifecycle = ContainerLifecycle(mock=is_mock())
+        success = lifecycle.stop_container(resolved.vmid)
+
+        if success:
+            print_success(console, f"Stopped {resolved.name}")
+        else:
+            print_error(console, f"Failed to stop {resolved.name}")
+            raise typer.Exit(1)
+
+    @ContainerTyper.command("restart")
+    def restart_command(
+        target: str = typer.Argument(..., help="Container target (name, vmid, or pool/dataset:name)."),
+        config: Optional[str] = typer.Option(None, "--config", "-c", help="Explicit Tengil config for dataset resolution."),
+    ) -> None:
+        """Restart a container."""
+        from tengil.cli_support import print_success, print_error
+
+        try:
+            resolved = resolve_container_target(target, config_path=config)
+        except ContainerResolutionError as exc:
+            console.print(f"[red]Error:[/red] {exc}")
+            raise typer.Exit(2) from exc
+
+        console.print(f"[dim]Restarting container {resolved.name} (VMID {resolved.vmid})...[/dim]")
+
+        lifecycle = ContainerLifecycle(mock=is_mock())
+        success = lifecycle.restart_container(resolved.vmid)
+
+        if success:
+            print_success(console, f"Restarted {resolved.name}")
+        else:
+            print_error(console, f"Failed to restart {resolved.name}")
+            raise typer.Exit(1)
 
     root.add_typer(ContainerTyper, name="container")

@@ -7,6 +7,8 @@ from typing import Optional, Tuple, Any
 import typer
 from rich.console import Console
 
+from tengil.services.proxmox.containers import ContainerOrchestrator
+
 # Default config search paths
 CONFIG_PATHS = [
     str(Path.home() / "tengil-configs" / "tengil.yml"),
@@ -147,6 +149,13 @@ def resolve_container(
             raise typer.Exit(1)
 
     return vmid, display_name
+
+
+def get_container_orchestrator(mock: Optional[bool] = None) -> ContainerOrchestrator:
+    """Return a ContainerOrchestrator with mock defaults."""
+    if mock is None:
+        mock = is_mock()
+    return ContainerOrchestrator(mock=mock)
 
 
 def print_success(console: Console, message: str, prefix: str = "✓") -> None:
