@@ -193,26 +193,9 @@ class ContainerLifecycle:
                     logger.warning("GPU passthrough requested but no GPU detected")
                     gpu_type = None
             
-            # Configure GPU passthrough based on type
-            if gpu_type in ['intel', 'amd']:
-                # Intel/AMD: Mount /dev/dri for hardware transcoding
-                logger.info(f"Configuring {gpu_type} GPU passthrough via /dev/dri")
-                # Note: /dev/dri mount will be added via lxc.cgroup2.devices.allow
-                # This requires privileged container or manual config post-creation
-                # For now, log a note about manual configuration needed
-                logger.warning(f"  GPU passthrough requires manual configuration:")
-                logger.warning(f"  1. Edit /etc/pve/lxc/{vmid}.conf")
-                logger.warning(f"  2. Add: lxc.cgroup2.devices.allow: c 226:* rwm")
-                logger.warning(f"  3. Add: lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir")
-                logger.warning(f"  Or use privileged container with --unprivileged 0")
-                
-            elif gpu_type == 'nvidia':
-                # NVIDIA: Requires nvidia-container-runtime and different setup
-                logger.info("Configuring NVIDIA GPU passthrough")
-                logger.warning("  NVIDIA GPU passthrough requires:")
-                logger.warning("  1. nvidia-container-runtime installed on host")
-                logger.warning("  2. Manual LXC config modification")
-                logger.warning("  3. See: https://github.com/NVIDIA/nvidia-container-toolkit")
+            # Store GPU info for post-creation config
+            if gpu_type:
+                spec['_gpu_type'] = gpu_type
 
         try:
             logger.info(f"Creating container {vmid} ({name}) with template {template}")
@@ -230,6 +213,10 @@ class ContainerLifecycle:
             # Handle requires_docker flag for automatic Docker support
             if spec.get('requires_docker', False):
                 self._configure_docker_support(vmid)
+            
+            # Handle GPU passthrough configuration
+            if spec.get('_gpu_type'):
+                self._configure_gpu_passthrough(vmid, spec['_gpu_type'])
             
             return vmid
 
@@ -294,6 +281,53 @@ class ContainerLifecycle:
             
         except Exception as e:
             logger.error(f"Failed to configure Docker support for container {vmid}: {e}")
+            return False
+
+    def _configure_gpu_passthrough(self, vmid: int, gpu_type: str) -> bool:
+        """Configure container for GPU passthrough.
+        
+        Adds device access and mount configuration for /dev/dri (Intel/AMD GPU).
+        
+        Args:
+            vmid: Container ID to configure
+            gpu_type: GPU type ('intel', 'amd', or 'nvidia')
+            
+        Returns:
+            True if configured successfully
+        """
+        config_path = f"/etc/pve/lxc/{vmid}.conf"
+        
+        try:
+            logger.info(f"Configuring {gpu_type} GPU passthrough for container {vmid}")
+            
+            if gpu_type in ['intel', 'amd']:
+                # Read current config
+                with open(config_path, 'r') as f:
+                    config_lines = f.readlines()
+                
+                # Add GPU device access and mount
+                # cgroup2 device allow for /dev/dri (char device 226:*)
+                config_lines.append('lxc.cgroup2.devices.allow: c 226:* rwm\n')
+                # Mount /dev/dri into container
+                config_lines.append('lxc.mount.entry: /dev/dri dev/dri none bind,optional,create=dir\n')
+                
+                # Write back
+                with open(config_path, 'w') as f:
+                    f.writelines(config_lines)
+                
+                logger.info(f"  ✓ Added /dev/dri device access (c 226:* rwm)")
+                logger.info(f"  ✓ Added /dev/dri mount binding")
+                logger.info(f"✓ {gpu_type.upper()} GPU passthrough configured for container {vmid}")
+                
+            elif gpu_type == 'nvidia':
+                logger.warning(f"  NVIDIA GPU passthrough requires nvidia-container-runtime")
+                logger.warning(f"  Manual setup needed - see: https://github.com/NVIDIA/nvidia-container-toolkit")
+                return False
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to configure GPU passthrough for container {vmid}: {e}")
             return False
 
     def _get_next_free_vmid(self, start: int = 100) -> int:

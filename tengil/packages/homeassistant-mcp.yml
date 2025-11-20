@@ -1,0 +1,415 @@
+# Home Assistant MCP Server
+#
+# Bridge between Home Assistant and Large Language Models (Claude, ChatGPT).
+# Control your smart home with natural language through MCP protocol.
+#
+# What you get:
+# - MCP server for Home Assistant integration
+# - REST API and WebSocket support
+# - Real-time device state updates via SSE
+# - Natural language device control
+# - Automation management through LLMs
+#
+# Use with:
+# - Claude Desktop
+# - ChatGPT (custom GPT)
+# - Other MCP-compatible AI tools
+
+name: homeassistant-mcp
+category: automation
+description: Model Context Protocol server for Home Assistant
+why: Control smart home with AI using natural language
+difficulty: advanced
+
+# Requirements
+requirements:
+  min_ram_gb: 2
+  min_cores: 2
+  min_disk_gb: 8
+  proxmox_version: "7.0+"
+  dependencies:
+    - Running Home Assistant instance
+    - Home Assistant long-lived access token
+    - HACS installed (for package management features)
+    - Node.js 20+ (auto-installed)
+
+# What gets created
+components:
+  - Home Assistant MCP server (Node.js/TypeScript)
+  - Docker Compose stack
+  - Health check endpoint
+  - SSE (Server-Sent Events) for real-time updates
+  - REST API for device control
+  - WebSocket connection to Home Assistant
+
+# Setup instructions
+setup_instructions:
+  - Ensure Home Assistant is running and accessible
+  - Create long-lived access token in Home Assistant:
+    - Profile > Security > Long-Lived Access Tokens > Create
+  - Run 'tg init --package homeassistant-mcp'
+  - Edit tengil.yml and set HASS_HOST and HASS_TOKEN
+  - Run 'tg apply' to deploy
+  - Access API at http://container-ip:3000
+  - Configure Claude Desktop or other MCP clients
+  - Test with: curl http://container-ip:3000/health
+
+# Next steps
+next_steps:
+  - Configure Claude Desktop with MCP server
+  - Test device control through AI
+  - Set up automation creation via LLM
+  - Enable SSE for real-time updates
+  - Create custom prompts for your devices
+  - Integrate with mobile AI assistants
+
+# Configuration
+pools:
+  tank:
+    datasets:
+      homeassistant-mcp:
+        profile: dev
+        quota: 10G
+        containers:
+          - name: hass-mcp
+            auto_create: true
+            template: debian-12-standard
+            mount: /app
+            privileged: true  # Required for Docker
+            requires_docker: true
+            resources:
+              memory: 2048
+              cores: 2
+              disk: 8G
+            startup_order: 150
+            post_install:
+              - docker
+              - |
+                # Deploy Home Assistant MCP Server
+                cd /app
+                git clone https://github.com/tevonsb/homeassistant-mcp.git .
+                
+                # Create .env file (EDIT THIS WITH YOUR VALUES!)
+                cat > .env <<EOF
+                # Home Assistant Configuration
+                HASS_HOST=http://homeassistant.local:8123
+                HASS_TOKEN=YOUR_LONG_LIVED_ACCESS_TOKEN_HERE
+                HASS_SOCKET_URL=ws://homeassistant.local:8123/api/websocket
+                
+                # Server Configuration
+                PORT=3000
+                NODE_ENV=production
+                DEBUG=false
+                EOF
+                
+                echo "⚠️  IMPORTANT: Edit /app/.env with your Home Assistant details!"
+                echo "    HASS_HOST: Your Home Assistant URL"
+                echo "    HASS_TOKEN: Long-lived access token from HA"
+                echo ""
+                echo "After editing .env, run:"
+                echo "  docker compose up -d"
+                echo ""
+                echo "Access: http://$(hostname -I | awk '{print $1}'):3000"
+
+# Container configuration (minimal - needs manual .env setup)
+container:
+  name: hass-mcp
+  template: debian-12-standard
+  memory: 2048
+  cores: 2
+  disk_size: 8G
+  privileged: true
+  requires_docker: true
+  startup_order: 150
+  description: Home Assistant MCP Server for AI integration
+  post_install:
+    - docker
+    - |
+      cd /app
+      git clone https://github.com/tevonsb/homeassistant-mcp.git .
+      cat > .env <<EOF
+      HASS_HOST=http://homeassistant.local:8123
+      HASS_TOKEN=YOUR_TOKEN_HERE
+      HASS_SOCKET_URL=ws://homeassistant.local:8123/api/websocket
+      PORT=3000
+      NODE_ENV=production
+      DEBUG=false
+      EOF
+      echo "Edit /app/.env then run: docker compose up -d"
+      echo "Access: http://$(hostname -I | awk '{print $1}'):3000"
+  why: "2GB RAM for Node.js. Docker for easy deployment. Requires Home Assistant access token."
+
+# Manual configuration required
+manual_steps:
+  1_get_token:
+    description: "Create Home Assistant long-lived access token"
+    steps:
+      - "Open Home Assistant"
+      - "Go to Profile > Security"
+      - "Scroll to 'Long-Lived Access Tokens'"
+      - "Click 'Create Token'"
+      - "Name it 'MCP Server'"
+      - "Copy the token (save it!)"
+  
+  2_configure:
+    description: "Configure MCP server with your HA details"
+    steps:
+      - "SSH or pct exec into hass-mcp container"
+      - "Edit /app/.env file"
+      - "Set HASS_HOST to your Home Assistant URL"
+      - "Set HASS_TOKEN to your access token"
+      - "Set HASS_SOCKET_URL (same host, ws:// protocol)"
+      - "Save and exit"
+  
+  3_start:
+    description: "Start the MCP server"
+    steps:
+      - "cd /app"
+      - "docker compose up -d"
+      - "Wait 1-2 minutes for containers to start"
+      - "Check: docker compose logs -f"
+      - "Verify: curl http://container-ip:3000/health"
+  
+  4_client_setup:
+    description: "Configure Claude Desktop or other AI client"
+    steps:
+      - "Add MCP server to client config"
+      - "Provide server URL: http://container-ip:3000"
+      - "Test device control with natural language"
+
+# Storage configuration
+storage_hints:
+  "/app":
+    profile: dev
+    size_estimate: "5GB for code and dependencies"
+    why: "Small footprint. Git repo and Docker images."
+    mount_as: /app
+
+# Environment variables reference
+environment_variables:
+  HASS_HOST:
+    required: true
+    example: "http://192.168.1.100:8123"
+    description: "Your Home Assistant instance URL"
+  HASS_TOKEN:
+    required: true
+    example: "eyJ0eXAiOi..."
+    description: "Long-lived access token from Home Assistant"
+  HASS_SOCKET_URL:
+    required: true
+    example: "ws://192.168.1.100:8123/api/websocket"
+    description: "WebSocket URL for real-time updates"
+  PORT:
+    required: false
+    default: "3000"
+    description: "Server port"
+  NODE_ENV:
+    required: false
+    default: "production"
+    description: "Environment (production/development)"
+  DEBUG:
+    required: false
+    default: "false"
+    description: "Enable debug logging"
+
+# MCP Features
+mcp_features:
+  device_control:
+    description: "Turn on lights, adjust climate, open covers"
+    example: "Turn on living room lights at 50% brightness"
+  state_monitoring:
+    description: "Query device states and sensor values"
+    example: "What's the temperature in the bedroom?"
+  automation_management:
+    description: "Create and manage automations through AI"
+    example: "Create automation: when motion detected, turn on hallway lights"
+  addon_management:
+    description: "Install and manage Home Assistant add-ons"
+    example: "Install File Editor add-on"
+  package_management:
+    description: "Manage HACS integrations and themes"
+    example: "Install Mushroom cards from HACS"
+  real_time_updates:
+    description: "SSE stream for live device state changes"
+    example: "Subscribe to all light state changes"
+
+# Supported devices
+supported_devices:
+  - "💡 Lights (on/off, brightness, color, temp)"
+  - "🌡️ Climate (temperature, mode, fan)"
+  - "🚪 Covers (position, tilt)"
+  - "🔌 Switches"
+  - "🚨 Sensors and binary sensors"
+  - "🎵 Media players"
+  - "🌪️ Fans"
+  - "🔒 Locks"
+  - "🧹 Vacuums"
+  - "📹 Cameras"
+
+# API endpoints
+api_endpoints:
+  health:
+    method: GET
+    path: /health
+    description: "Health check endpoint"
+  control:
+    method: POST
+    path: /api/control
+    description: "Control device (turn on/off, set state)"
+  state:
+    method: GET
+    path: /api/state
+    description: "Get current state of entities"
+  automation:
+    method: POST
+    path: /api/automation
+    description: "Create/manage automations"
+  sse:
+    method: GET
+    path: /subscribe_events
+    description: "Server-Sent Events stream for real-time updates"
+
+# Claude Desktop setup
+claude_desktop_config:
+  macos:
+    location: "~/Library/Application Support/Claude/claude_desktop_config.json"
+    config: |
+      {
+        "mcpServers": {
+          "homeassistant": {
+            "command": "node",
+            "args": ["/path/to/dist/index.js"],
+            "env": {
+              "HASS_HOST": "http://192.168.1.100:8123",
+              "HASS_TOKEN": "your_token_here",
+              "HASS_SOCKET_URL": "ws://192.168.1.100:8123/api/websocket",
+              "PORT": "3000",
+              "NODE_ENV": "production"
+            }
+          }
+        }
+      }
+  notes:
+    - "For Docker deployment, use HTTP API instead of stdio"
+    - "Point Claude to http://container-ip:3000"
+    - "MCP protocol communicates via REST/SSE"
+
+# Example usage
+example_usage:
+  curl_control: |
+    # Turn on light
+    curl -X POST http://container-ip:3000/api/control \
+      -H "Content-Type: application/json" \
+      -d '{
+        "tool": "control",
+        "command": "turn_on",
+        "entity_id": "light.living_room",
+        "brightness": 200
+      }'
+  
+  curl_state: |
+    # Get device state
+    curl http://container-ip:3000/api/state?entity_id=light.living_room
+  
+  curl_sse: |
+    # Subscribe to light events
+    curl -N http://container-ip:3000/subscribe_events?domain=light
+  
+  natural_language:
+    - "Turn on bedroom lights"
+    - "Set living room to 50% brightness"
+    - "What's the temperature in the office?"
+    - "Create automation: turn on porch light at sunset"
+
+# Docker Compose services
+docker_services:
+  homeassistant-mcp:
+    port: 3000
+    description: "Main MCP server"
+    health_check: "http://localhost:3000/health"
+
+# Troubleshooting
+troubleshooting:
+  connection_failed:
+    - "Verify Home Assistant is running"
+    - "Check HASS_HOST is correct and accessible"
+    - "Verify long-lived token is valid"
+    - "Check WebSocket URL matches HASS_HOST"
+  containers_not_starting:
+    - "Check .env file exists and is configured"
+    - "Review logs: docker compose logs"
+    - "Verify Node.js 20+ available"
+    - "Check Docker service: systemctl status docker"
+  api_errors:
+    - "Verify token has correct permissions"
+    - "Check Home Assistant logs"
+    - "Review entity IDs are correct"
+    - "Test API directly with curl"
+  claude_integration:
+    - "Ensure MCP server is running"
+    - "Verify config.json path"
+    - "Check Claude can access container-ip:3000"
+    - "Review Claude console for errors"
+
+# Security considerations
+security:
+  token_safety:
+    - "Never commit .env to git"
+    - "Use strong, unique long-lived token"
+    - "Consider token expiry and rotation"
+    - "Limit token scope if possible"
+  network:
+    - "Use firewall to restrict port 3000"
+    - "Consider VPN (Tailscale) for remote access"
+    - "Enable HTTPS with reverse proxy"
+    - "Use Home Assistant authentication"
+  rate_limiting:
+    - "MCP server includes rate limiting"
+    - "100 req/min for regular endpoints"
+    - "1000 req/min for WebSocket"
+
+# Performance optimization
+performance:
+  caching:
+    - "MCP server caches device states"
+    - "Redis used for fast lookups"
+    - "Reduce Home Assistant API calls"
+  websocket:
+    - "Use WebSocket for real-time updates"
+    - "More efficient than polling"
+    - "Lower latency for state changes"
+  scaling:
+    - "Single instance handles ~100 devices"
+    - "Increase CPU/RAM for larger setups"
+    - "Consider multiple MCP servers for HA clusters"
+
+# Integration ideas
+integrations:
+  - "Claude Desktop for natural language control"
+  - "ChatGPT custom GPT with MCP"
+  - "Custom mobile AI assistants"
+  - "Voice assistants via MCP bridge"
+  - "Home automation dashboards"
+  - "Third-party AI tools"
+
+# Future enhancements
+roadmap:
+  - "Enhanced security features"
+  - "Multi-user support"
+  - "Advanced automation templates"
+  - "Mobile app integration"
+  - "Voice command support"
+  - "Custom prompt library"
+
+# Tags
+tags:
+  - homeassistant
+  - mcp
+  - ai
+  - llm
+  - claude
+  - automation
+  - smart-home
+  - natural-language
+  - api
+  - websocket

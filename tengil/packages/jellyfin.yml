@@ -1,0 +1,192 @@
+# Jellyfin Media Server with GPU Hardware Transcoding
+#
+# Your personal Netflix - stream movies, TV shows, music, and photos
+# with automatic hardware transcoding using Intel/AMD GPU.
+#
+# What you get:
+# - Jellyfin media server with web interface
+# - Automatic GPU detection and passthrough
+# - Hardware transcoding (Intel QuickSync / AMD AMF)
+# - Optimized storage for large media files
+# - Ready to import your media library
+
+name: jellyfin
+category: media
+description: Personal media server with GPU hardware transcoding
+why: Stream your media library anywhere with hardware-accelerated transcoding
+difficulty: beginner
+
+# Requirements
+requirements:
+  min_ram_gb: 4
+  min_cores: 4
+  min_disk_gb: 16
+  proxmox_version: "7.0+"
+  gpu: Intel or AMD recommended for hardware transcoding
+
+# What gets created
+components:
+  - Jellyfin media server (latest version)
+  - GPU passthrough for hardware transcoding
+  - ZFS dataset with media profile (no compression)
+  - Web UI for library management
+
+# Setup instructions
+setup_instructions:
+  - Create ZFS pool named 'tank' (or adjust pool name in config)
+  - Run 'tg init --package jellyfin' to generate config
+  - Review and adjust tengil.yml (pool name, resources)
+  - Run 'tg apply' to create everything
+  - Open Jellyfin at http://container-ip:8096
+  - Complete setup wizard and add media libraries
+  - Point libraries to /media/movies, /media/tv, etc.
+
+# Next steps
+next_steps:
+  - Add media files to the ZFS dataset
+  - Configure library types (Movies, TV Shows, Music)
+  - Enable hardware transcoding in Dashboard > Playback
+  - Set up users and parental controls
+  - Install Jellyfin apps on your devices
+  - Consider Jellyseerr for request management
+
+# Configuration
+pools:
+  tank:
+    datasets:
+      media:
+        profile: media  # No compression, optimized for video
+        quota: 500G
+        containers:
+          - name: jellyfin
+            auto_create: true
+            template: debian-12-standard
+            mount: /media
+            privileged: true  # Required for GPU access
+            gpu:
+              passthrough: true
+              type: auto  # Auto-detect Intel/AMD GPU
+            resources:
+              memory: 4096
+              cores: 4
+              disk: 16G
+            startup_order: 200
+            post_install:
+              - tteck/jellyfin
+
+# Container configuration
+container:
+  name: jellyfin
+  template: debian-12-standard
+  memory: 4096
+  cores: 4
+  disk_size: 16G
+  privileged: true  # Required for GPU passthrough
+  gpu:
+    passthrough: true  # Auto-configure /dev/dri access
+    type: auto  # Intel/AMD auto-detection
+  startup_order: 200
+  description: Jellyfin media server with GPU transcoding
+  post_install:
+    - tteck/jellyfin
+  why: "4GB RAM for transcoding. Privileged container for GPU access. Auto-detects Intel/AMD GPU."
+
+# Storage configuration
+storage_hints:
+  "/media":
+    profile: media  # No compression for video files
+    size_estimate: "500GB - 2TB depending on library"
+    why: "Video files don't compress well. Media profile disables compression."
+    subdirectories:
+      - /media/movies
+      - /media/tv
+      - /media/music
+      - /media/photos
+    mount_as: /media
+
+# Share recommendations
+share_recommendations:
+  "/media":
+    smb: true
+    name: "Media"
+    browseable: true
+    comment: "Media library - add movies, TV shows, music here"
+    read_only: no
+    why: "Easy media uploads from desktop. Organize before adding to Jellyfin."
+
+# Post-deployment checklist
+post_deployment:
+  - Open http://container-ip:8096
+  - Complete Jellyfin setup wizard
+  - Add media libraries pointing to /media subdirectories
+  - Enable hardware transcoding:
+    - Dashboard > Playback > Transcoding
+    - Enable "Intel QuickSync" or "AMD AMF"
+    - Select "VAAPI" as fallback
+  - Test playback with different clients
+  - Set up remote access (optional)
+
+# GPU transcoding verification
+gpu_verification:
+  - Check GPU access: 'ls -l /dev/dri' inside container
+  - Should see: renderD128 (Intel/AMD), card0, card1
+  - Enable in Jellyfin: Dashboard > Playback > Hardware acceleration
+  - Test: Play video and check Dashboard > Active Devices for "transcode (hw)"
+  - Verify: 'intel_gpu_top' or 'radeontop' on Proxmox host during playback
+
+# Common media organization
+media_structure:
+  movies: /media/movies/Movie Name (Year)/Movie Name (Year).mkv
+  tv: /media/tv/Show Name/Season 01/Show - S01E01 - Episode.mkv
+  music: /media/music/Artist/Album/01 - Track.flac
+  photos: /media/photos/Year/Event/
+
+# Recommended settings
+recommended_settings:
+  transcoding:
+    - "Enable hardware acceleration: Intel QuickSync (Intel) or AMD AMF (AMD)"
+    - "H264 encoding with 10-bit HEVC decode"
+    - "Target max bitrate: 20 Mbps for remote, unlimited for local"
+  networking:
+    - "Enable automatic port mapping (UPnP)"
+    - "Use secure connections (HTTPS)"
+    - "Consider Tailscale/WireGuard for remote access"
+  optimization:
+    - "Enable 'Allow encoding in HEVC format'"
+    - "Throttle transcodes to avoid overwhelming GPU"
+    - "Schedule library scans during off-hours"
+
+# Troubleshooting
+troubleshooting:
+  no_gpu_detected:
+    - Check: 'ls -l /dev/dri' in container
+    - Verify: 'lspci | grep VGA' on Proxmox host
+    - Solution: GPU passthrough requires privileged container
+  transcoding_fails:
+    - Check Jellyfin logs: Dashboard > Logs
+    - Verify ffmpeg can access GPU: 'ffmpeg -hwaccels'
+    - Try VAAPI instead of QuickSync
+  poor_performance:
+    - Increase CPU cores (4+ recommended)
+    - Add more RAM (6-8GB for multiple streams)
+    - Check network bandwidth
+    - Verify GPU is being used in Dashboard
+
+# Integration ideas
+integrations:
+  - Jellyseerr: Request management and discovery
+  - Sonarr/Radarr: Automatic TV/Movie management
+  - Prowlarr: Indexer management
+  - Bazarr: Subtitle management
+  - Tautulli: Analytics and notifications
+
+# Tags
+tags:
+  - jellyfin
+  - media
+  - streaming
+  - transcoding
+  - gpu
+  - movies
+  - tv
+  - music

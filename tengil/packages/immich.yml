@@ -1,0 +1,279 @@
+# Immich - Self-hosted Photo and Video Backup (Google Photos Alternative)
+#
+# High-performance photo/video management with ML-powered features:
+# - Automatic backup from mobile devices
+# - Face recognition and object detection
+# - Smart search and albums
+# - GPU-accelerated ML processing
+#
+# What you get:
+# - Immich server with web and mobile app support
+# - Docker Compose stack (PostgreSQL, Redis, ML)
+# - GPU passthrough for fast machine learning
+# - Optimized storage for photos/videos
+
+name: immich
+category: media
+description: Self-hosted Google Photos alternative with ML features
+why: Privacy-focused photo backup with face recognition and smart search
+difficulty: intermediate
+
+# Requirements
+requirements:
+  min_ram_gb: 8
+  min_cores: 4
+  min_disk_gb: 32
+  proxmox_version: "7.0+"
+  gpu: Intel/AMD recommended for ML acceleration
+  notes: Uses Docker Compose with multiple containers
+
+# What gets created
+components:
+  - Immich web and mobile apps
+  - PostgreSQL database
+  - Redis cache
+  - Machine learning service with GPU
+  - Docker host with GPU passthrough
+  - Backup storage for photos/videos
+
+# Setup instructions
+setup_instructions:
+  - Create ZFS pool named 'tank' (or adjust pool name)
+  - Run 'tg init --package immich' to generate config
+  - Review and adjust tengil.yml (especially storage size)
+  - Run 'tg apply' to create everything
+  - Wait for all containers to download and start (~5 minutes)
+  - Open Immich at http://container-ip:2283
+  - Create admin account
+  - Download Immich mobile app and connect
+  - Enable automatic photo backup
+
+# Next steps
+next_steps:
+  - Install Immich mobile app (iOS/Android)
+  - Set up automatic photo backup from phone
+  - Configure ML models (face recognition, object detection)
+  - Create albums and shared links
+  - Set up external library (import existing photos)
+  - Configure backup schedule
+
+# Configuration
+pools:
+  tank:
+    datasets:
+      immich:
+        profile: dev  # Compression enabled, fast I/O
+        quota: 500G  # Adjust based on photo library size
+        containers:
+          - name: immich
+            auto_create: true
+            template: debian-12-standard
+            mount: /data
+            privileged: true  # Required for Docker + GPU
+            requires_docker: true  # Auto-configure AppArmor
+            gpu:
+              passthrough: true
+              type: auto  # Intel/AMD for ML acceleration
+            resources:
+              memory: 8192  # 8GB for ML processing
+              cores: 4
+              disk: 32G
+            startup_order: 150
+            post_install:
+              - docker
+              - |
+                # Deploy Immich with Docker Compose
+                cd /data
+                wget -O docker-compose.yml https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
+                wget -O .env https://github.com/immich-app/immich/releases/latest/download/example.env
+                
+                # Configure for GPU
+                echo "# Immich GPU Configuration" >> .env
+                echo "# GPU is available for ML at /dev/dri" >> .env
+                
+                # Create upload directory
+                mkdir -p /data/library
+                
+                # Start Immich
+                docker compose up -d
+                
+                echo "Immich is starting... This may take a few minutes."
+                echo "Access at http://$(hostname -I | awk '{print $1}'):2283"
+
+# Container configuration
+container:
+  name: immich
+  template: debian-12-standard
+  memory: 8192
+  cores: 4
+  disk_size: 32G
+  privileged: true
+  requires_docker: true
+  gpu:
+    passthrough: true
+    type: auto
+  startup_order: 150
+  description: Immich photo backup and management with GPU ML
+  post_install:
+    - docker
+    - |
+      cd /data
+      wget -O docker-compose.yml https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
+      wget -O .env https://github.com/immich-app/immich/releases/latest/download/example.env
+      echo "# GPU available at /dev/dri" >> .env
+      mkdir -p /data/library
+      docker compose up -d
+      echo "Immich starting at http://$(hostname -I | awk '{print $1}'):2283"
+  why: "8GB RAM for ML models. GPU acceleration for face detection. Docker for easy deployment."
+
+# Storage configuration
+storage_hints:
+  "/data":
+    profile: dev
+    size_estimate: "500GB - 2TB depending on photo library"
+    why: "Photos compress well. Dev profile enables compression and fast random I/O."
+    subdirectories:
+      - /data/library  # Immich storage
+      - /data/postgres  # Database
+      - /data/redis  # Cache
+    mount_as: /data
+
+# Share recommendations
+share_recommendations:
+  "/data/library":
+    smb: true
+    name: "Immich-Photos"
+    browseable: yes
+    comment: "Immich photo library - for backup access"
+    read_only: yes
+    why: "Read-only SMB for emergency photo access. Don't modify files here!"
+
+# Post-deployment checklist
+post_deployment:
+  - Wait 5 minutes for all containers to start
+  - Check status: 'docker ps' in container
+  - Open http://container-ip:2283
+  - Create admin account (first user becomes admin)
+  - Set up server URL in mobile app
+  - Enable ML features in Admin > Machine Learning
+  - Start photo backup from mobile device
+  - Import existing photos via External Library
+
+# Mobile app setup
+mobile_setup:
+  ios: "Download 'Immich' from App Store"
+  android: "Download 'Immich' from Play Store"
+  configuration:
+    - Enter server URL: http://container-ip:2283
+    - Log in with admin account
+    - Enable background upload
+    - Select albums to backup
+    - Choose backup quality (original recommended)
+    - Enable mobile data backup (optional)
+
+# ML features
+ml_features:
+  face_recognition:
+    - "Automatic face detection and grouping"
+    - "Name faces for easy search"
+    - "GPU acceleration for fast processing"
+  object_detection:
+    - "Search by: dog, cat, car, sunset, beach, etc."
+    - "Automatic tagging of objects in photos"
+  smart_search:
+    - "Natural language search: 'beach sunset 2024'"
+    - "Search by location (GPS required)"
+  clip_search:
+    - "AI-powered semantic search"
+    - "Find photos by description"
+
+# GPU ML acceleration
+gpu_ml_config:
+  check_access: 'docker exec immich-machine-learning ls -l /dev/dri'
+  verify_models: 'docker logs immich-machine-learning'
+  performance:
+    - "GPU: ~100-200 faces/second"
+    - "CPU only: ~10-20 faces/second"
+    - "Initial scan may take hours for large libraries"
+
+# Docker Compose services
+docker_services:
+  immich-server: "Main application (port 2283)"
+  immich-machine-learning: "ML service with GPU"
+  redis: "Cache and job queue"
+  postgres: "Database"
+
+# Backup strategy
+backup_recommendations:
+  database:
+    - "Backup /data/postgres regularly"
+    - "Use 'docker exec' for PostgreSQL dump"
+  photos:
+    - "Backup /data/library/upload"
+    - "Original photos stored here"
+  metadata:
+    - "Backup /data/library/thumbs (optional)"
+    - "Can be regenerated from originals"
+
+# Troubleshooting
+troubleshooting:
+  containers_not_starting:
+    - Check: 'docker compose logs' in /data
+    - Verify: All containers running with 'docker ps'
+    - Restart: 'docker compose restart'
+  ml_not_working:
+    - Check GPU access: 'ls -l /dev/dri' in container
+    - Verify: 'docker logs immich-machine-learning'
+    - Check Admin > Machine Learning settings
+  slow_upload:
+    - Increase CPU cores (6-8 recommended)
+    - Check network speed
+    - Verify storage performance
+  database_errors:
+    - Check PostgreSQL logs: 'docker logs immich-postgres'
+    - Verify disk space: 'df -h'
+    - Consider increasing container disk size
+
+# Resource scaling
+scaling:
+  small_library_1k_photos:
+    memory: 6GB
+    cores: 2
+  medium_library_10k_photos:
+    memory: 8GB
+    cores: 4
+  large_library_50k_photos:
+    memory: 12GB
+    cores: 6
+    storage: 1TB+
+
+# Comparison with alternatives
+vs_alternatives:
+  google_photos:
+    - "✓ Privacy: Your data, your server"
+    - "✓ No storage limits (just your disk)"
+    - "✓ Original quality without compression"
+    - "✓ No subscription fees"
+  photoprism:
+    - "✓ Better face recognition (ML models)"
+    - "✓ Mobile apps (official)"
+    - "✓ Faster development"
+    - "✗ More resource intensive"
+
+# Integration ideas
+integrations:
+  - Tailscale: Secure remote access
+  - CloudFlare Tunnel: Public access without port forwarding
+  - Duplicati: Automated backup to cloud
+  - Syncthing: Sync with other devices
+
+# Tags
+tags:
+  - immich
+  - photos
+  - backup
+  - google-photos
+  - machine-learning
+  - face-recognition
+  - gpu
+  - docker

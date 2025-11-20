@@ -1,0 +1,342 @@
+# Syncthing - Continuous File Synchronization
+#
+# Private Dropbox alternative - sync files between devices:
+# - No cloud, direct device-to-device sync
+# - Encrypted transfers
+# - Version control and conflict resolution
+# - Cross-platform (Windows, Mac, Linux, Android)
+#
+# What you get:
+# - Syncthing server with web UI
+# - Sync folders accessible via SMB
+# - Fast, secure P2P synchronization
+# - No file size limits
+
+name: syncthing
+category: productivity
+description: Private file synchronization across devices
+why: Dropbox alternative without cloud - sync files peer-to-peer
+difficulty: beginner
+
+# Requirements
+requirements:
+  min_ram_gb: 1
+  min_cores: 2
+  min_disk_gb: 8
+  proxmox_version: "7.0+"
+  notes: Lightweight, can run on minimal resources
+
+# What gets created
+components:
+  - Syncthing daemon
+  - Web UI for configuration (port 8384)
+  - Sync folders with version control
+  - SMB share for easy file access
+
+# Setup instructions
+setup_instructions:
+  - Create ZFS pool named 'tank' (or adjust pool name)
+  - Run 'tg init --package syncthing' to generate config
+  - Review and adjust tengil.yml
+  - Run 'tg apply' to create everything
+  - Open Syncthing at http://container-ip:8384
+  - Configure devices (add phones, computers)
+  - Create folders to sync
+  - Install Syncthing on other devices
+
+# Next steps
+next_steps:
+  - Add remote devices in Syncthing web UI
+  - Create shared folders (Documents, Photos, etc.)
+  - Install Syncthing on computers and phones
+  - Set up ignore patterns (.git, node_modules, etc.)
+  - Enable versioning for important folders
+  - Consider file watcher for instant sync
+
+# Configuration
+pools:
+  tank:
+    datasets:
+      syncthing:
+        profile: dev
+        quota: 100G  # Adjust based on sync needs
+        containers:
+          - name: syncthing
+            auto_create: true
+            template: debian-12-standard
+            mount: /sync
+            resources:
+              memory: 2048
+              cores: 2
+              disk: 8G
+            startup_order: 100
+            post_install:
+              - |
+                # Install Syncthing
+                apt-get update
+                apt-get install -y curl apt-transport-https
+                
+                # Add Syncthing repository
+                curl -s https://syncthing.net/release-key.txt | gpg --dearmor | tee /usr/share/keyrings/syncthing-archive-keyring.gpg >/dev/null
+                echo "deb [signed-by=/usr/share/keyrings/syncthing-archive-keyring.gpg] https://apt.syncthing.net/ syncthing stable" | tee /etc/apt/sources.list.d/syncthing.list
+                
+                apt-get update
+                apt-get install -y syncthing
+                
+                # Create systemd service for root user
+                cat > /etc/systemd/system/syncthing@root.service <<EOF
+                [Unit]
+                Description=Syncthing - Open Source Continuous File Synchronization for %I
+                Documentation=man:syncthing(1)
+                After=network.target
+                
+                [Service]
+                User=%i
+                ExecStart=/usr/bin/syncthing serve --no-browser --no-restart --logflags=0
+                Restart=on-failure
+                RestartSec=5s
+                SuccessExitStatus=3 4
+                RestartForceExitStatus=3 4
+                
+                [Install]
+                WantedBy=multi-user.target
+                EOF
+                
+                # Enable and start service
+                systemctl daemon-reload
+                systemctl enable syncthing@root.service
+                systemctl start syncthing@root.service
+                
+                # Wait for config to be created
+                sleep 3
+                
+                # Configure to listen on all interfaces
+                sed -i 's|<address>127.0.0.1:8384</address>|<address>0.0.0.0:8384</address>|' /root/.config/syncthing/config.xml
+                systemctl restart syncthing@root.service
+                
+                # Create default sync folder
+                mkdir -p /sync/Documents
+                mkdir -p /sync/Photos
+                
+                echo "Syncthing is running at http://$(hostname -I | awk '{print $1}'):8384"
+        shares:
+          smb:
+            name: Syncthing
+            comment: Synced files accessible from your computer
+            browseable: yes
+            read_only: no
+
+# Container configuration
+container:
+  name: syncthing
+  template: debian-12-standard
+  memory: 2048
+  cores: 2
+  disk_size: 8G
+  startup_order: 100
+  description: Syncthing file synchronization
+  post_install:
+    - |
+      apt-get update && apt-get install -y curl apt-transport-https
+      curl -s https://syncthing.net/release-key.txt | gpg --dearmor | tee /usr/share/keyrings/syncthing-archive-keyring.gpg >/dev/null
+      echo "deb [signed-by=/usr/share/keyrings/syncthing-archive-keyring.gpg] https://apt.syncthing.net/ syncthing stable" | tee /etc/apt/sources.list.d/syncthing.list
+      apt-get update && apt-get install -y syncthing
+      systemctl enable syncthing@root.service
+      systemctl start syncthing@root.service
+      sleep 3
+      sed -i 's|<address>127.0.0.1:8384</address>|<address>0.0.0.0:8384</address>|' /root/.config/syncthing/config.xml
+      systemctl restart syncthing@root.service
+      mkdir -p /sync/{Documents,Photos}
+      echo "Syncthing at http://$(hostname -I | awk '{print $1}'):8384"
+  why: "2GB RAM sufficient. Lightweight sync. No privileged access needed."
+
+# Storage configuration
+storage_hints:
+  "/sync":
+    profile: dev
+    size_estimate: "50GB - 500GB depending on files"
+    why: "Compression enabled for better space efficiency. Fast I/O for sync operations."
+    subdirectories:
+      - /sync/Documents
+      - /sync/Photos
+      - /sync/Projects
+      - /sync/.stversions  # Version history
+    mount_as: /sync
+
+# Share configuration
+share_recommendations:
+  "/sync":
+    smb: true
+    name: "Syncthing"
+    browseable: true
+    comment: "Synced files - accessible from network"
+    read_only: no
+    why: "Direct file access via SMB. Edit files that sync automatically."
+
+# Post-deployment checklist
+post_deployment:
+  - Open http://container-ip:8384
+  - Note device ID shown in UI
+  - Install Syncthing on other devices:
+    - Windows/Mac/Linux: https://syncthing.net/downloads/
+    - Android: Play Store 'Syncthing'
+    - iOS: Use third-party clients like Möbius Sync
+  - Add devices in web UI (Actions > Show ID)
+  - Create folders to sync
+  - Enable versioning for important folders
+
+# Device setup guide
+device_setup:
+  desktop:
+    - Download Syncthing from syncthing.net
+    - Run application
+    - Open http://localhost:8384
+    - Actions > Show ID > Copy device ID
+    - Add device in server web UI
+    - Accept connection on desktop
+  android:
+    - Install Syncthing from Play Store
+    - Open app and grant permissions
+    - Tap device ID to copy
+    - Add device in server web UI
+    - Accept connection on phone
+    - Add folders to sync
+
+# Folder configuration
+folder_recommendations:
+  Documents:
+    path: /sync/Documents
+    versioning: Simple (keep 10 versions)
+    ignore_patterns:
+      - "*.tmp"
+      - ".~*"
+      - "desktop.ini"
+  Photos:
+    path: /sync/Photos
+    versioning: Staggered (keep more history)
+    send_only: false  # Two-way sync
+  Projects:
+    path: /sync/Projects
+    versioning: Simple
+    ignore_patterns:
+      - ".git"
+      - "node_modules"
+      - "__pycache__"
+      - "*.pyc"
+
+# Versioning strategies
+versioning:
+  simple:
+    description: "Keep N versions of each file"
+    use_case: "Documents, simple backups"
+    config: "Keep 10 versions"
+  staggered:
+    description: "Keep versions by age (1h, 1d, 30d, 1y)"
+    use_case: "Important files, photos"
+    config: "Max age: 365 days"
+  trash_can:
+    description: "Move deleted files to .stversions"
+    use_case: "Recycle bin behavior"
+    config: "Clean after 30 days"
+
+# Performance tuning
+performance:
+  network:
+    - "Enable NAT traversal for remote sync"
+    - "Use local discovery for LAN devices"
+    - "Enable relay servers for firewall traversal"
+  sync_speed:
+    - "Increase number of concurrent pulls"
+    - "Enable file watcher for instant updates"
+    - "Adjust scan intervals (default: 1 hour)"
+  storage:
+    - "Enable compression for better space usage"
+    - "Configure max send/recv rates if needed"
+    - "Monitor .stversions size"
+
+# Security settings
+security:
+  authentication:
+    - "Set username/password in web UI"
+    - "Enable HTTPS for remote access"
+    - "Use untrusted device mode for public devices"
+  encryption:
+    - "All transfers encrypted by default"
+    - "Enable password for sensitive folders"
+    - "Use introducer mode for trusted devices"
+  firewall:
+    - "Open port 22000 (TCP/UDP) for sync"
+    - "Open port 8384 (TCP) for web UI"
+    - "Consider VPN (Tailscale) for remote access"
+
+# Troubleshooting
+troubleshooting:
+  sync_not_working:
+    - Check both devices online in web UI
+    - Verify folders shared correctly
+    - Check ignore patterns
+    - Review sync errors in web UI
+  slow_sync:
+    - Increase CPU cores
+    - Check network bandwidth
+    - Reduce scan interval
+    - Enable file watcher
+  out_of_sync:
+    - Check for conflicts in .stconflict files
+    - Verify versioning settings
+    - Review ignore patterns
+    - Try 'Override Changes' in web UI
+  web_ui_unreachable:
+    - Check container IP
+    - Verify port 8384 open
+    - Check syncthing service: 'systemctl status syncthing@root'
+
+# Use cases
+use_cases:
+  home_backup:
+    - "Sync family photos across devices"
+    - "Keep documents synchronized"
+    - "No cloud storage fees"
+  remote_work:
+    - "Access work files from anywhere"
+    - "Automatic sync when devices online"
+    - "Version control for changes"
+  media_library:
+    - "Sync music library to phone"
+    - "Share photos between family devices"
+    - "Keep media collection backed up"
+
+# Comparison with alternatives
+vs_alternatives:
+  dropbox:
+    - "✓ No file size limits"
+    - "✓ No storage fees"
+    - "✓ Private (no cloud)"
+    - "✗ No web interface for files"
+  nextcloud:
+    - "✓ Simpler setup"
+    - "✓ Lower resource usage"
+    - "✓ Faster sync (P2P)"
+    - "✗ No calendar/contacts sync"
+  rsync:
+    - "✓ Automatic two-way sync"
+    - "✓ Web UI for management"
+    - "✓ Mobile apps available"
+    - "✓ Conflict resolution"
+
+# Integration ideas
+integrations:
+  - Tailscale: Secure remote access
+  - Jellyfin: Sync media to server
+  - Immich: Alternative photo backup method
+  - Docker: Run additional Syncthing instances
+
+# Tags
+tags:
+  - syncthing
+  - sync
+  - backup
+  - files
+  - dropbox
+  - cloud
+  - p2p

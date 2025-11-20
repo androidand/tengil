@@ -8,6 +8,7 @@ import typer
 import yaml
 from rich.console import Console
 
+from tengil.cli_support import print_error, print_success, print_warning
 from tengil.core.importer import InfrastructureImporter
 from tengil.core.package_loader import PackageLoader
 from tengil.core.template_loader import TemplateLoader
@@ -35,8 +36,6 @@ def add(
         tg add pihole            # Add Pi-hole DNS blocker
         tg add nextcloud -p tank # Add Nextcloud to specific pool
     """
-    from tengil.cli_support import print_warning
-
     print_warning(console, "The 'add' command is coming soon!")
     console.print("\nFor now, use:")
     console.print(f"  [cyan]tg init --package {app_name}[/cyan]  # Start fresh config")
@@ -71,8 +70,6 @@ def init(
         tg init --package media-server              # Use preset package (interactive)
         tg init --package nas-complete --non-interactive  # Use package with defaults
     """
-    from tengil.cli_support import print_success
-
     # List available options
     if list_templates:
         available = template_loader.list_templates()
@@ -336,6 +333,43 @@ def repo_init(
     console.print("  git commit -m \"Initial Tengil config\"")
 
 
+def repo_status(
+    path: str = typer.Option(str(Path.home() / "tengil-configs"), "--path", "-p", help="Directory containing the repo"),
+    porcelain: bool = typer.Option(False, "--porcelain", help="Show git status --short output (script-friendly)"),
+):
+    """Show git status for the Tengil repo and remind users to commit."""
+    target = Path(path).expanduser()
+    if not target.exists():
+        print_warning(console, f"Directory '{target}' does not exist")
+        raise typer.Exit(1)
+
+    git_dir = target / ".git"
+    if not git_dir.exists():
+        print_warning(console, f"No git repository found in {target}. Run 'tg repo init --path {target}' first.")
+        raise typer.Exit(1)
+
+    args = ["git", "status"]
+    if porcelain:
+        args += ["--short"]
+
+    try:
+        result = subprocess.run(args, cwd=str(target), capture_output=True, text=True, check=True)
+    except FileNotFoundError:
+        print_error(console, "Git executable not found. Install git and retry.")
+        raise typer.Exit(1)
+    except subprocess.CalledProcessError as exc:
+        message = exc.stderr.strip() or exc.stdout.strip() or str(exc)
+        print_error(console, f"git status failed: {message}")
+        raise typer.Exit(1)
+
+    output = result.stdout.strip()
+    if not output:
+        print_success(console, "Working tree clean")
+    else:
+        console.print(output)
+        print_warning(console, "Review and commit changes before running 'tg apply'.")
+
+
 def register_setup_commands(
     app: typer.Typer,
     shared_console: Console,
@@ -361,3 +395,5 @@ def register_setup_commands(
     app.command(name="import")(import_config)
     repo_app.command("init")(repo_init)
     app.add_typer(repo_app, name="repo")
+repo_app.command("init")(repo_init)
+repo_app.command("status")(repo_status)
