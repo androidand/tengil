@@ -243,12 +243,17 @@ def apply_smart_defaults(
         if "readonly" in container:
             continue
 
-        container["readonly"] = infer_container_access(
+        inferred_readonly = infer_container_access(
             container.get("name", ""),
             profile,
             dataset=dataset_name,
             events=events,
         )
+        
+        # Only set readonly flag if it's True (readonly)
+        # Don't set it if it's False (readwrite) since that's the default
+        if inferred_readonly:
+            container["readonly"] = True
 
     if "shares" in dataset_config and isinstance(dataset_config["shares"], dict):
         shares = dataset_config["shares"]

@@ -1,0 +1,193 @@
+# Complete Production Deployment - All 4 Apps
+# Generated: 2025-11-20
+# Target: Proxmox 192.168.1.42 (Intel i5-13500T with iGPU)
+#
+# This config deploys:
+#   1. Jellyfin - Media server with GPU transcoding
+#   2. Immich - Photo backup with ML features
+#   3. Syncthing - P2P file synchronization
+#   4. Home Assistant MCP - AI control server
+#
+# Deployment time: ~20 minutes
+# Run: tg diff && tg apply -y
+
+version: v1
+
+proxmox:
+  host: 192.168.1.42
+  verify_ssl: false
+  node: pve
+
+pools:
+  tank:
+    # Jellyfin Media Server
+    datasets:
+      jellyfin:
+        description: Jellyfin media server with GPU transcoding
+        profile: media
+        properties:
+          compression: lz4
+          atime: "off"
+          recordsize: 1M
+        containers:
+          - name: jellyfin
+            vmid: 200
+            cores: 4
+            memory: 4096
+            disk: 16
+            hostname: jellyfin
+            mount: /var/lib/jellyfin
+            auto_create: true
+            template: debian-12-standard_12.12-1_amd64.tar.zst
+            post_install:
+              - type: script
+                url: https://github.com/tteck/Proxmox/raw/main/ct/jellyfin.sh
+                description: "Install Jellyfin from tteck script"
+            features:
+              gpu: true  # Auto-configure /dev/dri
+              nesting: true
+            startup: "order=3,up=30,down=30"
+
+      # Immich Photo Management
+      immich:
+        description: Immich self-hosted photo backup with ML
+        profile: dev
+        properties:
+          compression: lz4
+          atime: "off"
+        containers:
+          - name: immich
+            vmid: 201
+            cores: 4
+            memory: 8192
+            disk: 32
+            hostname: immich
+            mount: /opt/immich
+            auto_create: true
+            template: debian-12-standard_12.12-1_amd64.tar.zst
+            post_install:
+              - type: docker_compose
+                url: https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
+                env_file: https://github.com/immich-app/immich/releases/latest/download/example.env
+                env_updates:
+                  UPLOAD_LOCATION: /tank/immich/photos
+                  DB_DATA_LOCATION: /tank/immich/postgres
+                description: "Deploy Immich via Docker Compose"
+            features:
+              docker: true
+              gpu: true  # For ML features
+              nesting: true
+            startup: "order=4,up=60,down=60"
+
+      # Syncthing File Sync
+      syncthing:
+        description: Syncthing P2P file synchronization
+        profile: dev
+        properties:
+          compression: lz4
+        containers:
+          - name: syncthing
+            vmid: 202
+            cores: 2
+            memory: 2048
+            disk: 8
+            hostname: syncthing
+            mount: /var/lib/syncthing
+            auto_create: true
+            template: debian-12-standard_12.12-1_amd64.tar.zst
+            post_install:
+              - type: shell
+                commands:
+                  - apt-get update
+                  - apt-get install -y curl apt-transport-https
+                  - mkdir -p /etc/apt/keyrings
+                  - curl -fsSL https://syncthing.net/release-key.gpg | gpg --dearmor -o /etc/apt/keyrings/syncthing-archive-keyring.gpg
+                  - echo "deb [signed-by=/etc/apt/keyrings/syncthing-archive-keyring.gpg] https://apt.syncthing.net/ syncthing stable" > /etc/apt/sources.list.d/syncthing.list
+                  - apt-get update
+                  - apt-get install -y syncthing
+                  - systemctl enable syncthing@root
+                  - systemctl start syncthing@root
+                description: "Install and start Syncthing"
+            startup: "order=5"
+
+      # Home Assistant MCP Server
+      homeassistant-mcp:
+        description: Home Assistant Model Context Protocol server
+        profile: dev
+        properties:
+          compression: lz4
+        containers:
+          - name: ha-mcp
+            vmid: 203
+            cores: 2
+            memory: 2048
+            disk: 8
+            hostname: ha-mcp
+            mount: /opt/ha-mcp
+            auto_create: true
+            template: debian-12-standard_12.12-1_amd64.tar.zst
+            post_install:
+              - type: docker_compose
+                content: |
+                  version: '3.8'
+                  services:
+                    homeassistant-mcp:
+                      image: tevonsb/homeassistant-mcp:latest
+                      container_name: homeassistant-mcp
+                      ports:
+                        - "3000:3000"
+                      environment:
+                        - HOME_ASSISTANT_URL=${HOME_ASSISTANT_URL:-http://192.168.1.100:8123}
+                        - HOME_ASSISTANT_TOKEN=${HOME_ASSISTANT_TOKEN:-your-long-lived-access-token-here}
+                      restart: unless-stopped
+                env_file_content: |
+                  # Home Assistant Configuration
+                  HOME_ASSISTANT_URL=http://192.168.1.100:8123
+                  HOME_ASSISTANT_TOKEN=changeme
+                description: "Deploy Home Assistant MCP server"
+            features:
+              docker: true
+              nesting: true
+            startup: "order=6"
+
+# Optional: Shared datasets for media
+      media-movies:
+        description: Movie library for Jellyfin
+        profile: media
+        properties:
+          compression: lz4
+          recordsize: 1M
+        shares:
+          - name: movies
+            path: /tank/media-movies
+            options:
+              browseable: "yes"
+              read_only: "no"
+              guest_ok: "no"
+
+      media-tv:
+        description: TV shows library for Jellyfin
+        profile: media
+        properties:
+          compression: lz4
+          recordsize: 1M
+        shares:
+          - name: tv
+            path: /tank/media-tv
+            options:
+              browseable: "yes"
+              read_only: "no"
+              guest_ok: "no"
+
+      photos:
+        description: Photo storage for Immich
+        profile: default
+        properties:
+          compression: lz4
+        shares:
+          - name: photos
+            path: /tank/photos
+            options:
+              browseable: "yes"
+              read_only: "no"
+              guest_ok: "no"

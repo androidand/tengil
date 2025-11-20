@@ -1,7 +1,7 @@
 """State management CLI commands - scan, diff, apply."""
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Tuple
 
 import typer
 from rich.console import Console
@@ -17,6 +17,7 @@ from tengil.core.recovery import RecoveryManager
 from tengil.core.state_store import StateStore
 from tengil.core.resource_validator import ResourceValidator, detect_host_resources
 from tengil.core.zfs_manager import ZFSManager
+from tengil.config.loader import ConfigLoader
 from tengil.services.nas import NASManager
 from tengil.services.proxmox import ProxmoxManager
 from tengil.services.proxmox.state_collector import RealityStateCollector
@@ -88,7 +89,7 @@ def _render_drift_report(report) -> None:
         console.print("[dim]Run 'tg scan' before making GUI changes to keep drift manageable.[/dim]")
 
 
-def _validate_auto_create_resources(loader) -> None:
+def _validate_auto_create_resources(loader: ConfigLoader) -> None:
     """Warn/abort if auto-created containers exceed host resources."""
     processed_config = getattr(loader, "processed_config", None)
     if not processed_config:
@@ -101,6 +102,13 @@ def _validate_auto_create_resources(loader) -> None:
 
     validator = ResourceValidator(processed_config, host)
     result = validator.validate()
+    dataset_errors = _validate_host_paths(processed_config)
+    if dataset_errors:
+        console.print("[red]Dataset validation errors detected:[/red]")
+        for err in dataset_errors:
+            console.print(f"[red]✗ {err}[/red]")
+        raise typer.Exit(1)
+
     if result.auto_create_count == 0:
         return
 
@@ -118,6 +126,18 @@ def _validate_auto_create_resources(loader) -> None:
         for error in result.errors:
             console.print(f"[red]✗ {error}[/red]")
         raise typer.Exit(1)
+
+
+def _validate_host_paths(processed_config: Dict[str, Any]) -> List[str]:
+    errors: List[str] = []
+    pools = processed_config.get("pools", {})
+    for pool_name, pool_cfg in pools.items():
+        datasets: Dict[str, Dict[str, Any]] = pool_cfg.get("datasets", {})
+        for dataset_name in datasets.keys():
+            full_path = Path(f"/{pool_name}/{dataset_name}")
+            if not full_path.exists():
+                errors.append(f"{full_path} does not exist on the host. Run 'tg apply' to create datasets before mounting.")
+    return errors
 
 
 def scan(

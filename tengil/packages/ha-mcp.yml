@@ -1,0 +1,162 @@
+# Home Assistant MCP Server Package
+# Deploys tevonsb/homeassistant-mcp as a Node.js app in LXC
+#
+# Description:
+#   Model Context Protocol server for Home Assistant integration with Claude/AI tools.
+#   Provides automation creation, device control, real-time updates, and HACS integration.
+#
+# Requirements:
+#   - Home Assistant instance with long-lived access token
+#   - Network connectivity to HA instance
+#
+# After deployment:
+#   1. Configure .env file with HA credentials (auto-prompted during setup)
+#   2. Test: curl http://<container-ip>:3000/health
+#   3. Add to Claude Desktop config (instructions shown after deploy)
+
+slug: ha-mcp
+name: Home Assistant MCP Server
+description: |
+  Model Context Protocol server for Home Assistant with automation creation,
+  device control, real-time SSE updates, and HACS integration.
+category: automation
+tags:
+  - home-assistant
+  - mcp
+  - nodejs
+  - automation
+
+# Container configuration
+containers:
+  - name: mcp-server
+    auto_create: true
+    template: ubuntu-24.04-standard
+    privileged: true  # Required for nested containers and features
+
+    resources:
+      memory: 2048  # 2GB RAM (can scale to 4GB for heavy use)
+      cores: 2
+      disk: 16G    # 16GB for Node.js, dependencies, and logs
+
+    network:
+      bridge: vmbr0
+      ip: dhcp    # Or set static: "192.168.1.50/24"
+
+    features:
+      nesting: true   # Required for container operations
+      fuse: true      # Filesystem in userspace support
+      keyctl: true    # Key management support
+
+    startup_order: 100
+    startup_delay: 10
+
+    # Post-install automation
+    post_install:
+      - nodejs-20    # Install Node.js 20 (custom script)
+      - ha-mcp-setup # Clone repo, build, configure systemd (custom script)
+
+    description: "Home Assistant MCP Server - AI automation interface"
+    tags:
+      - mcp
+      - nodejs
+      - home-assistant
+
+# Storage (optional - for persistent logs/config)
+pools:
+  tank:
+    datasets:
+      mcp-config:
+        profile: appdata
+        # Optional: mount config to preserve across container rebuilds
+        # containers:
+        #   - name: mcp-server
+        #     mount: /opt/homeassistant-mcp/.env
+        #     readonly: false
+
+# Environment variables (will be prompted during setup)
+secrets:
+  HASS_HOST:
+    description: "Home Assistant URL (e.g., http://homeassistant.local:8123)"
+    required: true
+  HASS_TOKEN:
+    description: "Home Assistant long-lived access token (from Profile → Security)"
+    required: true
+    sensitive: true
+  HASS_SOCKET_URL:
+    description: "Home Assistant WebSocket URL (e.g., ws://homeassistant.local:8123/api/websocket)"
+    required: true
+  PORT:
+    description: "MCP server port"
+    default: "3000"
+  NODE_ENV:
+    description: "Node environment"
+    default: "production"
+  DEBUG:
+    description: "Enable debug logging"
+    default: "false"
+
+# Documentation for users
+notes: |
+  ## Home Assistant MCP Server
+
+  This package deploys the tevonsb/homeassistant-mcp server for AI-powered
+  Home Assistant automation and control.
+
+  ### Post-Installation Steps
+
+  1. **Get Home Assistant Token**:
+     - Open Home Assistant → Profile → Security
+     - Create long-lived access token
+     - Copy the token
+
+  2. **Configure Environment**:
+     The setup script will prompt for:
+     - Home Assistant URL (http://homeassistant.local:8123)
+     - Long-lived access token (paste from HA)
+     - WebSocket URL (ws://homeassistant.local:8123/api/websocket)
+
+  3. **Test the Server**:
+     ```bash
+     curl http://<container-ip>:3000/health
+     ```
+
+  4. **Connect to Claude Desktop**:
+     Add to `claude_desktop_config.json`:
+     ```json
+     {
+       "mcpServers": {
+         "HomeAssistant": {
+           "command": "mcp-proxy",
+           "args": [
+             "--transport=streamablehttp",
+             "--stateless",
+             "http://<container-ip>:3000"
+           ]
+         }
+       }
+     }
+     ```
+
+  5. **Manage the Service**:
+     ```bash
+     tg container exec mcp-server -- systemctl status mcp-server
+     tg container exec mcp-server -- journalctl -u mcp-server -f
+     ```
+
+  ### Features
+  - ✅ Full automation creation + editing
+  - ✅ Device control
+  - ✅ Real-time SSE state updates
+  - ✅ Supervisor & add-on management
+  - ✅ HACS integration
+  - ✅ Automation duplication & modification
+  - ✅ Real-time WebSocket events
+  - ✅ Secure token-based access
+
+  ### Repository
+  https://github.com/tevonsb/homeassistant-mcp
+
+  ### Troubleshooting
+  - Check logs: `tg container exec mcp-server -- journalctl -u mcp-server -n 50`
+  - Restart service: `tg container exec mcp-server -- systemctl restart mcp-server`
+  - Update MCP: `tg container exec mcp-server -- /opt/homeassistant-mcp/update.sh`

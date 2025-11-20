@@ -31,7 +31,8 @@ def test_unknown_container_appdata_profile_gets_readwrite_defaults():
     container = dataset["containers"][0]
     smb_share = dataset["shares"]["smb"]
 
-    assert container["readonly"] is False
+    # Smart permissions now omits readonly when False (default)
+    assert "readonly" not in container or container["readonly"] is False
     assert smb_share["writable"] == "yes"
     assert smb_share["read only"] == "no"
     assert events == []

@@ -52,7 +52,8 @@ def test_loader_applies_appdata_defaults(temp_config_dir: Path):
     container = dataset["containers"][0]
     smb_share = dataset["shares"]["smb"]
 
-    assert container["readonly"] is False
+    # Smart permissions now omits readonly when False (default)
+    assert "readonly" not in container or container["readonly"] is False
     assert smb_share["writable"] == "yes"
     assert smb_share["read only"] == "no"
     assert loader.get_smart_permission_events() == []

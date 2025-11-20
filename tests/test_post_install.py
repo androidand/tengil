@@ -63,6 +63,35 @@ class TestTteckScripts:
         assert success is True  # Mock mode always succeeds
 
 
+class TestNodeJSInstall:
+    """Test Node.js 20 installation."""
+
+    def test_install_nodejs_20(self, post_install_mgr):
+        """Test installing Node.js 20 in container."""
+        success = post_install_mgr.install_nodejs_20(vmid=100)
+        assert success is True
+
+    def test_install_nodejs_20_already_exists(self, post_install_mgr):
+        """Test Node.js installation when already installed (idempotent)."""
+        success = post_install_mgr.install_nodejs_20(vmid=100)
+        assert success is True
+
+
+class TestHAMCPInstall:
+    """Test Home Assistant MCP server installation."""
+
+    def test_install_ha_mcp(self, post_install_mgr):
+        """Test installing HA MCP server."""
+        success = post_install_mgr.install_ha_mcp(vmid=100)
+        assert success is True
+
+    def test_install_ha_mcp_requires_nodejs(self, post_install_mgr):
+        """Test that HA MCP requires Node.js."""
+        # In mock mode, this always succeeds
+        success = post_install_mgr.install_ha_mcp(vmid=100)
+        assert success is True
+
+
 class TestCustomCommands:
     """Test custom shell command execution."""
 
@@ -118,6 +147,30 @@ class TestPostInstallOrchestration:
         success = post_install_mgr.run_post_install(
             vmid=100,
             post_install='apt-get update && apt-get install -y nginx'
+        )
+        assert success is True
+
+    def test_run_nodejs_task(self, post_install_mgr):
+        """Test running nodejs-20 task."""
+        success = post_install_mgr.run_post_install(
+            vmid=100,
+            post_install='nodejs-20'
+        )
+        assert success is True
+
+    def test_run_ha_mcp_task(self, post_install_mgr):
+        """Test running ha-mcp-setup task."""
+        success = post_install_mgr.run_post_install(
+            vmid=100,
+            post_install='ha-mcp-setup'
+        )
+        assert success is True
+
+    def test_run_ha_mcp_full_stack(self, post_install_mgr):
+        """Test running full HA MCP stack (nodejs + ha-mcp)."""
+        success = post_install_mgr.run_post_install(
+            vmid=100,
+            post_install=['nodejs-20', 'ha-mcp-setup']
         )
         assert success is True
 

@@ -30,7 +30,8 @@ class TestNodeJSWebservices:
         processed = apply_smart_defaults(config, 'webservices')
         
         # Container should get readwrite (appdata profile default)
-        assert processed['containers'][0]['readonly'] == False
+        container = processed['containers'][0]
+        assert "readonly" not in container or container["readonly"] is False
         
         # SMB should inherit readwrite permissions
         assert processed['shares']['smb']['writable'] == 'yes'
@@ -70,8 +71,8 @@ class TestNodeJSWebservices:
         processed = apply_smart_defaults(config, 'dev_workspace')
         
         # Both containers should get readwrite (dev profile default)
-        assert processed['containers'][0]['readonly'] == False
-        assert processed['containers'][1]['readonly'] == False
+        for container in processed['containers']:
+            assert "readonly" not in container or container["readonly"] is False
 
     def test_explicit_override_wins(self):
         """Explicit readonly setting overrides profile default."""
@@ -106,8 +107,10 @@ class TestNodeJSWebservices:
         
         # Known patterns should override profile
         assert processed['containers'][0]['readonly'] == True   # jellyfin
-        assert processed['containers'][1]['readonly'] == False  # radarr
-        assert processed['containers'][2]['readonly'] == False  # unknown + appdata
+        # radarr and unknown-app should be readwrite (no readonly key or False)
+        for i in [1, 2]:
+            container = processed['containers'][i]
+            assert "readonly" not in container or container["readonly"] is False
 
 
 class TestProfileDefaults:
@@ -290,7 +293,7 @@ class TestRealWorldScenarios:
         processed = apply_smart_defaults(config, 'media')
         
         # Check individual container permissions
-        containers = {c['name']: c['readonly'] for c in processed['containers']}
+        containers = {c['name']: c.get('readonly', False) for c in processed['containers']}
         assert containers['jellyfin'] == True      # Known readonly
         assert containers['radarr'] == False      # Known readwrite
         assert containers['sonarr'] == False      # Known readwrite  
@@ -315,7 +318,7 @@ class TestRealWorldScenarios:
         
         # All should be readwrite (dev profile + known patterns)
         for container in processed['containers']:
-            assert container['readonly'] == False
+            assert "readonly" not in container or container["readonly"] is False
 
     def test_backup_storage_readonly(self):
         """Backup storage should default to readonly."""
