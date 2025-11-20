@@ -4,6 +4,7 @@ import typer
 from rich.console import Console
 
 from tengil.cli_app_commands import register_app_commands
+from tengil.cli_apps_discovery_commands import register_apps_commands
 from tengil.cli_compose_commands import register_compose_commands
 from tengil.cli_container_commands import register_container_commands
 from tengil.cli_core_commands import register_core_commands
@@ -36,6 +37,7 @@ template_loader = TemplateLoader()
 # Attach modular subcommands
 register_core_commands(app, console, template_loader)
 register_app_commands(app, console)
+register_apps_commands(app, console)
 register_container_commands(app, console)
 register_env_commands(app, console)
 register_compose_commands(app, console)

@@ -245,8 +245,6 @@ def import_config(
     Example:
         tg import tank --output tengil.yml
     """
-    from tengil.cli_support import print_error, print_success
-
     console.print("[bold cyan]Tengil Import[/bold cyan]")
     console.print(f"Scanning pool: [yellow]{pool}[/yellow]\n")
 
@@ -393,7 +391,9 @@ def register_setup_commands(
     app.command()(init)
     app.command()(add)
     app.command(name="import")(import_config)
-    repo_app.command("init")(repo_init)
+    app.command(name="status")(repo_status)
     app.add_typer(repo_app, name="repo")
+
+
 repo_app.command("init")(repo_init)
 repo_app.command("status")(repo_status)
