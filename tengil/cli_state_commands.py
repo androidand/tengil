@@ -250,7 +250,11 @@ def diff(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
     log_file: Optional[str] = typer.Option(None, "--log-file", help="Path to log file")
 ):
-    """Plan - Show what changes would be made (like 'terraform plan')."""
+    """Show what changes would be made (like 'terraform plan').
+
+    This command is read-only and does not make any changes to your infrastructure.
+    Use 'tg apply' to actually apply the changes shown by this command.
+    """
     from tengil.cli_support import (
         handle_cli_error,
         load_config_and_orchestrate,
@@ -262,8 +266,8 @@ def diff(
     setup_file_logging(log_file=log_file, verbose=verbose)
 
     try:
-        # Load configuration and set up orchestration
-        _loader, all_desired, all_current, container_mgr = load_config_and_orchestrate(config, dry_run=False)
+        # Load configuration and set up orchestration (read-only mode)
+        _loader, all_desired, all_current, container_mgr = load_config_and_orchestrate(config, dry_run=True)
         _validate_auto_create_resources(_loader)
 
         # Calculate diff across all pools (including containers)
