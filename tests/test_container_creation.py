@@ -158,8 +158,9 @@ class TestContainerCreation:
 
         lifecycle.create_container(spec, storage='local')
 
-        assert '--privileged' in captured['cmd']
-        assert '--unprivileged' not in captured['cmd']
+        assert '--unprivileged' in captured['cmd']
+        unprivileged_index = captured['cmd'].index('--unprivileged')
+        assert captured['cmd'][unprivileged_index + 1] == '0'
 
 
 class TestContainerLifecycle:
@@ -478,8 +479,9 @@ class TestContainerPrivileged:
         vmid = lifecycle.create_container(spec, storage='local')
 
         assert vmid == 999
-        assert '--privileged' in captured['cmd']
-        assert '--unprivileged' not in captured['cmd']
+        assert '--unprivileged' in captured['cmd']
+        unprivileged_index = captured['cmd'].index('--unprivileged')
+        assert captured['cmd'][unprivileged_index + 1] == '0'
 
     def test_unprivileged_flag_in_pct_command(self, monkeypatch):
         """Test that unprivileged flag is correctly passed to pct create."""

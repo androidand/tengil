@@ -151,7 +151,7 @@ share_recommendations:
 # Post-deployment checklist
 post_deployment:
   - Wait 5 minutes for all containers to start
-  - Check status: 'docker ps' in container
+  - "Check status: 'docker ps' in container"
   - Open http://container-ip:2283
   - Create admin account (first user becomes admin)
   - Set up server URL in mobile app
