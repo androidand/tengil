@@ -154,6 +154,7 @@ Tengil works best when your config lives in Git:
 
 ```bash
 cd ~/tengil-configs
+tg repo init --path .          # Initialize Git repo + .gitignore
 git init
 git add tengil.yml
 git commit -m "Initial Tengil config"

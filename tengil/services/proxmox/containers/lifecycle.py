@@ -226,6 +226,11 @@ class ContainerLifecycle:
             )
 
             logger.info(f"✓ Container {vmid} ({name}) created successfully")
+            
+            # Handle requires_docker flag for automatic Docker support
+            if spec.get('requires_docker', False):
+                self._configure_docker_support(vmid)
+            
             return vmid
 
         except subprocess.CalledProcessError as e:
@@ -233,6 +238,63 @@ class ContainerLifecycle:
             if e.stderr:
                 logger.error(f"Error output: {e.stderr}")
             return None
+
+    def _configure_docker_support(self, vmid: int) -> bool:
+        """Configure container for Docker support.
+        
+        Adds AppArmor profile unconfined and keyctl feature to enable Docker.
+        
+        Args:
+            vmid: Container ID to configure
+            
+        Returns:
+            True if configured successfully
+        """
+        config_path = f"/etc/pve/lxc/{vmid}.conf"
+        
+        try:
+            logger.info(f"Configuring Docker support for container {vmid}")
+            
+            # Read current config
+            with open(config_path, 'r') as f:
+                config_lines = f.readlines()
+            
+            # Check if already configured
+            has_apparmor = any('lxc.apparmor.profile' in line for line in config_lines)
+            has_keyctl = any('keyctl=1' in line for line in config_lines)
+            
+            modified = False
+            
+            # Add AppArmor profile if not present
+            if not has_apparmor:
+                config_lines.append('lxc.apparmor.profile: unconfined\n')
+                logger.info(f"  ✓ Added AppArmor unconfined profile")
+                modified = True
+            
+            # Add keyctl to features if not present
+            if not has_keyctl:
+                # Find features line and update it
+                for i, line in enumerate(config_lines):
+                    if line.startswith('features:'):
+                        # Add keyctl to existing features
+                        config_lines[i] = line.rstrip() + ',keyctl=1\n'
+                        logger.info(f"  ✓ Added keyctl=1 to features")
+                        modified = True
+                        break
+            
+            # Write back if modified
+            if modified:
+                with open(config_path, 'w') as f:
+                    f.writelines(config_lines)
+                logger.info(f"✓ Docker support configured for container {vmid}")
+            else:
+                logger.info(f"  Docker support already configured for container {vmid}")
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to configure Docker support for container {vmid}: {e}")
+            return False
 
     def _get_next_free_vmid(self, start: int = 100) -> int:
         """Find the next available VMID.

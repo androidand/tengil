@@ -1,5 +1,6 @@
-"""Setup CLI commands - init, add, import."""
+"""Setup CLI commands - init, add, repo, import."""
 import os
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -14,6 +15,7 @@ from tengil.core.template_loader import TemplateLoader
 # Module-level instances (will be set by register function)
 console: Console = Console()
 template_loader: TemplateLoader = TemplateLoader()
+repo_app = typer.Typer(help="Git repository helpers")
 
 
 def add(
@@ -91,7 +93,7 @@ def init(
         return
 
     # Check for existing config
-    config_path = Path.home() / "tengil-configs" / "tengil.yml"
+        config_path = Path.home() / "tengil-configs" / "tengil.yml"
     if config_path.exists():
         console.print("[yellow]Warning:[/yellow] tengil.yml already exists")
         if not typer.confirm("Overwrite?"):
@@ -282,6 +284,58 @@ def import_config(
             raise typer.Exit(1)
 
 
+@repo_app.command("init")
+def repo_init(
+    path: str = typer.Option(str(Path.home() / "tengil-configs"), "--path", "-p", help="Directory to initialize the repo in"),
+    force: bool = typer.Option(False, "--force", "-f", help="Reinitialize even if .git already exists"),
+    skip_gitignore: bool = typer.Option(False, "--skip-gitignore", help="Do not create/update .gitignore"),
+):
+    """Initialize a Git repository for Tengil config + create a sensible .gitignore."""
+    target = Path(path).expanduser()
+    target.mkdir(parents=True, exist_ok=True)
+
+    git_dir = target / ".git"
+    if git_dir.exists() and not force:
+        console.print(f"[yellow]Git repo already exists in {target}[/yellow]")
+        console.print("Use --force to reinitialize.")
+        raise typer.Exit(0)
+
+    try:
+        subprocess.run(["git", "init"], cwd=str(target), check=True, capture_output=True)
+    except FileNotFoundError:
+        console.print("[red]Git executable not found. Install git and retry.[/red]")
+        raise typer.Exit(1)
+    except subprocess.CalledProcessError as exc:
+        console.print(f"[red]git init failed:[/red] {exc.stderr.decode().strip() if exc.stderr else exc}")
+        raise typer.Exit(1)
+
+    gitignore = target / ".gitignore"
+    if not skip_gitignore:
+        entries = [
+            "# Tengil defaults",
+            ".tengil/",
+            "*.log",
+            "*.tmp",
+            "__pycache__/",
+            ".DS_Store",
+            "compose_cache/",
+        ]
+        gitignore.write_text("\n".join(entries) + "\n")
+
+    console.print(f"[green]✓[/green] Initialized Git repo in {target}")
+    if not skip_gitignore:
+        console.print(f"[green]✓[/green] Wrote {gitignore.relative_to(target)}")
+
+    suggested = target / "tengil.yml"
+    if not suggested.exists():
+        console.print(f"[yellow]Note:[/yellow] {suggested} does not exist yet. Run 'tg init' or copy your config.")
+
+    console.print("\nNext steps:")
+    console.print(f"  cd {target}")
+    console.print("  git add tengil.yml")
+    console.print("  git commit -m \"Initial Tengil config\"")
+
+
 def register_setup_commands(
     app: typer.Typer,
     shared_console: Console,
@@ -305,3 +359,5 @@ def register_setup_commands(
     app.command()(init)
     app.command()(add)
     app.command(name="import")(import_config)
+    repo_app.command("init")(repo_init)
+    app.add_typer(repo_app, name="repo")

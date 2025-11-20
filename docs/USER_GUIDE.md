@@ -96,6 +96,8 @@ When dangerous drift is detected, the CLI highlights it (red section) and prompt
 
 > Tip: `tg plan` is an alias for `tg diff` for people coming from Terraform. Use whichever name matches your muscle memory.
 
+> Hint: use `tg repo init --path ~/tengil-configs` to bootstrap a Git repo (with sensible `.gitignore`) the first time you create a config.
+
 **Use case:** Quick testing, development, CI/CD  
 **Note:** `/tmp` is cleared on reboot
 

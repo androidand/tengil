@@ -1,4 +1,5 @@
 """High-level container orchestration (combines lifecycle, mounts, discovery)."""
+import subprocess
 from typing import Dict, List, Tuple, Optional
 
 from tengil.core.logger import get_logger
@@ -221,6 +222,9 @@ class ContainerOrchestrator:
                                 if self.post_install.wait_for_container_boot(created_vmid, timeout=30):
                                     if self.post_install.run_post_install(created_vmid, post_install):
                                         logger.info(f"✓ Post-install completed for container {created_vmid}")
+                                        
+                                        # Show container IP and service URLs
+                                        self._display_container_access_info(created_vmid, container_name, post_install)
                                     else:
                                         msg = f"Post-install failed for container {created_vmid}"
                                         logger.error(msg)
@@ -231,6 +235,9 @@ class ContainerOrchestrator:
                                     logger.error(msg)
                                     results.append((created_vmid, False, "boot timeout"))
                                     continue
+                            else:
+                                # Show IP even without post-install
+                                self._display_container_access_info(created_vmid, container_name, None)
                         else:
                             logger.warning(f"Container {created_vmid} created but failed to start")
 
@@ -318,3 +325,47 @@ class ContainerOrchestrator:
                 results.append((vmid, False, "mount failed"))
 
         return results
+    
+    def _display_container_access_info(self, vmid: int, container_name: str, post_install: list = None):
+        """Display container IP address and access information.
+        
+        Args:
+            vmid: Container ID
+            container_name: Container name
+            post_install: List of post-install tasks (to detect services)
+        """
+        try:
+            # Get container IP
+            result = subprocess.run(
+                ['pct', 'exec', str(vmid), '--', 'hostname', '-I'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            if result.returncode == 0 and result.stdout.strip():
+                ip = result.stdout.strip().split()[0]  # First IP if multiple
+                
+                logger.info("=" * 60)
+                logger.info(f"🎉 Container '{container_name}' (ID {vmid}) is ready!")
+                logger.info(f"   IP Address: {ip}")
+                
+                # Show service URLs if we know what was installed
+                if post_install:
+                    if 'portainer' in post_install or 'tteck/portainer' in post_install:
+                        logger.info(f"   Portainer:  http://{ip}:9000")
+                    if 'jellyfin' in post_install or 'tteck/jellyfin' in post_install:
+                        logger.info(f"   Jellyfin:   http://{ip}:8096")
+                    if 'homeassistant' in post_install or 'tteck/homeassistant' in post_install:
+                        logger.info(f"   Home Assistant: http://{ip}:8123")
+                    if 'nextcloud' in post_install or 'tteck/nextcloud' in post_install:
+                        logger.info(f"   Nextcloud:  http://{ip}")
+                    if 'pihole' in post_install or 'tteck/pihole' in post_install:
+                        logger.info(f"   Pi-hole:    http://{ip}/admin")
+                
+                logger.info("=" * 60)
+            else:
+                logger.debug(f"Could not get IP for container {vmid}")
+                
+        except Exception as e:
+            logger.debug(f"Could not display access info for container {vmid}: {e}")

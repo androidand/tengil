@@ -62,14 +62,15 @@ pools:
             template: debian-12-standard
             mount: /data
             privileged: true  # Required for Docker in LXC
+            requires_docker: true  # Auto-configures AppArmor + keyctl
             resources:
               memory: 2048
               cores: 2
               disk: 32G
             startup_order: 100
             post_install:
-              - tteck/docker
-              - tteck/portainer
+              - docker        # Install Docker Engine
+              - portainer     # Install Portainer UI
         shares:
           smb:
             name: Docker-Volumes
@@ -84,11 +85,12 @@ container:
   cores: 2
   disk_size: 32G
   privileged: true  # Required for Docker in LXC
+  requires_docker: true  # Auto-configures AppArmor + keyctl
   startup_order: 100
   description: Docker container host with Portainer
   post_install:
-    - tteck/docker        # Installs Docker Engine
-    - tteck/portainer     # Installs Portainer
+    - docker              # Installs Docker Engine
+    - portainer           # Installs Portainer web UI
   why: "Privileged LXC required for Docker. 2GB RAM sufficient for moderate workloads."
 
 # Storage configuration
