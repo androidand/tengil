@@ -9,7 +9,7 @@ Runs commands inside containers via `pct exec`.
 """
 import subprocess
 import time
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from tengil.core.logger import get_logger
 from tengil.core.retry import retry
 from tengil.core.config import get_config
