@@ -86,12 +86,13 @@ class ContainerLifecycle:
             f'--hostname', name,
         ]
 
-        # Add resources
+        # Add resources - support both nested resources dict and top-level fields
         resources = spec.get('resources', {})
-        memory = resources.get('memory', 512)
-        cores = resources.get('cores', 1)
-        disk = resources.get('disk', '8G')
-        swap = resources.get('swap', 512)
+        # Top-level takes precedence over nested (for backwards compatibility)
+        memory = spec.get('memory', resources.get('memory', 512))
+        cores = spec.get('cores', resources.get('cores', 1))
+        disk = spec.get('disk', resources.get('disk', '8G'))
+        swap = spec.get('swap', resources.get('swap', 512))
 
         # For ZFS storage, Proxmox expects size as a number (in GB) without unit suffix
         # Convert '128G' -> '128', '8G' -> '8', etc.
@@ -175,9 +176,12 @@ class ContainerLifecycle:
             '--features', 'nesting=1',
         ])
 
-        # GPU passthrough if requested
+        # GPU passthrough if requested (check both old format and new features.gpu format)
         gpu_config = spec.get('gpu', {})
-        if gpu_config and gpu_config.get('passthrough', False):
+        features = spec.get('features', {})
+        gpu_requested = (gpu_config and gpu_config.get('passthrough', False)) or features.get('gpu', False)
+        
+        if gpu_requested:
             gpu_type = gpu_config.get('type', 'auto')
             
             if gpu_type == 'auto':
@@ -268,6 +272,11 @@ class ContainerLifecycle:
                         logger.info(f"  ✓ Added keyctl=1 to features")
                         modified = True
                         break
+                else:
+                    # No features line present, add a new one
+                    config_lines.append('features: keyctl=1\n')
+                    logger.info(f"  ✓ Added features line with keyctl=1")
+                    modified = True
             
             # Write back if modified
             if modified:
