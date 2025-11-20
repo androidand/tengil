@@ -1,7 +1,7 @@
 """State management CLI commands - scan, diff, apply."""
 import json
 from pathlib import Path
-from typing import List, Optional, Dict, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import typer
 from rich.console import Console
