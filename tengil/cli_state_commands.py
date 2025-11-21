@@ -146,10 +146,20 @@ def _validate_host_paths(processed_config: Dict[str, Any]) -> List[str]:
     pools = processed_config.get("pools", {})
     for pool_name, pool_cfg in pools.items():
         datasets: Dict[str, Dict[str, Any]] = pool_cfg.get("datasets", {})
-        for dataset_name in datasets.keys():
-            full_path = Path(f"/{pool_name}/{dataset_name}")
-            if not full_path.exists():
-                errors.append(f"{full_path} does not exist on the host. Run 'tg apply' to create datasets before mounting.")
+        for dataset_name, dataset_cfg in datasets.items():
+            # Check if any container in this dataset has auto_create disabled
+            containers = dataset_cfg.get("containers", [])
+            has_manual_containers = any(
+                not container.get("auto_create", False) 
+                for container in containers 
+                if isinstance(container, dict)
+            )
+            
+            # Only validate path exists if there are containers without auto_create
+            if has_manual_containers:
+                full_path = Path(f"/{pool_name}/{dataset_name}")
+                if not full_path.exists():
+                    errors.append(f"{full_path} does not exist on the host. Run 'tg apply' to create datasets before mounting.")
     return errors
 
 
