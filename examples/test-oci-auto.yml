@@ -23,6 +23,7 @@ pools:
             cores: 1
             memory: 512
             disk: 4
+            mount: /appdata/nginx
             auto_create: true
             oci:
               image: nginx

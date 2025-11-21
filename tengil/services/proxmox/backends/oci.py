@@ -76,6 +76,7 @@ class OCIBackend(ContainerBackend):
         spec: Dict,
         storage: str = 'local-zfs',
         pool: Optional[str] = None,
+        template: Optional[str] = None,
         **kwargs
     ) -> Optional[int]:
         """Create OCI container.
@@ -84,34 +85,37 @@ class OCIBackend(ContainerBackend):
             spec: Container specification with 'oci' section
             storage: Storage backend for rootfs
             pool: Resource pool (optional)
+            template: Optional pre-pulled template reference (local:vztmpl/...)
             **kwargs: Additional options
             
         Returns:
             Container VMID or None if failed
         """
         oci_spec = spec.get('oci', {})
-        
-        # Pull image if needed
-        image = oci_spec.get('image')
-        tag = oci_spec.get('tag', 'latest')
-        registry = oci_spec.get('registry')
-        
-        if not image:
-            print("Error: No image specified in oci section")
-            return None
-        
-        # Check if template exists or pull it
-        image_name = image.split('/')[-1]
-        template_name = f'{image_name}-{tag}.tar'
-        template_path = self.template_dir / template_name
-        
-        if not template_path.exists():
-            print(f"Pulling OCI image: {image}:{tag}")
-            template_ref = self.pull_image(image, tag, registry)
-            if not template_ref:
+
+        # Pull image if needed (unless template supplied)
+        template_ref = template  # may be passed in by orchestrator
+        if not template_ref:
+            image = oci_spec.get('image')
+            tag = oci_spec.get('tag', 'latest')
+            registry = oci_spec.get('registry')
+            
+            if not image:
+                print("Error: No image specified in oci section")
                 return None
-        else:
-            template_ref = f'local:vztmpl/{template_name}'
+            
+            # Check if template exists or pull it
+            image_name = image.split('/')[-1]
+            template_name = f'{image_name}-{tag}.tar'
+            template_path = self.template_dir / template_name
+            
+            if not template_path.exists():
+                print(f"Pulling OCI image: {image}:{tag}")
+                template_ref = self.pull_image(image, tag, registry)
+                if not template_ref:
+                    return None
+            else:
+                template_ref = f'local:vztmpl/{template_name}'
         
         # Get or allocate VMID
         vmid = spec.get('vmid') or self._get_next_vmid()

@@ -84,6 +84,29 @@ class TestOCIBackend(unittest.TestCase):
         vmid = self.backend.create_container(spec)
         self.assertEqual(vmid, 200)
 
+    def test_create_container_with_env(self):
+        """Test creating container with env vars passed at create time."""
+        spec = {
+            'oci': {
+                'image': 'alpine',
+                'tag': 'latest'
+            },
+            'hostname': 'env-test',
+            'env': {
+                'KEY': 'VALUE',
+                'FOO': 'BAR'
+            }
+        }
+        
+        with patch('subprocess.run') as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout='', stderr='')
+            vmid = self.backend.create_container(spec)
+            self.assertEqual(vmid, 200)
+            # ensure env flags present in command
+            args = mock_run.call_args[0][0]
+            env_flags = [a for a in args if a.startswith('--env') or 'KEY=VALUE' in a or 'FOO=BAR' in a]
+            self.assertTrue(env_flags)
+
     def test_create_container_no_image(self):
         """Test error handling when no image specified."""
         spec = {

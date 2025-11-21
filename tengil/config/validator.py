@@ -211,11 +211,15 @@ class MultiPoolValidator:
                     f"must be absolute path (start with /)"
                 )
             
-            # Phase 2+ validation: auto_create requires template
+            # Phase 2+ validation: auto_create requires template (or OCI image)
             if container.get('auto_create'):
-                if not container.get('template'):
+                has_template = container.get('template')
+                has_oci = container.get('type') == 'oci' or 'oci' in container
+                
+                if not has_template and not has_oci:
                     errors.append(
-                        f"Container {idx} in '{dataset_path}': auto_create=true requires 'template' field"
+                        f"Container {idx} in '{dataset_path}': auto_create=true requires 'template' field "
+                        f"(for LXC) or 'type: oci' with 'oci' section (for OCI containers)"
                     )
                 
                 # Validate resources if provided
