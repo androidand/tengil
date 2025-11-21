@@ -187,14 +187,18 @@ def _validate_storage_exists(processed_config: Dict[str, Any]) -> List[str]:
     for storage_name in storage_names:
         try:
             import subprocess
+            # Run 'pvesm status' and grep for the storage name
             result = subprocess.run(
-                ['pvesm', 'status', storage_name],
+                ['pvesm', 'status'],
                 capture_output=True,
                 text=True,
                 check=True
             )
+            # Check if storage exists in output
+            if storage_name not in result.stdout:
+                errors.append(f"Proxmox storage '{storage_name}' does not exist. Add it in Datacenter > Storage or use existing storage.")
         except (subprocess.CalledProcessError, FileNotFoundError):
-            errors.append(f"Proxmox storage '{storage_name}' does not exist. Add it in Datacenter > Storage or use existing storage.")
+            errors.append(f"Failed to validate Proxmox storage (pvesm command not available)")
     
     return errors
 
