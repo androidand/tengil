@@ -2,6 +2,7 @@
 import unittest
 from unittest.mock import patch, MagicMock
 from tengil.services.proxmox.backends.oci import OCIBackend
+from tengil.services.oci_registry import OciRegistryCatalog
 
 
 class TestOCIRegistryIntegration(unittest.TestCase):
@@ -162,6 +163,76 @@ class TestOCIRegistryCatalog(unittest.TestCase):
         self.assertIn('home-assistant', app_names, "Should have home automation")
         self.assertIn('vaultwarden', app_names, "Should have password manager")
         self.assertIn('photoprism', app_names, "Should have photo management")
+
+    def test_catalog_categories(self):
+        """Test category filtering and listing."""
+        categories = OciRegistryCatalog.get_categories()
+        
+        # Should have all expected categories
+        self.assertIn('media', categories)
+        self.assertIn('photos', categories)
+        self.assertIn('files', categories)
+        self.assertIn('automation', categories)
+        self.assertIn('documents', categories)
+        self.assertIn('passwords', categories)
+        self.assertIn('monitoring', categories)
+        self.assertIn('network', categories)
+        self.assertIn('recipes', categories)
+        self.assertIn('rss', categories)
+        
+        # Should have at least 10 categories
+        self.assertGreaterEqual(len(categories), 10)
+
+    def test_filter_by_category(self):
+        """Test filtering apps by category."""
+        media_apps = OciRegistryCatalog.filter_by_category('media')
+        
+        # Should have media apps
+        self.assertGreater(len(media_apps), 0)
+        
+        # All apps should be in media category
+        for app in media_apps:
+            self.assertEqual(app.category, 'media')
+        
+        # Should include known media apps
+        media_names = [app.name for app in media_apps]
+        self.assertIn('jellyfin', media_names)
+        self.assertIn('plex', media_names)
+
+    def test_get_app_by_name(self):
+        """Test getting specific app by name."""
+        jellyfin = OciRegistryCatalog.get_app_by_name('jellyfin')
+        
+        self.assertIsNotNone(jellyfin)
+        self.assertEqual(jellyfin.name, 'jellyfin')
+        self.assertEqual(jellyfin.category, 'media')
+        self.assertIn('jellyfin', jellyfin.image)
+        
+        # Test case-insensitive
+        jellyfin_upper = OciRegistryCatalog.get_app_by_name('JELLYFIN')
+        self.assertIsNotNone(jellyfin_upper)
+        self.assertEqual(jellyfin_upper.name, 'jellyfin')
+        
+        # Test non-existent app
+        nonexistent = OciRegistryCatalog.get_app_by_name('nonexistent')
+        self.assertIsNone(nonexistent)
+
+    def test_search_apps_by_description(self):
+        """Test searching apps by description content."""
+        # Search for "photo" should find photo management apps
+        photo_apps = OciRegistryCatalog.search_apps('photo')
+        photo_names = [app.name for app in photo_apps]
+        
+        self.assertIn('photoprism', photo_names)
+        self.assertIn('immich', photo_names)
+        self.assertIn('photoview', photo_names)
+        
+        # Search for "password" should find password managers
+        password_apps = OciRegistryCatalog.search_apps('password')
+        password_names = [app.name for app in password_apps]
+        
+        self.assertIn('vaultwarden', password_names)
+        self.assertIn('passbolt', password_names)
 
 
 if __name__ == '__main__':
