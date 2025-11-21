@@ -252,12 +252,14 @@ class ContainerOrchestrator:
                             image, tag = image.rsplit(':', 1)
                         
                         logger.info(f"Pulling OCI image: {image}:{tag}")
-                        template = self.oci_backend.pull_image(image, tag)
-                        if not template:
+                        template_ref = self.oci_backend.pull_image(image, tag)
+                        if not template_ref:
                             msg = f"Container '{container_name or vmid}': failed to pull OCI image {image}:{tag}"
                             logger.error(msg)
                             results.append((0, False, "image pull failed"))
                             continue
+                        # Extract just the filename from 'local:vztmpl/filename.tar'
+                        template = template_ref.split('/')[-1]
                         # Store template for create_container call
                         container_spec['template'] = template
                     elif not template:
