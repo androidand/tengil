@@ -4,6 +4,7 @@ import shlex
 from pathlib import Path
 from typing import Dict, Optional
 from rich.console import Console
+from rich.status import Status
 from .base import ContainerBackend
 
 console = Console()
@@ -63,12 +64,14 @@ class OCIBackend(ContainerBackend):
             return f'local:vztmpl/{filename}'
         
         try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=True
-            )
+            with console.status(f"[cyan]Pulling {image}:{tag}...[/cyan]", spinner="dots"):
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+            console.print(f"[green]✓[/green] Pulled {image}:{tag}")
             return f'local:vztmpl/{filename}'
         except subprocess.CalledProcessError as e:
             console.print(f"[red]✗[/red] Error pulling image: {e.stderr}")
@@ -191,16 +194,18 @@ class OCIBackend(ContainerBackend):
             return vmid
         
         try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=True
-            )
+            with console.status(f"[cyan]Creating container {vmid}...[/cyan]", spinner="dots"):
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
             
             # Configure GPU if specified
             if spec.get('gpu', {}).get('passthrough') or features.get('gpu'):
-                self.configure_gpu(vmid)
+                with console.status(f"[cyan]Configuring GPU for {vmid}...[/cyan]", spinner="dots"):
+                    self.configure_gpu(vmid)
             
             # Add mounts
             mounts = spec.get('mounts', [])
@@ -209,6 +214,7 @@ class OCIBackend(ContainerBackend):
                     console.print(f"[red]✗[/red] Error adding mount: {mount}")
                     return None
             
+            console.print(f"[green]✓[/green] Created container {vmid}")
             return vmid
             
         except subprocess.CalledProcessError as e:

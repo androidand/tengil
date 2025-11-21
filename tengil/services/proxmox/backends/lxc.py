@@ -2,6 +2,7 @@
 import subprocess
 from typing import Dict, Optional
 from rich.console import Console
+from rich.status import Status
 from .base import ContainerBackend
 
 console = Console()
@@ -93,22 +94,25 @@ class LXCBackend(ContainerBackend):
             return vmid
         
         try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                check=True
-            )
+            with console.status(f"[cyan]Creating container {vmid}...[/cyan]", spinner="dots"):
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
             
             # Configure GPU if specified
             if spec.get('gpu', {}).get('passthrough') or features.get('gpu'):
-                self.configure_gpu(vmid)
+                with console.status(f"[cyan]Configuring GPU for {vmid}...[/cyan]", spinner="dots"):
+                    self.configure_gpu(vmid)
             
             # Add mounts
             mounts = spec.get('mounts', [])
             for mount in mounts:
                 self._add_mount(vmid, mount)
             
+            console.print(f"[green]✓[/green] Created container {vmid}")
             return vmid
             
         except subprocess.CalledProcessError as e:
