@@ -18,6 +18,7 @@ def register_apps_commands(root: typer.Typer, console: Console) -> None:
     def list_apps(
         format: str = typer.Option("table", "--format", "-f", help="Output format: table, json, urls"),
         container: Optional[str] = typer.Option(None, "--container", "-c", help="Filter by container name"),
+        mock: bool = typer.Option(False, "--mock", help="Run in mock mode (no Proxmox required)"),
     ) -> None:
         """List all running applications with IPs and access URLs.
         
@@ -30,7 +31,7 @@ def register_apps_commands(root: typer.Typer, console: Console) -> None:
         - Home Assistant MCP (port 3000)
         - Custom Docker containers (exposed ports)
         """
-        discovery = ContainerDiscovery(mock=False)
+        discovery = ContainerDiscovery(mock=mock)
         containers = discovery.list_containers()
         
         # Filter if requested
@@ -46,7 +47,7 @@ def register_apps_commands(root: typer.Typer, console: Console) -> None:
             name = ct['name']
             
             # Get container IP
-            ip = _get_container_ip(vmid)
+            ip = _get_container_ip(vmid, mock=mock)
             if not ip:
                 continue
             
@@ -116,8 +117,11 @@ def register_apps_commands(root: typer.Typer, console: Console) -> None:
     root.add_typer(AppsTyper, name="apps")
 
 
-def _get_container_ip(vmid: int) -> Optional[str]:
+def _get_container_ip(vmid: int, mock: bool = False) -> Optional[str]:
     """Get IP address of a container."""
+    if mock:
+        return "192.168.1.100"
+
     try:
         result = subprocess.run(
             ['pct', 'exec', str(vmid), '--', 'hostname', '-I'],

@@ -496,10 +496,79 @@ storage_hints:
 
 ## Requirements
 
-- Proxmox VE 7.x or 8.x
+- Proxmox VE 7.x, 8.x, or **9.1+ (with OCI support)**
 - Python 3.10+
 - ZFS pool (create once: `zpool create tank ...`)
 - Root/sudo access
+- **Optional**: skopeo (auto-installed for OCI containers on Proxmox 9.1+)
+
+---
+
+## OCI Container Support (Proxmox 9.1+)
+
+**NEW:** Native OCI container support via Docker Hub, GHCR, and Quay.io
+
+### Why OCI?
+- ⚡ **5-7x faster** deployment (2 min vs 10-15 min traditional)
+- 🐳 **Millions of images** available (Docker Hub, GHCR)
+- 🔄 **Industry standard** - maintained by app vendors
+- ✅ **GPU passthrough** - Hardware transcoding (Intel/NVIDIA)
+- 📦 **Pre-built packages** - Jellyfin, Immich, Home Assistant, Nextcloud
+
+### Implementation Approach
+
+Tengil uses **direct CLI commands** (not Web UI APIs):
+
+```python
+# Our approach: Direct subprocess calls
+subprocess.run(['skopeo', 'copy', 'docker://...', 'oci-archive:/path'])
+subprocess.run(['pct', 'create', '200', 'local:vztmpl/image.tar'])
+```
+
+**Why CLI?**
+- ✅ More reliable (no HTTP/auth overhead)
+- ✅ Faster (direct execution)
+- ✅ Simpler (no HTTP dependencies)
+- ✅ Standard (Proxmox Web UI uses same commands)
+- ✅ Tested on production (192.168.1.42, Proxmox 9.1.1)
+
+### Usage
+
+```yaml
+# packages/jellyfin-oci.yml
+name: jellyfin
+type: oci
+
+oci:
+  image: jellyfin/jellyfin
+  tag: latest
+  registry: docker.io
+
+cores: 4
+memory: 4096
+gpu:
+  passthrough: true  # Hardware transcoding
+
+mounts:
+  - source: /tank/media
+    target: /media
+    readonly: true
+```
+
+```bash
+tg apply packages/jellyfin-oci.yml  # Deploy in ~2 minutes
+```
+
+**Available OCI Packages:**
+- `jellyfin-oci.yml` - Media server with GPU transcoding
+- `homeassistant-oci.yml` - Home automation
+- `nextcloud-oci.yml` - File sync & collaboration
+- `immich-oci.yml` - Photo management (multi-container)
+
+📖 **[OCI Research Docs →](docs/proxmox-oci-research.md)** - Implementation details, tested containers  
+📖 **[Backend Architecture →](tengil/services/proxmox/backends/README.md)** - LXC vs OCI design
+
+---
 
 ## Documentation
 

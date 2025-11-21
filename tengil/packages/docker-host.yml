@@ -1,143 +1,21 @@
-# Docker Host with Portainer
-#
-# Simple Docker container host with Portainer for easy management.
-# Perfect for running Docker Compose stacks or individual containers.
-#
-# What you get:
-# - LXC container optimized for Docker
-# - Docker Engine installed and configured
-# - Portainer (web UI for managing containers)
-# - Storage dataset for Docker volumes
-#
-# Access after setup:
-# - Portainer: http://your-proxmox-ip:9000
-
 name: docker-host
 category: infrastructure
-description: Docker container host with Portainer web UI
-why: Run Docker containers in LXC without VM overhead
 difficulty: beginner
+description: Docker host with Portainer for container management
 
-# Requirements
-requirements:
-  min_ram_gb: 2
-  min_cores: 2
-  min_disk_gb: 32
-  proxmox_version: "7.0+"
-
-# What gets created
-components:
-  - Docker Engine (container runtime)
-  - Portainer (web UI for container management)
-  - Optimized storage dataset for Docker volumes
-  - Proxmox LXC container (privileged for Docker support)
-
-# Setup instructions
-setup_instructions:
-  - Create a ZFS pool named 'tank' (or adjust pool name in config)
-  - Run 'tg init --package docker-host' to generate config
-  - Review and adjust tengil.yml (pool name, container resources)
-  - Run 'tg apply' to create everything
-  - Open Portainer at http://your-proxmox-ip:9000
-  - Create admin password in Portainer
-  - Start deploying containers!
-
-# Next steps
-next_steps:
-  - Deploy containers via Portainer Stacks (Docker Compose)
-  - Or use 'docker run' commands directly
-  - Consider adding Traefik for reverse proxy
-  - Set up automatic backups of Docker volumes
-
-# Configuration
 pools:
   tank:
     datasets:
       docker:
-        profile: dev
-        quota: 100G
+        profile: appdata
         containers:
           - name: docker-host
-            auto_create: true
             template: debian-12-standard
-            mount: /data
-            privileged: true  # Required for Docker in LXC
-            requires_docker: true  # Auto-configures AppArmor + keyctl
-            resources:
-              memory: 2048
-              cores: 2
-              disk: 32G
-            startup_order: 100
+            mount: /var/lib/docker
+            memory: 4096
+            cores: 4
+            privileged: true
+            requires_docker: true  # Auto-configure AppArmor + keyctl
             post_install:
-              - docker        # Install Docker Engine
-              - portainer     # Install Portainer UI
-        shares:
-          smb:
-            name: Docker-Volumes
-            comment: Access Docker volumes from your computer
-            browseable: yes
-
-# Container configuration
-container:
-  name: docker-host
-  template: debian-12-standard
-  memory: 2048
-  cores: 2
-  disk_size: 32G
-  privileged: true  # Required for Docker in LXC
-  requires_docker: true  # Auto-configures AppArmor + keyctl
-  startup_order: 100
-  description: Docker container host with Portainer
-  post_install:
-    - docker              # Installs Docker Engine
-    - portainer           # Installs Portainer web UI
-  why: "Privileged LXC required for Docker. 2GB RAM sufficient for moderate workloads."
-
-# Storage configuration
-storage_hints:
-  "/data":
-    profile: dev
-    size_estimate: "100GB"
-    why: "Fast random I/O for container layers and volumes. Compression enabled."
-    mount_as: /data
-
-# Share configuration
-share_recommendations:
-  "/data/volumes":
-    smb: true
-    name: "Docker-Volumes"
-    browseable: true
-    comment: "Access and manage Docker volumes from your desktop"
-    read_only: no
-
-# Post-deployment checklist
-post_deployment:
-  - Open Portainer at http://your-proxmox-ip:9000
-  - Create admin user and password
-  - (Optional) Add more LXC containers as Docker nodes
-  - Deploy your first container or stack
-  - Set up backup strategy for /data
-
-# Common Docker Compose stacks you can deploy:
-examples:
-  - Jellyfin (media server)
-  - Nextcloud (file sync and share)
-  - Home Assistant (smart home)
-  - Plex, Sonarr, Radarr (*arr stack)
-  - Immich (Google Photos alternative)
-  - Pi-hole (network-wide ad blocking)
-
-# Troubleshooting
-troubleshooting:
-  container_wont_start: "Ensure you enabled 'privileged' mode in LXC settings"
-  docker_permission_denied: "Run 'usermod -aG docker $USER' in the container"
-  portainer_unreachable: "Check that port 9000 is not blocked by firewall"
-  low_performance: "Increase CPU cores or RAM in LXC settings"
-
-# Tags
-tags:
-  - docker
-  - containers
-  - portainer
-  - infrastructure
-  - lxc
+              - docker
+              - portainer

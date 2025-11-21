@@ -1,0 +1,38 @@
+# Test Deployment - Jellyfin Only
+# Simplified config to test container creation
+
+version: v1
+
+proxmox:
+  host: 192.168.1.42
+  verify_ssl: false
+  node: pve
+
+pools:
+  tank:
+    datasets:
+      jellyfin:
+        description: Jellyfin media server with GPU transcoding
+        profile: media
+        properties:
+          compression: off
+          atime: "off"
+          recordsize: 1M
+        containers:
+          - name: jellyfin
+            vmid: 200
+            cores: 4
+            memory: 4096
+            disk: 16
+            hostname: jellyfin
+            mount: /var/lib/jellyfin
+            auto_create: true
+            template: debian-12-standard_12.12-1_amd64.tar.zst
+            post_install:
+              - type: script
+                url: https://github.com/tteck/Proxmox/raw/main/ct/jellyfin.sh
+                description: "Install Jellyfin from tteck script"
+            features:
+              gpu: true
+              nesting: true
+            startup: "order=3,up=30,down=30"

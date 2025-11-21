@@ -29,14 +29,23 @@ class TengilLock:
             lock_file: Path to lock file (default: /var/run/tengil/apply.lock)
             timeout: Seconds to wait for lock (0 = fail immediately)
         """
-        if lock_file is None:
-            lock_dir = Path("/var/run/tengil")
-            lock_dir.mkdir(parents=True, exist_ok=True)
-            lock_file = lock_dir / "apply.lock"
-
-        self.lock_file = Path(lock_file)
+        self.lock_file = self._resolve_lock_path(lock_file)
         self.timeout = timeout
         self.lock_fd = None
+
+    @staticmethod
+    def _resolve_lock_path(lock_file: Optional[Path], create_parent: bool = True) -> Path:
+        """Resolve the lock file path, creating the directory if needed."""
+        if lock_file is None:
+            lock_dir = Path("/var/run/tengil")
+            if create_parent:
+                lock_dir.mkdir(parents=True, exist_ok=True)
+            return lock_dir / "apply.lock"
+
+        resolved = Path(lock_file)
+        if create_parent:
+            resolved.parent.mkdir(parents=True, exist_ok=True)
+        return resolved
 
     def acquire(self) -> bool:
         """Acquire the lock.
@@ -50,8 +59,8 @@ class TengilLock:
         # Create parent directory if needed
         self.lock_file.parent.mkdir(parents=True, exist_ok=True)
 
-        # Open lock file
-        self.lock_fd = open(self.lock_file, 'w')
+        # Open lock file in append mode to preserve existing content
+        self.lock_fd = open(self.lock_file, 'a+')
 
         # Try to acquire lock
         start_time = time.time()
@@ -60,7 +69,9 @@ class TengilLock:
                 # Try non-blocking lock
                 fcntl.flock(self.lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
 
-                # Write PID to lock file
+                # Truncate and write PID to lock file after acquiring lock
+                self.lock_fd.seek(0)
+                self.lock_fd.truncate()
                 self.lock_fd.write(f"{os.getpid()}\n")
                 self.lock_fd.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}\n")
                 self.lock_fd.flush()
@@ -137,11 +148,12 @@ class TengilLock:
 
 
 @contextmanager
-def apply_lock(timeout: int = 0):
+def apply_lock(timeout: int = 0, lock_file: Optional[Path] = None):
     """Context manager for apply operation locking.
 
     Args:
         timeout: Seconds to wait for lock (0 = fail immediately)
+        lock_file: Optional custom lock file path (defaults to /var/run/tengil/apply.lock)
 
     Usage:
         with apply_lock():
@@ -151,7 +163,7 @@ def apply_lock(timeout: int = 0):
     Raises:
         LockError: If unable to acquire lock
     """
-    lock = TengilLock(timeout=timeout)
+    lock = TengilLock(lock_file=lock_file, timeout=timeout)
     try:
         lock.acquire()
         yield lock
@@ -159,19 +171,22 @@ def apply_lock(timeout: int = 0):
         lock.release()
 
 
-def check_lock_status() -> Optional[dict]:
+def check_lock_status(lock_file: Optional[Path] = None) -> Optional[dict]:
     """Check if apply lock is currently held.
+
+    Args:
+        lock_file: Optional lock file path to inspect.
 
     Returns:
         Dict with lock info if held, None if free
     """
-    lock_file = Path("/var/run/tengil/apply.lock")
-    if not lock_file.exists():
+    lock_path = TengilLock._resolve_lock_path(lock_file, create_parent=False)
+    if not lock_path.exists():
         return None
 
     # Try to open and check if locked
     try:
-        with open(lock_file, 'r') as f:
+        with open(lock_path, 'r') as f:
             # Try to acquire non-blocking lock
             try:
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -186,9 +201,9 @@ def check_lock_status() -> Optional[dict]:
                     return {
                         'pid': lines[0].strip(),
                         'time': lines[1].strip(),
-                        'lock_file': str(lock_file)
+                        'lock_file': str(lock_path)
                     }
-                return {'pid': 'unknown', 'time': 'unknown', 'lock_file': str(lock_file)}
+                return {'pid': 'unknown', 'time': 'unknown', 'lock_file': str(lock_path)}
     except Exception as e:
         logger.warning(f"Error checking lock status: {e}")
         return None

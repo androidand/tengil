@@ -1,0 +1,13 @@
+{
+  "datasets": {
+    "tank/test": {
+      "created_by_tengil": true
+    }
+  },
+  "containers": {
+    "100": {
+      "name": "test-container",
+      "created_by_tengil": true
+    }
+  }
+}

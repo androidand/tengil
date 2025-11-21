@@ -95,6 +95,19 @@ def _validate_auto_create_resources(loader: ConfigLoader) -> None:
     if not processed_config:
         return
 
+    # Validate storage exists
+    storage_errors = _validate_storage_exists(processed_config)
+    if storage_errors:
+        console.print("[red]Storage validation errors detected:[/red]")
+        for err in storage_errors:
+            console.print(f"[red]✗ {err}[/red]")
+        raise typer.Exit(1)
+
+    # Validate templates are available
+    template_warnings = _validate_templates_available(processed_config)
+    for warning in template_warnings:
+        console.print(f"[yellow]⚠ {warning}[/yellow]")
+
     host = detect_host_resources()
     if host.total_memory_mb <= 0:
         console.print("[yellow]Unable to detect host memory; skipping resource validation[/yellow]")
@@ -138,6 +151,205 @@ def _validate_host_paths(processed_config: Dict[str, Any]) -> List[str]:
             if not full_path.exists():
                 errors.append(f"{full_path} does not exist on the host. Run 'tg apply' to create datasets before mounting.")
     return errors
+
+
+def _validate_storage_exists(processed_config: Dict[str, Any]) -> List[str]:
+    """Validate that ZFS pools and Proxmox storage exist."""
+    errors: List[str] = []
+    
+    # Check ZFS pools exist
+    pools = processed_config.get("pools", {})
+    for pool_name in pools.keys():
+        try:
+            import subprocess
+            result = subprocess.run(
+                ['zfs', 'list', pool_name],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            errors.append(f"ZFS pool '{pool_name}' does not exist. Create it first: zpool create {pool_name} <devices>")
+    
+    # Check Proxmox storage exists for containers
+    storage_names = set()
+    for pool_name, pool_cfg in pools.items():
+        datasets = pool_cfg.get("datasets", {})
+        for dataset_name, dataset_cfg in datasets.items():
+            containers = dataset_cfg.get("containers", [])
+            for container in containers:
+                if isinstance(container, dict) and container.get("auto_create"):
+                    # Extract storage from container spec or use pool name
+                    storage = container.get("storage", pool_name)
+                    storage_names.add(storage)
+    
+    # Validate Proxmox storage exists
+    for storage_name in storage_names:
+        try:
+            import subprocess
+            result = subprocess.run(
+                ['pvesm', 'status', storage_name],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            errors.append(f"Proxmox storage '{storage_name}' does not exist. Add it in Datacenter > Storage or use existing storage.")
+    
+    return errors
+
+
+def _validate_templates_available(processed_config: Dict[str, Any]) -> List[str]:
+    """Check if required templates are available, warn about missing ones."""
+    warnings: List[str] = []
+    
+    # Collect all required templates
+    templates = set()
+    pools = processed_config.get("pools", {})
+    for pool_name, pool_cfg in pools.items():
+        datasets = pool_cfg.get("datasets", {})
+        for dataset_name, dataset_cfg in datasets.items():
+            containers = dataset_cfg.get("containers", [])
+            for container in containers:
+                if isinstance(container, dict) and container.get("auto_create"):
+                    template = container.get("template")
+                    if template:
+                        templates.add(template)
+    
+    # Check if templates exist locally
+    for template in templates:
+        try:
+            import subprocess
+            # Check if template exists in local storage
+            template_file = template if '.tar' in template else f'{template}.tar.zst'
+            result = subprocess.run(
+                ['ls', f'/var/lib/vz/template/cache/{template_file}'],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            warnings.append(f"Template '{template}' not found locally. It will be downloaded automatically during apply.")
+    
+    return warnings
+
+
+def _parse_common_errors(error_str: str) -> Tuple[str, List[str]]:
+    """Parse common error messages and provide helpful suggestions.
+    
+    Returns:
+        Tuple of (cleaned_error_message, list_of_suggestions)
+    """
+    error_lower = error_str.lower()
+    suggestions = []
+    
+    # ZFS pool errors
+    if "pool does not exist" in error_lower or "no such pool" in error_lower:
+        suggestions.extend([
+            "Create the ZFS pool first: zpool create <pool_name> <devices>",
+            "Check existing pools: zpool list",
+            "Verify pool name spelling in tengil.yml"
+        ])
+    
+    # Storage errors
+    elif "storage" in error_lower and ("does not exist" in error_lower or "not found" in error_lower):
+        suggestions.extend([
+            "Add storage in Proxmox: Datacenter > Storage > Add",
+            "Check existing storage: pvesm status",
+            "Use existing storage name in container spec"
+        ])
+    
+    # Template errors
+    elif "template" in error_lower and ("not found" in error_lower or "does not exist" in error_lower):
+        suggestions.extend([
+            "Download template: pveam download local <template_name>",
+            "List available templates: pveam available",
+            "Check template name spelling (e.g., 'debian-12-standard')"
+        ])
+    
+    # Container creation errors
+    elif "vmid" in error_lower and "already exists" in error_lower:
+        suggestions.extend([
+            "Use a different VMID in your container spec",
+            "Remove the existing container if no longer needed",
+            "Let Tengil auto-assign VMID by removing 'vmid' field"
+        ])
+    
+    # Permission errors
+    elif "permission denied" in error_lower or "access denied" in error_lower:
+        suggestions.extend([
+            "Run Tengil as root: sudo tg apply",
+            "Check file permissions on /etc/pve/",
+            "Verify user is in 'root' group"
+        ])
+    
+    # Network errors
+    elif "bridge" in error_lower and ("not found" in error_lower or "does not exist" in error_lower):
+        suggestions.extend([
+            "Create network bridge in Proxmox: System > Network",
+            "Use existing bridge name (usually 'vmbr0')",
+            "Check bridge configuration: ip link show"
+        ])
+    
+    # Resource errors
+    elif "not enough" in error_lower or "insufficient" in error_lower:
+        suggestions.extend([
+            "Reduce memory/CPU allocation in container spec",
+            "Check available resources: free -h && nproc",
+            "Stop unused containers to free resources"
+        ])
+    
+    # Generic suggestions for unknown errors
+    if not suggestions:
+        suggestions.extend([
+            "Check Proxmox logs: journalctl -u pve-cluster",
+            "Verify Proxmox services are running: systemctl status pve*",
+            "Run with --verbose for detailed error information"
+        ])
+    
+    return error_str, suggestions
+
+
+def _show_git_hints() -> None:
+    """Show git workflow hints after successful apply."""
+    import subprocess
+    
+    # Find config directory
+    current = Path.cwd()
+    config_dir = None
+    
+    # Check current directory first
+    if (current / "tengil.yml").exists():
+        config_dir = current
+    else:
+        # Check parent directories
+        for parent in current.parents:
+            if (parent / "tengil.yml").exists():
+                config_dir = parent
+                break
+    
+    if not config_dir or not (config_dir / ".git").exists():
+        return  # Not in a git repository
+    
+    try:
+        # Check if there are uncommitted changes
+        result = subprocess.run(
+            ['git', 'status', '--porcelain'],
+            cwd=config_dir,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        if result.stdout.strip():
+            console.print("\n[cyan]💡 Git workflow suggestion:[/cyan]")
+            console.print("  [dim]You have uncommitted changes. Consider committing your config:[/dim]")
+            console.print("  [yellow]tg git commit -m \"Applied infrastructure changes\"[/yellow]")
+            console.print("  [yellow]tg git push[/yellow]")
+    
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Git command failed or not available, silently ignore
+        pass
 
 
 def scan(
@@ -446,13 +658,23 @@ def apply(
         console.print(f"\n[dim]State saved to: {state.state_file}[/dim]")
 
         print_success(console, "Apply complete")
+        
+        # Show git hints if in a git repository
+        _show_git_hints()
 
         if checkpoint and not no_checkpoint:
             console.print(f"\n[dim]Recovery checkpoint available from {checkpoint['timestamp']}[/dim]")
             console.print(f"[dim]Use 'tg rollback --to {checkpoint['timestamp']}' if needed[/dim]")
 
     except Exception as err:
-        print_error(console, f"Apply failed: {err}")
+        error_msg, suggestions = _parse_common_errors(str(err))
+        print_error(console, f"Apply failed: {error_msg}")
+        
+        if suggestions:
+            console.print("\n[cyan]Suggested fixes:[/cyan]")
+            for suggestion in suggestions:
+                console.print(f"  • {suggestion}")
+            console.print("\n[dim]For more help, see: https://github.com/androidand/tengil#troubleshooting[/dim]")
 
         # Attempt automatic rollback if checkpoint exists
         if checkpoint and recovery and not no_checkpoint:
