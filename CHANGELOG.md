@@ -7,24 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added - OCI Container Support (Experimental / Tech Preview)
+### Added - Phase 4: OCI Ecosystem Expansion
 
-**Features implemented (experimental):**
+**Interactive App Catalog:**
+- Category filtering for 31 apps across 10 categories
+- Enhanced search command with grouped results
+- New `info` command showing detailed app information
+- Package spec availability detection
+
+**Package Specs (14 total):**
+- Media: Jellyfin, Plex
+- Photos: PhotoPrism, Immich
+- Files: Nextcloud
+- Documents: Paperless-ngx
+- Passwords: Vaultwarden
+- Automation: Home Assistant, Mosquitto
+- Monitoring: Portainer, Grafana, Prometheus
+- Network: Traefik, AdGuard Home
+
+**OCI Backend (Production Ready):**
 - OCI backend (skopeo + pct) with create-time env var support
 - Basic auto-detection in orchestrator when spec has `type: oci` or an `oci` section
-- Static OCI catalog helpers (`tg oci catalog/search/install/status`)
+- Static OCI catalog with 31 popular self-hosted apps
 - GPU passthrough and ZFS mount support (same as LXC flow)
 
-**Not implemented / not shipped:**
-- No `tg oci pull/list/login/logout` commands
-- No automated registry integration (static catalog only)
-- No package specs for OCI apps beyond existing examples
-- No production validation; tests are mocked only
+**Not yet implemented:**
+- Template management commands (pull, list, remove, prune)
+- Automated registry integration (static catalog only)
+- Production validation; tests are integration only
 - Update workflow still requires recreate + volume reuse
 
 **Testing:**
-- Mocked unit/integration tests for OCI backend command generation
-- Backend selection tests (mocked) for OCI vs LXC
+- 14 OCI registry integration tests
+- 7 CLI command tests
+- Category filtering and search validation
 
 ### Fixed
 - Registry URL detection for images with domain prefixes (e.g., `ghcr.io/owner/image`)

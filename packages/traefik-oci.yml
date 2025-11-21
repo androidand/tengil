@@ -1,0 +1,85 @@
+---
+# Traefik OCI Container Package
+# Modern reverse proxy and load balancer with automatic Let's Encrypt
+#
+# Usage:
+#   tg apply packages/traefik-oci.yml
+
+name: traefik
+type: oci
+version: latest
+
+oci:
+  image: traefik
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: traefik
+cores: 2
+memory: 512
+disk: 8
+
+# Resource pool (optional)
+# pool: network
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: true
+
+# Mount configuration directory
+mounts:
+  - source: /tank/config/traefik
+    target: /etc/traefik
+    readonly: false
+  - source: /var/run/docker.sock
+    target: /var/run/docker.sock
+    readonly: true
+
+# Auto-created volumes (by OCI):
+# - /letsencrypt (SSL certificates)
+
+# Environment variables
+environment:
+  - TRAEFIK_API_DASHBOARD=true
+  - TRAEFIK_API_INSECURE=true
+  - TRAEFIK_PROVIDERS_DOCKER=true
+  - TRAEFIK_PROVIDERS_DOCKER_EXPOSEDBYDEFAULT=false
+  - TRAEFIK_ENTRYPOINTS_WEB_ADDRESS=:80
+  - TRAEFIK_ENTRYPOINTS_WEBSECURE_ADDRESS=:443
+  - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL=admin@example.com
+
+# Post-deployment:
+# 1. Access dashboard: http://<container-ip>:8080
+# 2. Create static configuration in /etc/traefik/traefik.yml
+# 3. Configure dynamic routing rules
+# 4. Set up Let's Encrypt for SSL certificates
+# 5. Update DNS records to point to Traefik
+
+# Verification:
+# - Check dashboard accessibility
+# - Verify Docker provider: dashboard shows connected containers
+# - Test HTTP/HTTPS routing
+# - Validate certificate generation for HTTPS domains
+
+# Example static config (/etc/traefik/traefik.yml):
+# api:
+#   dashboard: true
+# entryPoints:
+#   web:
+#     address: ":80"
+#   websecure:
+#     address: ":443"
+# providers:
+#   docker:
+#     exposedByDefault: false
+#   file:
+#     directory: /etc/traefik/dynamic
