@@ -7,54 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added - OCI Container Support (Phase 3 Complete)
+### Added - OCI Container Support (Experimental / Tech Preview)
 
-**Major Features:**
-- Native OCI container support for Proxmox 9.1+
-- Auto-detection of OCI vs LXC containers in `tg apply`
-- Support for Docker Hub, GitHub Container Registry (GHCR), Quay.io, and custom registries
-- Expanded app catalog from 6 to 31+ popular self-hosted applications
-- GPU passthrough support (Intel Quick Sync, NVIDIA NVENC, AMD VCE)
-- ZFS mount integration for OCI containers
-- Environment variable configuration
+**Features implemented (experimental):**
+- OCI backend (skopeo + pct) with create-time env var support
+- Basic auto-detection in orchestrator when spec has `type: oci` or an `oci` section
+- Static OCI catalog helpers (`tg oci catalog/search/install/status`)
+- GPU passthrough and ZFS mount support (same as LXC flow)
 
-**CLI Commands:**
-- `tg oci pull <image>:<tag>` - Pull OCI images
-- `tg oci list [--format json]` - List cached OCI templates
-- `tg oci login <registry>` - Authenticate to registries
-- `tg oci logout <registry>` - Remove registry credentials
-
-**App Catalog (31 apps):**
-- **Media**: Jellyfin, Plex, Emby, Navidrome
-- **Photos**: Immich, PhotoPrism, Photoview
-- **Files**: Nextcloud, Seafile, FileBrowser
-- **Automation**: Home Assistant, Mosquitto, Zigbee2MQTT
-- **Documents**: Paperless-ngx, Calibre-web, BookStack, WikiJS
-- **Passwords**: Vaultwarden, Passbolt
-- **Monitoring**: Portainer, Uptime Kuma, Grafana, Prometheus
-- **Network**: Pi-hole, AdGuard Home, Nginx, Traefik
-- **Recipes**: Tandoor, Mealie
-- **RSS**: FreshRSS, Miniflux
-
-**Package Specs:**
-- `jellyfin-oci.yml` - Media server with GPU transcoding
-- `plex-oci.yml` - Plex media server
-- `photoprism-oci.yml` - AI-powered photo management
-- `vaultwarden-oci.yml` - Bitwarden-compatible password manager
-- `paperless-ngx-oci.yml` - Document management with OCR
-- `immich-oci.yml` - Self-hosted photo backup
-- `nextcloud-oci.yml` - File sync and collaboration
-- `homeassistant-oci.yml` - Home automation platform
+**Not implemented / not shipped:**
+- No `tg oci pull/list/login/logout` commands
+- No automated registry integration (static catalog only)
+- No package specs for OCI apps beyond existing examples
+- No production validation; tests are mocked only
+- Update workflow still requires recreate + volume reuse
 
 **Testing:**
-- 22 OCI-related tests (12 backend + 10 registry integration)
-- 8 backend selection tests for auto-detection
-- Production validated on Proxmox 9.1.1
-
-**Documentation:**
-- Comprehensive OCI Guide (`docs/OCI-GUIDE.md`)
-- Updated README with OCI features
-- Package spec examples with detailed configuration
+- Mocked unit/integration tests for OCI backend command generation
+- Backend selection tests (mocked) for OCI vs LXC
 
 ### Fixed
 - Registry URL detection for images with domain prefixes (e.g., `ghcr.io/owner/image`)
