@@ -1,0 +1,62 @@
+---
+# Jellyfin OCI Container Package
+# Media server with GPU transcoding support
+#
+# Usage:
+#   tg apply packages/jellyfin-oci.yml
+
+name: jellyfin
+type: oci
+version: latest
+
+oci:
+  image: jellyfin/jellyfin
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: jellyfin
+cores: 4
+memory: 4096
+disk: 16
+
+# Resource pool (optional)
+# pool: media-apps
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: true
+
+# GPU passthrough for hardware transcoding
+gpu:
+  passthrough: true
+  type: intel  # intel, nvidia, amd
+
+# ZFS dataset mounts
+mounts:
+  - source: /tank/media
+    target: /media
+    readonly: true
+
+# Auto-created volumes (by OCI):
+# - /config (persistent settings)
+# - /cache (transcoding cache)
+
+# Post-deployment:
+# 1. Access web UI: http://<container-ip>:8096
+# 2. Complete initial setup wizard
+# 3. Add media libraries pointing to /media
+# 4. Configure transcoding to use hardware acceleration
+
+# Verification:
+# - Check GPU access: pct exec <vmid> -- ls -l /dev/dri
+# - Check media mount: pct exec <vmid> -- ls /media
+# - Test transcoding in Settings > Playback > Hardware Acceleration

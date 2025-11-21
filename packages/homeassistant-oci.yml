@@ -1,0 +1,57 @@
+---
+# Home Assistant OCI Container Package
+# Open source home automation platform
+#
+# Usage:
+#   tg apply packages/homeassistant-oci.yml
+
+name: homeassistant
+type: oci
+version: stable
+
+oci:
+  image: home-assistant/home-assistant
+  tag: stable
+  registry: ghcr.io
+
+# Container configuration
+hostname: homeassistant
+cores: 2
+memory: 2048
+disk: 16
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security (privileged needed for USB/Bluetooth access)
+unprivileged: false
+
+# Features
+features:
+  nesting: true
+
+# USB device passthrough (for Zigbee/Z-Wave dongles)
+# devices:
+#   - /dev/ttyUSB0
+#   - /dev/ttyACM0
+
+# Persistent storage
+mounts:
+  - source: /tank/homeassistant
+    target: /config
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /config (persistent configuration)
+
+# Post-deployment:
+# 1. Access web UI: http://<container-ip>:8123
+# 2. Create admin account
+# 3. Configure integrations
+# 4. Add USB dongles if needed: pct set <vmid> --dev0 /dev/ttyUSB0
+
+# Verification:
+# - Check web UI is accessible
+# - Verify config mount: pct exec <vmid> -- ls /config

@@ -1,0 +1,69 @@
+---
+# Nextcloud OCI Container Package
+# Self-hosted file sync and collaboration platform
+#
+# Usage:
+#   tg apply packages/nextcloud-oci.yml
+
+name: nextcloud
+type: oci
+version: latest
+
+oci:
+  image: nextcloud
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: nextcloud
+cores: 2
+memory: 2048
+disk: 16
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: true
+
+# Persistent storage
+mounts:
+  - source: /tank/nextcloud/data
+    target: /var/www/html/data
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /var/www/html (application files)
+
+# Database configuration:
+# Nextcloud needs a database (SQLite, MariaDB, or PostgreSQL)
+# For production, deploy a separate MariaDB container:
+#   tg apply packages/mariadb-oci.yml
+#
+# Or use SQLite for simple deployments (default)
+
+# Post-deployment:
+# 1. Access web UI: http://<container-ip>:80
+# 2. Complete initial setup:
+#    - Create admin account
+#    - Choose database (SQLite for testing)
+#    - Set data directory: /var/www/html/data
+# 3. Configure trusted domains in config/config.php
+# 4. Set up HTTPS reverse proxy (recommended)
+
+# Verification:
+# - Check web UI is accessible
+# - Verify data mount: pct exec <vmid> -- ls /var/www/html/data
+# - Check logs: pct exec <vmid> -- tail -f /var/www/html/data/nextcloud.log
+
+# Production notes:
+# - Use external database for better performance
+# - Configure Redis for caching
+# - Set up cron jobs for background tasks
+# - Configure email server for notifications

@@ -1,0 +1,129 @@
+---
+# Immich OCI Multi-Container Package
+# Self-hosted photo and video management solution
+#
+# Immich requires multiple containers:
+# - immich-server (main application)
+# - postgres (database)
+# - redis (cache)
+#
+# Usage:
+#   tg apply packages/immich-oci.yml
+
+name: immich
+type: oci-multi
+version: latest
+
+# Main Immich server container
+containers:
+  - name: immich-server
+    oci:
+      image: immich-app/immich-server
+      tag: latest
+      registry: ghcr.io
+    
+    hostname: immich-server
+    vmid: 210
+    cores: 4
+    memory: 4096
+    disk: 32
+    
+    network:
+      bridge: vmbr0
+      ip: dhcp
+    
+    unprivileged: true
+    
+    features:
+      nesting: true
+    
+    # GPU for AI features and video transcoding
+    gpu:
+      passthrough: true
+      type: intel
+    
+    # Photo/video library
+    mounts:
+      - source: /tank/photos
+        target: /usr/src/app/upload
+        readonly: false
+    
+    # Environment (database connection)
+    environment:
+      DB_HOSTNAME: 192.168.1.211  # postgres container IP
+      DB_USERNAME: immich
+      DB_PASSWORD: immich
+      DB_DATABASE_NAME: immich
+      REDIS_HOSTNAME: 192.168.1.212  # redis container IP
+      REDIS_PORT: 6379
+
+  # PostgreSQL database container
+  - name: immich-postgres
+    oci:
+      image: postgres
+      tag: "14-alpine"
+      registry: docker.io
+    
+    hostname: immich-postgres
+    vmid: 211
+    cores: 2
+    memory: 2048
+    disk: 16
+    
+    network:
+      bridge: vmbr0
+      ip: 192.168.1.211  # Static IP for DB
+    
+    unprivileged: true
+    
+    # Database persistence
+    mounts:
+      - source: /tank/immich/postgres
+        target: /var/lib/postgresql/data
+        readonly: false
+    
+    environment:
+      POSTGRES_USER: immich
+      POSTGRES_PASSWORD: immich
+      POSTGRES_DB: immich
+
+  # Redis cache container
+  - name: immich-redis
+    oci:
+      image: redis
+      tag: "7-alpine"
+      registry: docker.io
+    
+    hostname: immich-redis
+    vmid: 212
+    cores: 1
+    memory: 512
+    disk: 4
+    
+    network:
+      bridge: vmbr0
+      ip: 192.168.1.212  # Static IP for Redis
+    
+    unprivileged: true
+
+# Deployment order (critical):
+# 1. Deploy postgres first and wait for startup
+# 2. Deploy redis second
+# 3. Deploy immich-server last
+
+# Post-deployment:
+# 1. Access web UI: http://<immich-server-ip>:3001
+# 2. Create admin account
+# 3. Configure mobile app with server URL
+# 4. Set up automatic photo backup from phone
+
+# Verification:
+# - Check database connection: pct exec 210 -- nc -zv 192.168.1.211 5432
+# - Check redis connection: pct exec 210 -- nc -zv 192.168.1.212 6379
+# - Check GPU access: pct exec 210 -- ls -l /dev/dri
+# - Check upload directory: pct exec 210 -- ls /usr/src/app/upload
+
+# Maintenance:
+# - Backup postgres data: /tank/immich/postgres
+# - Backup photos: /tank/photos
+# - Monitor disk usage: immich generates thumbnails and ML models
