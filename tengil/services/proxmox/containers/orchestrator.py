@@ -8,6 +8,8 @@ from .mounts import MountManager
 from .discovery import ContainerDiscovery
 from .templates import TemplateManager
 from tengil.services.post_install import PostInstallManager
+from tengil.services.proxmox.backends.oci import OCIBackend
+from tengil.services.proxmox.backends.lxc import LXCBackend
 
 logger = get_logger(__name__)
 
@@ -23,14 +25,83 @@ class ContainerOrchestrator:
         self.discovery = ContainerDiscovery(mock=mock)
         self.templates = TemplateManager(mock=mock)
         self.post_install = PostInstallManager(mock=mock)
+        
+        # Backend instances for OCI and LXC
+        self.oci_backend = OCIBackend(mock=mock)
+        self.lxc_backend = LXCBackend(mock=mock)
 
     # ==================== Delegation Methods ====================
     # Delegate to subsystems for backward compatibility
 
     # Lifecycle operations
     def create_container(self, spec, storage='local-lvm', pool: Optional[str] = None):
-        """Create a new LXC container (delegates to lifecycle)."""
-        return self.lifecycle.create_container(spec, storage, pool=pool)
+        """Create a new container (OCI or LXC based on spec).
+        
+        Auto-detects container type from spec:
+        - If spec contains 'type: oci' or 'oci' section -> use OCI backend
+        - Otherwise -> use traditional LXC backend
+        
+        Args:
+            spec: Container specification dict
+            storage: Storage backend for rootfs (default: local-lvm)
+            pool: Resource pool name (optional)
+            
+        Returns:
+            Container VMID if successful, None if failed
+        """
+        # Detect backend type from spec
+        container_type = spec.get('type', '').lower()
+        has_oci_section = 'oci' in spec
+        
+        if container_type == 'oci' or has_oci_section:
+            # Use OCI backend
+            logger.info("Detected OCI container spec, using OCI backend")
+            return self._create_oci_container(spec, storage, pool)
+        else:
+            # Use traditional LXC backend
+            return self.lifecycle.create_container(spec, storage, pool=pool)
+    
+    def _create_oci_container(self, spec, storage='local-lvm', pool: Optional[str] = None):
+        """Create OCI container using OCIBackend.
+        
+        Args:
+            spec: Container specification with 'oci' section
+            storage: Storage backend for rootfs
+            pool: Resource pool name (optional)
+            
+        Returns:
+            Container VMID if successful, None if failed
+        """
+        oci_config = spec.get('oci', {})
+        
+        # Extract OCI image details
+        image = oci_config.get('image')
+        tag = oci_config.get('tag', 'latest')
+        registry = oci_config.get('registry')
+        
+        if not image:
+            logger.error("OCI spec missing required 'image' field")
+            return None
+        
+        # Pull image if not already cached
+        logger.info(f"Pulling OCI image: {image}:{tag}")
+        template_ref = self.oci_backend.pull_image(image, tag, registry)
+        
+        if not template_ref:
+            logger.error(f"Failed to pull OCI image: {image}:{tag}")
+            return None
+        
+        logger.info(f"Image cached as: {template_ref}")
+        
+        # Create container using OCI backend
+        vmid = self.oci_backend.create_container(
+            spec=spec,
+            template=template_ref,
+            storage=storage,
+            pool=pool
+        )
+        
+        return vmid
 
     def start_container(self, vmid):
         """Start a container (delegates to lifecycle)."""

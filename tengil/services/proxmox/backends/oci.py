@@ -143,14 +143,19 @@ class OCIBackend(ContainerBackend):
         
         # Unprivileged (default for OCI)
         if spec.get('unprivileged', True):
-            cmd.append('--unprivileged')
-            cmd.append('1')
-        
+            cmd.extend(['--unprivileged', '1'])
+
         # Features
         features = spec.get('features', {})
-        feature_str = ','.join(f'{k}={int(v)}' for k, v in features.items())
-        if feature_str:
-            cmd.extend(['--features', feature_str])
+        if features:
+            feature_str = ','.join(f'{k}={int(v)}' for k, v in features.items() if v is not None)
+            if feature_str:
+                cmd.extend(['--features', feature_str])
+
+        # Environment variables at create time (gap noted in Proxmox UI)
+        env = spec.get('env') or oci_spec.get('env') or {}
+        for key, value in env.items():
+            cmd.extend(['--env', f'{key}={value}'])
         
         # Pool
         if pool:
@@ -303,6 +308,25 @@ class OCIBackend(ContainerBackend):
 
     def _get_next_mp_slot(self, vmid: int) -> int:
         """Get next available mount point slot."""
-        # Simple implementation: return 0 (first slot)
-        # TODO: Parse pct config to find next available slot
-        return 0
+        if self.mock:
+            return 0
+
+        try:
+            result = subprocess.run(
+                ['pct', 'config', str(vmid)],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            max_slot = -1
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                if line.startswith('mp') and ':' in line:
+                    try:
+                        slot = int(line.split(':', 1)[0][2:])
+                        max_slot = max(max_slot, slot)
+                    except ValueError:
+                        continue
+            return max_slot + 1
+        except subprocess.CalledProcessError:
+            return 0

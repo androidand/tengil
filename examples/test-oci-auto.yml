@@ -1,0 +1,34 @@
+---
+# Test OCI Auto-Detection
+# This should automatically use OCI backend
+
+version: v1
+
+proxmox:
+  host: 192.168.1.42
+  verify_ssl: false
+  node: pve
+
+pools:
+  tank:
+    datasets:
+      test-oci:
+        description: Test OCI auto-detection
+        profile: dev
+        containers:
+          - name: test-nginx-oci
+            type: oci
+            vmid: 215
+            hostname: test-nginx-oci
+            cores: 1
+            memory: 512
+            disk: 4
+            auto_create: true
+            oci:
+              image: nginx
+              tag: alpine
+              registry: docker.io
+            network:
+              bridge: vmbr0
+              ip: dhcp
+            unprivileged: true
