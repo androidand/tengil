@@ -93,6 +93,13 @@ class OCIBackend(ContainerBackend):
         """
         oci_spec = spec.get('oci', {})
 
+        # Validate mounts early (avoid pulling if spec is invalid)
+        mounts = spec.get('mounts', [])
+        for mount in mounts:
+            if not mount.get('source') or not mount.get('target'):
+                print(f"Error: Invalid mount spec (source/target required): {mount}")
+                return None
+
         # Pull image if needed (unless template supplied)
         template_ref = template  # may be passed in by orchestrator
         if not template_ref:
@@ -143,7 +150,17 @@ class OCIBackend(ContainerBackend):
         network = spec.get('network', {})
         bridge = network.get('bridge', 'vmbr0')
         ip = network.get('ip', 'dhcp')
-        cmd.extend(['--net0', f'name=eth0,bridge={bridge},ip={ip}'])
+        net_parts = [f'name=eth0', f'bridge={bridge}']
+        # firewall flag if provided
+        if network.get('firewall') is not None:
+            net_parts.append(f'firewall={int(bool(network.get("firewall")))}')
+        if ip != 'dhcp':
+            net_parts.append(f'ip={ip}')
+            if network.get('gateway'):
+                net_parts.append(f'gw={network["gateway"]}')
+        else:
+            net_parts.append('ip=dhcp')
+        cmd.extend(['--net0', ','.join(net_parts)])
         
         # Unprivileged (default for OCI)
         if spec.get('unprivileged', True):
@@ -185,7 +202,9 @@ class OCIBackend(ContainerBackend):
             # Add mounts
             mounts = spec.get('mounts', [])
             for mount in mounts:
-                self._add_mount(vmid, mount)
+                if not self._add_mount(vmid, mount):
+                    print(f"Error adding mount: {mount}")
+                    return None
             
             return vmid
             

@@ -18,7 +18,7 @@ def test_create_container_with_env_mount_gpu_sequence():
         "cores": 1,
         "memory": 512,
         "disk": 8,
-        "network": {"ip": "dhcp"},
+        "network": {"ip": "192.168.1.50/24", "gateway": "192.168.1.1", "firewall": True},
         "env": {"KEY": "VALUE", "FOO": "BAR"},
         "mounts": [{"source": "/tank/data", "target": "/data", "readonly": True}],
         "gpu": {"passthrough": True},
@@ -44,10 +44,13 @@ def test_create_container_with_env_mount_gpu_sequence():
         cmds = [call[0][0] for call in mock_run.call_args_list]
         # First call skopeo copy
         assert cmds[0][0] == "skopeo"
-        # Second call pct create with env flags and features/nesting
+        # Second call pct create with env flags, features, and network gateway/firewall
         create_cmd = cmds[1]
         assert create_cmd[:2] == ["pct", "create"]
         assert "--env" in create_cmd
+        net_arg = next(arg for arg in create_cmd if arg.startswith("name=eth0"))
+        assert "gw=192.168.1.1" in net_arg.lower()
+        assert "firewall=1" in net_arg
         # Third call pct set --mp0
         assert cmds[2][:3] == ["pct", "set", "1000"]
         assert any("--mp0" in part for part in cmds[2])
@@ -88,13 +91,11 @@ def test_invalid_mount_spec_returns_none():
 
     with patch("subprocess.run") as mock_run, \
          patch.object(Path, "exists", return_value=False):
-        # first call would be skopeo; ensure we abort before pct create
-        mock_run.return_value = _completed()
         vmid = backend.create_container(spec)
 
     assert vmid is None
-    # only the pull should have been attempted
-    mock_run.assert_called_once()
+    # No subprocess calls when mount spec invalid
+    mock_run.assert_not_called()
 
 
 def test_multi_container_specs_called_individually():

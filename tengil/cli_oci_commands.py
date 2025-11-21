@@ -301,6 +301,114 @@ def register_oci_commands(root: typer.Typer, console: Console) -> None:
             console.print(f"[red]✗ Logout failed[/red]")
             raise typer.Exit(1)
 
+    @OciTyper.command("remove")
+    def remove_command(
+        image: str = typer.Argument(..., help="Image template to remove (e.g., alpine-latest.tar)"),
+        force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
+    ):
+        """Delete a cached OCI template from local storage."""
+        template_dir = Path('/var/lib/vz/template/cache')
+        
+        # Find matching templates (support wildcards)
+        import fnmatch
+        if '*' in image or '?' in image:
+            pattern = image if image.endswith('.tar') else f"{image}.tar"
+            templates = sorted(template_dir.glob(pattern))
+        else:
+            # Exact match
+            if not image.endswith('.tar'):
+                image = f"{image}.tar"
+            template_path = template_dir / image
+            templates = [template_path] if template_path.exists() else []
+        
+        if not templates:
+            console.print(f"[yellow]No templates matching '{image}' found[/yellow]")
+            console.print(f"[dim]Use 'tg oci list' to see cached templates[/dim]")
+            return
+        
+        # Show what will be deleted
+        total_size = sum(t.stat().st_size for t in templates)
+        size_mb = total_size / (1024 * 1024)
+        
+        console.print(f"[bold]Templates to remove:[/bold]")
+        for t in templates:
+            t_size_mb = t.stat().st_size / (1024 * 1024)
+            console.print(f"  • {t.name} ({t_size_mb:.1f} MB)")
+        console.print(f"\n[bold]Total size:[/bold] {size_mb:.1f} MB")
+        
+        # Confirm deletion
+        if not force:
+            confirm = typer.confirm("\nAre you sure you want to delete these templates?")
+            if not confirm:
+                console.print("[yellow]Cancelled[/yellow]")
+                return
+        
+        # Delete templates
+        deleted = 0
+        for t in templates:
+            try:
+                t.unlink()
+                console.print(f"[green]✓[/green] Deleted {t.name}")
+                deleted += 1
+            except Exception as e:
+                console.print(f"[red]✗[/red] Failed to delete {t.name}: {e}")
+        
+        if deleted > 0:
+            console.print(f"\n[green]Successfully removed {deleted} template(s), freed {size_mb:.1f} MB[/green]")
+
+    @OciTyper.command("prune")
+    def prune_command(
+        force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
+        dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be removed"),
+    ):
+        """Remove all cached OCI templates to free up space."""
+        template_dir = Path('/var/lib/vz/template/cache')
+        
+        if not template_dir.exists():
+            console.print(f"[yellow]Template directory not found: {template_dir}[/yellow]")
+            return
+        
+        # Find all .tar templates
+        templates = sorted(template_dir.glob('*.tar'))
+        
+        if not templates:
+            console.print("[green]No OCI templates to prune[/green]")
+            return
+        
+        # Calculate total size
+        total_size = sum(t.stat().st_size for t in templates)
+        size_mb = total_size / (1024 * 1024)
+        
+        # Show what would be removed
+        console.print(f"[bold]Templates to remove:[/bold] ({len(templates)} total)")
+        for t in templates:
+            t_size_mb = t.stat().st_size / (1024 * 1024)
+            console.print(f"  • {t.name} ({t_size_mb:.1f} MB)")
+        console.print(f"\n[bold]Total space to free:[/bold] {size_mb:.1f} MB")
+        
+        if dry_run:
+            console.print("\n[dim]Dry run mode - no files were deleted[/dim]")
+            return
+        
+        # Confirm deletion
+        if not force:
+            confirm = typer.confirm("\nAre you sure you want to remove ALL cached templates?")
+            if not confirm:
+                console.print("[yellow]Cancelled[/yellow]")
+                return
+        
+        # Delete all templates
+        deleted = 0
+        for t in templates:
+            try:
+                t.unlink()
+                deleted += 1
+            except Exception as e:
+                console.print(f"[red]✗[/red] Failed to delete {t.name}: {e}")
+        
+        console.print(f"\n[green]Successfully pruned {deleted} template(s), freed {size_mb:.1f} MB[/green]")
+        console.print(f"[dim]Use 'tg oci pull <image>' to re-download images as needed[/dim]")
+
     root.add_typer(OciTyper, name="oci")
 
 
