@@ -468,10 +468,16 @@ storage_hints:
 - Docker Compose integration
 - State tracking
 - Profile system
+- **OCI container support** (Proxmox 9.1+)
+  - Image pulling from Docker Hub, GHCR, Quay.io
+  - Auto-detection in `tg apply`
+  - GPU passthrough
+  - ZFS mounts
+  - 31+ app catalog
 
 **⚠️ Experimental** (test first):
-- Container auto-creation
-- Template auto-download
+- Container auto-creation (LXC)
+- Template auto-download (LXC)
 - Post-install scripts (Docker, Portainer, tteck)
 - Docker Compose deployment to containers
 
@@ -479,6 +485,8 @@ storage_hints:
 - State import (`tg import`)
 - Pool analysis (`tg plan-pools`)
 - Backup integration
+- OCI remove command
+- OCI catalog search
 
 ---
 

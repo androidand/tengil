@@ -3,30 +3,21 @@
 **Date:** November 21, 2025  
 **Proxmox Version:** 9.1.1  
 **Kernel:** 6.14.11-4-pve  
-**Implementation Status:** ✅ COMPLETE & TESTED
+**Implementation Status:** ⚠️ Tech Preview (manual validation only)
 
 ---
 
 ## 🚨 IMPORTANT: Implementation Approach
 
-**DO NOT use Web UI/API for OCI operations!**
-
-Tengil uses **direct CLI commands** (skopeo + pct) which are:
-- ✅ More reliable - No HTTP/auth overhead
-- ✅ Faster - Direct subprocess execution
-- ✅ Simpler - No HTTP client dependencies
-- ✅ Already working - 12/12 tests passing
-- ✅ Validated on production server (192.168.1.42)
-
-**Web UI Research NOT Needed:**
-- Proxmox Web UI ultimately calls same CLI tools
-- Our implementation cuts out middleware
-- All commands verified against `man pct`
-- Working deployments: Alpine (CT 199), Jellyfin (CT 202)
+Tengil uses **direct CLI commands** (skopeo + pct). Web UI/API capture is still TODO for parity.
+Status:
+- ⚠️ Tests are mocked only; no automated integration against real Proxmox
+- ⚠️ Manual validation with Alpine/Jellyfin; OCI update workflow still recreate-only
+- ✅ Create-time env vars now supported via Tengil OCI backend (`--env KEY=VALUE`)
 
 ---
 
-## ✅ Key Findings
+## ✅/⚠️ Key Findings
 
 ### 1. OCI Support is Real and Works!
 
@@ -113,6 +104,23 @@ pct exec 202 -- ls -l /dev/dri/
 ```
 
 ### 6. Storage Integration
+
+### 7. Create-Time Env Vars (Tengil OCI backend)
+- Tengil now passes environment variables at creation time for OCI specs.
+- Include `env` under either the top-level or `oci:` section; backend emits `pct create ... --env KEY=VALUE`.
+- Example:
+  ```yaml
+  containers:
+    - name: nginx-oci
+      type: oci
+      oci:
+        image: nginx
+        tag: alpine
+      env:
+        FOO: BAR
+        NODE_ENV: production
+  ```
+- This closes the Proxmox UI gap where env vars were only changeable post-create.
 
 OCI containers use standard Proxmox storage:
 - `local-zfs` - ZFS datasets
