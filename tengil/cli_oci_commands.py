@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import typer
+from pathlib import Path
 from rich.console import Console
+from rich.table import Table
 
 from tengil.services.oci_capability import detect_oci_support
 from tengil.services.oci_registry import OciRegistryCatalog, OciApp
+from tengil.services.proxmox.backends.oci import OCIBackend
 
 OciTyper = typer.Typer(help="OCI/LXC app helpers")
 
@@ -94,6 +97,121 @@ def register_oci_commands(root: typer.Typer, console: Console) -> None:
         console.print("[bold cyan]Add this to tengil.yml[/bold cyan]:\n")
         console.print(snippet)
         console.print("\n[dim]Tip: adjust dataset/pool to match your ZFS layout.[/dim]")
+
+    @OciTyper.command("pull")
+    def pull_command(
+        image: str = typer.Argument(..., help="Image reference (e.g., alpine:latest, jellyfin/jellyfin:latest)"),
+        registry: str = typer.Option(None, "--registry", "-r", help="Registry URL (default: docker.io)"),
+    ):
+        """Pull an OCI image to local cache using skopeo."""
+        # Parse image reference
+        if ':' in image:
+            image_name, tag = image.rsplit(':', 1)
+        else:
+            image_name, tag = image, 'latest'
+        
+        console.print(f"[cyan]Pulling {image_name}:{tag}...[/cyan]")
+        
+        backend = OCIBackend()
+        template_ref = backend.pull_image(image_name, tag, registry)
+        
+        if template_ref:
+            console.print(f"[green]✓ Image pulled successfully[/green]")
+            console.print(f"[dim]Template reference: {template_ref}[/dim]")
+            console.print(f"\n[bold]Next steps:[/bold]")
+            console.print(f"  1. Use in package spec: template: {template_ref}")
+            console.print(f"  2. Or create container: pct create <vmid> {template_ref}")
+        else:
+            console.print(f"[red]✗ Failed to pull image[/red]")
+            raise typer.Exit(1)
+
+    @OciTyper.command("list")
+    def list_command(
+        format: str = typer.Option("table", "--format", "-f", help="Output format: table|json"),
+    ):
+        """List cached OCI templates."""
+        template_dir = Path('/var/lib/vz/template/cache')
+        
+        if not template_dir.exists():
+            console.print(f"[yellow]Template directory not found: {template_dir}[/yellow]")
+            return
+        
+        # Find all .tar files (OCI archives)
+        templates = sorted(template_dir.glob('*.tar'), key=lambda p: p.stat().st_mtime, reverse=True)
+        
+        if not templates:
+            console.print("[yellow]No OCI templates found in cache[/yellow]")
+            console.print(f"[dim]Use 'tg oci pull <image>' to download images[/dim]")
+            return
+        
+        if format == "json":
+            import json
+            data = [
+                {
+                    "name": t.name,
+                    "size": t.stat().st_size,
+                    "modified": t.stat().st_mtime,
+                    "path": str(t)
+                }
+                for t in templates
+            ]
+            console.print(json.dumps(data, indent=2))
+            return
+        
+        # Table format
+        table = Table(title="Cached OCI Templates")
+        table.add_column("Template", style="cyan")
+        table.add_column("Size", justify="right")
+        table.add_column("Modified")
+        
+        for t in templates:
+            size_mb = t.stat().st_size / (1024 * 1024)
+            import datetime
+            mtime = datetime.datetime.fromtimestamp(t.stat().st_mtime)
+            table.add_row(
+                t.name,
+                f"{size_mb:.1f} MB",
+                mtime.strftime("%Y-%m-%d %H:%M")
+            )
+        
+        console.print(table)
+        console.print(f"\n[dim]Location: {template_dir}[/dim]")
+
+    @OciTyper.command("login")
+    def login_command(
+        registry: str = typer.Argument(..., help="Registry URL (e.g., docker.io, ghcr.io)"),
+        username: str = typer.Option(None, "--username", "-u", help="Username"),
+    ):
+        """Authenticate with an OCI registry."""
+        import subprocess
+        
+        console.print(f"[cyan]Logging in to {registry}...[/cyan]")
+        
+        cmd = ['skopeo', 'login', registry]
+        if username:
+            cmd.extend(['--username', username])
+        
+        try:
+            subprocess.run(cmd, check=True)
+            console.print(f"[green]✓ Successfully logged in to {registry}[/green]")
+            console.print(f"[dim]Credentials stored in ~/.config/containers/auth.json[/dim]")
+        except subprocess.CalledProcessError as e:
+            console.print(f"[red]✗ Login failed[/red]")
+            raise typer.Exit(1)
+
+    @OciTyper.command("logout")
+    def logout_command(
+        registry: str = typer.Argument(..., help="Registry URL"),
+    ):
+        """Remove authentication for an OCI registry."""
+        import subprocess
+        
+        try:
+            subprocess.run(['skopeo', 'logout', registry], check=True)
+            console.print(f"[green]✓ Successfully logged out from {registry}[/green]")
+        except subprocess.CalledProcessError:
+            console.print(f"[red]✗ Logout failed[/red]")
+            raise typer.Exit(1)
 
     root.add_typer(OciTyper, name="oci")
 
