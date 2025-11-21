@@ -240,12 +240,30 @@ class ContainerOrchestrator:
 
                 # Phase 2: Create container if auto_create is enabled
                 if auto_create:
-                    # Validate template is specified
+                    # Check if OCI container - need to pull image first
+                    is_oci = container_spec.get('type') == 'oci'
                     template = container_spec.get('template')
-                    if not template:
-                        msg = f"Container '{container_name or vmid}': auto_create requires 'template' field"
+                    
+                    if is_oci and container_spec.get('image'):
+                        # Pull OCI image and get template reference
+                        image = container_spec.get('image')
+                        tag = 'latest'  # Default tag
+                        if ':' in image:
+                            image, tag = image.rsplit(':', 1)
+                        
+                        logger.info(f"Pulling OCI image: {image}:{tag}")
+                        template = self.oci_backend.pull_image(image, tag)
+                        if not template:
+                            msg = f"Container '{container_name or vmid}': failed to pull OCI image {image}:{tag}"
+                            logger.error(msg)
+                            results.append((0, False, "image pull failed"))
+                            continue
+                        # Store template for create_container call
+                        container_spec['template'] = template
+                    elif not template:
+                        msg = f"Container '{container_name or vmid}': auto_create requires 'template' field (LXC) or 'image' field (OCI)"
                         logger.error(msg)
-                        results.append((0, False, "missing template"))
+                        results.append((0, False, "missing template/image"))
                         continue
 
                     # Check if container already exists
