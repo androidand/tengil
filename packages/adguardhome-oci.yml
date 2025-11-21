@@ -1,0 +1,84 @@
+---
+# AdGuard Home OCI Container Package
+# Network-wide ad blocking and privacy protection DNS server
+#
+# Usage:
+#   tg apply packages/adguardhome-oci.yml
+
+name: adguardhome
+type: oci
+version: latest
+
+oci:
+  image: adguard/adguardhome
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: adguardhome
+cores: 1
+memory: 512
+disk: 8
+
+# Resource pool (optional)
+# pool: network
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Mount persistent storage
+mounts:
+  - source: /tank/config/adguardhome/work
+    target: /opt/adguardhome/work
+    readonly: false
+  - source: /tank/config/adguardhome/conf
+    target: /opt/adguardhome/conf
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /opt/adguardhome/work (runtime data, statistics)
+# - /opt/adguardhome/conf (configuration files)
+
+# Post-deployment:
+# 1. Access web UI: http://<container-ip>:3000 (initial setup)
+# 2. Complete setup wizard (set admin password, DNS ports)
+# 3. After setup, access UI on port 80: http://<container-ip>
+# 4. Configure DNS settings on router/devices
+#    - Primary DNS: <container-ip>
+#    - Secondary DNS: 1.1.1.1 (fallback)
+# 5. Enable filtering lists (EasyList, AdGuard DNS filter)
+# 6. Configure upstream DNS servers (Cloudflare, Google, Quad9)
+
+# Verification:
+# - Check web UI accessibility
+# - Test DNS resolution: dig @<container-ip> example.com
+# - Verify ad blocking: dig @<container-ip> ads.google.com
+# - Monitor query log and statistics
+
+# Network requirements:
+# - DNS (port 53 UDP/TCP) - must be accessible by clients
+# - Web interface (port 80 after setup, 3000 for initial)
+# - DNS-over-HTTPS (port 443, optional)
+# - DNS-over-TLS (port 853, optional)
+# - DNS-over-QUIC (port 784, optional)
+
+# Recommended upstream DNS:
+# - Cloudflare: 1.1.1.1, 1.0.0.1
+# - Google: 8.8.8.8, 8.8.4.4
+# - Quad9: 9.9.9.9
+# - Privacy-focused: dns.quad9.net, dns.adguard.com
+
+# Notes:
+# - For network-wide blocking, set as router's DNS
+# - Use conditional forwarding for local domain resolution
+# - Enable DNSSEC validation for security
+# - Configure parental controls if needed

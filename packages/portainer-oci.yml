@@ -1,0 +1,61 @@
+---
+# Portainer OCI Container Package
+# Docker/container management web UI
+#
+# Usage:
+#   tg apply packages/portainer-oci.yml
+
+name: portainer
+type: oci
+version: latest
+
+oci:
+  image: portainer/portainer-ce
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: portainer
+cores: 1
+memory: 512
+disk: 8
+
+# Resource pool (optional)
+# pool: monitoring
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features - needs access to Docker socket
+features:
+  nesting: true
+
+# Mount Docker socket from host
+mounts:
+  - source: /var/run/docker.sock
+    target: /var/run/docker.sock
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /data (persistent settings, database)
+
+# Post-deployment:
+# 1. Access web UI: http://<container-ip>:9000
+# 2. Create initial admin user (first login)
+# 3. Connect to local Docker endpoint
+# 4. Add additional environments (remote Docker hosts, Kubernetes)
+
+# Verification:
+# - Check web UI accessibility
+# - Verify Docker socket access: pct exec <vmid> -- ls -l /var/run/docker.sock
+# - Test container listing in Portainer UI
+
+# Notes:
+# - Requires Docker installed on Proxmox host
+# - Alternative: Use Portainer Agent for remote management
+# - For Kubernetes: Use portainer/portainer-k8s image

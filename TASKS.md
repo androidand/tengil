@@ -1,8 +1,28 @@
 # Tengil Development Tasks
 
 **Last Updated:** November 21, 2025  
-**Current Phase:** Phase 3 Complete ✅ → Phase 4 Planning  
+**Current Phase:** Phase 3 Complete ✅ → Phase 4 In Progress  
 **Status:** OCI Support Production Ready, Ecosystem Expansion Next
+
+---
+
+## 🚨 ACTIVE WORK - DO NOT DELETE THESE FILES
+
+**Agent Working:** GitHub Copilot (Task 3: Package Spec Coverage)  
+**Started:** 2025-11-21 23:00  
+**Files Being Created:**
+- `packages/portainer-oci.yml` ✅ ACTIVE - Container management UI
+- `packages/traefik-oci.yml` ✅ ACTIVE - Reverse proxy with Let's Encrypt  
+- `packages/grafana-oci.yml` ✅ ACTIVE - Monitoring dashboards
+- `packages/prometheus-oci.yml` ✅ ACTIVE - Metrics collection
+- `packages/adguardhome-oci.yml` ✅ ACTIVE - DNS ad blocker
+- `packages/mosquitto-oci.yml` ✅ ACTIVE - MQTT broker for IoT
+
+**Status:** Creating 6 high-priority package specs following jellyfin-oci.yml pattern.  
+**ETA:** 30 minutes  
+**Next Steps:** Commit specs, update CHANGELOG, mark Task 3 complete
+
+**⚠️ OTHER AGENTS: Please do not delete files in `packages/` directory until this work is committed.**
 
 ---
 
@@ -105,24 +125,26 @@ pools:
 
 **Goal:** Make the 31-app catalog searchable and browsable via CLI.
 
-- [ ] **Implement `tg oci catalog` command**
-  - [ ] List all 31 apps with name, description, registry, category
-  - [ ] Add `--category <name>` filter (media, photos, files, automation, etc.)
-  - [ ] Add `--format json` for programmatic access
-  - [ ] Show popular apps by default, all apps with `--all`
+- [x] **Implement `tg oci catalog` command** ✅ COMPLETED
+  - [x] List all 31 apps with name, description, registry, category
+  - [x] Add `--category <name>` filter (media, photos, files, automation, etc.)
+  - [x] Add `--format json` for programmatic access
+  - [x] Show popular apps by default, all apps with `--all`
+  - [x] Enhanced table format with Rich tables
+  - [x] Package spec availability indicator (✓)
 
-- [ ] **Implement `tg oci search <query>` command**
-  - [ ] Search by app name (case-insensitive)
-  - [ ] Search by description text
-  - [ ] Show matching apps with full details
-  - [ ] Suggest similar apps if no exact match
+- [x] **Implement `tg oci search <query>` command** ✅ COMPLETED
+  - [x] Search by app name (case-insensitive)
+  - [x] Search by description text
+  - [x] Show matching apps with full details
+  - [x] Suggest similar apps if no exact match
 
-- [ ] **Implement `tg oci info <app>` command**
-  - [ ] Show detailed app information
-  - [ ] Display default environment variables
-  - [ ] Show recommended mounts/volumes
-  - [ ] Link to official documentation
-  - [ ] Show related package specs if available
+- [x] **Implement `tg oci info <app>` command** ✅ COMPLETED
+  - [x] Show detailed app information
+  - [x] Display default environment variables
+  - [x] Show recommended mounts/volumes
+  - [x] Link to official documentation
+  - [x] Show related package specs if available
 
 **Expected Behavior:**
 ```bash

@@ -19,8 +19,8 @@ def register_oci_commands(root: typer.Typer, console: Console) -> None:
     @OciTyper.command("catalog")
     def catalog_command(
         category: str = typer.Option(None, "--category", "-c", help="Filter by category (media, photos, files, etc.)"),
-        search: str = typer.Option(None, "--search", "-s", help="Filter apps by name/image"),
         format: str = typer.Option("table", "--format", "-f", help="Output format: table|json"),
+        all_apps: bool = typer.Option(False, "--all", help="Show all apps (default shows popular subset)"),
         list_categories: bool = typer.Option(False, "--list-categories", help="Show available categories"),
     ):
         """Browse the OCI app catalog with 31+ popular self-hosted applications."""
@@ -33,20 +33,28 @@ def register_oci_commands(root: typer.Typer, console: Console) -> None:
                 console.print(f"  [yellow]{cat}[/yellow] ({len(apps_in_cat)} apps)")
             return
         
-        # Filter apps
+        # Get apps to display
         if category:
             apps = OciRegistryCatalog.filter_by_category(category)
             if not apps:
                 console.print(f"[yellow]No apps found in category '{category}'[/yellow]")
                 console.print(f"[dim]Use --list-categories to see available categories[/dim]")
                 return
-        elif search:
-            apps = OciRegistryCatalog.search_apps(search)
-            if not apps:
-                console.print(f"[yellow]No apps matching '{search}'[/yellow]")
-                return
         else:
-            apps = OciRegistryCatalog.list_popular_apps()
+            all_catalog_apps = OciRegistryCatalog.list_popular_apps()
+            if all_apps:
+                apps = all_catalog_apps
+            else:
+                # Show popular subset (first 2-3 from each category)
+                from collections import defaultdict
+                by_category = defaultdict(list)
+                for app in all_catalog_apps:
+                    by_category[app.category].append(app)
+                
+                popular_apps = []
+                for cat_apps in by_category.values():
+                    popular_apps.extend(cat_apps[:2])  # First 2 from each category
+                apps = popular_apps
 
         if format == "json":
             import json
@@ -54,34 +62,48 @@ def register_oci_commands(root: typer.Typer, console: Console) -> None:
             payload = {
                 "registries": [registry.__dict__ for registry in registries],
                 "apps": [app.__dict__ for app in apps],
+                "total_apps": len(apps),
+                "total_categories": len(set(app.category for app in apps))
             }
             console.print(json.dumps(payload, indent=2))
             return
 
-        # Table format - show apps grouped by category
+        # Table format with proper Rich table
         if category:
-            header = f"Apps in category: {category}"
-        elif search:
-            header = f"Apps matching '{search}'"
+            title = f"Apps in category: {category}"
+        elif all_apps:
+            title = "Complete OCI App Catalog"
         else:
-            header = "OCI App Catalog"
+            title = "Popular OCI Apps"
         
-        console.print(f"[bold cyan]{header}[/bold cyan] ({len(apps)} apps)\n")
+        table = Table(title=f"{title} ({len(apps)} apps)", show_header=True, header_style="bold cyan")
+        table.add_column("Name", style="cyan", width=15)
+        table.add_column("Description", style="white")
+        table.add_column("Category", style="yellow", width=12)
+        table.add_column("Registry", style="dim", width=10)
         
-        # Group by category for better readability
-        from collections import defaultdict
-        by_category = defaultdict(list)
-        for app in apps:
-            by_category[app.category].append(app)
+        # Sort apps by category, then name
+        sorted_apps = sorted(apps, key=lambda x: (x.category, x.name))
         
-        for cat in sorted(by_category.keys()):
-            console.print(f"[bold yellow]{cat.upper()}[/bold yellow]")
-            for app in by_category[cat]:
-                console.print(f"  [cyan]{app.name:20}[/cyan] {app.description}")
-            console.print()
+        for app in sorted_apps:
+            # Check if package spec exists
+            from pathlib import Path
+            package_path = Path(f"packages/{app.name}-oci.yml")
+            name_display = f"{app.name} ✓" if package_path.exists() else app.name
+            
+            table.add_row(
+                name_display,
+                app.description,
+                app.category,
+                app.registry
+            )
         
-        console.print(f"[dim]Total: {len(apps)} apps across {len(by_category)} categories[/dim]")
-        console.print(f"[dim]Use 'tg oci info <app>' for details or 'tg oci search <term>' to search[/dim]")
+        console.print(table)
+        
+        if not all_apps and not category:
+            console.print(f"\n[dim]Showing popular apps. Use --all to see all {OciRegistryCatalog.count_apps()} apps.[/dim]")
+        
+        console.print(f"[dim]Use 'tg oci info <app>' for details • 'tg oci search <term>' to search • ✓ = package spec available[/dim]")
 
     @OciTyper.command("status")
     def status_command(mock: bool = typer.Option(False, "--mock", help="Mock capability detection")):

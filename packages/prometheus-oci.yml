@@ -1,0 +1,90 @@
+---
+# Prometheus OCI Container Package
+# Metrics collection and monitoring system
+#
+# Usage:
+#   tg apply packages/prometheus-oci.yml
+
+name: prometheus
+type: oci
+version: latest
+
+oci:
+  image: prom/prometheus
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: prometheus
+cores: 2
+memory: 2048
+disk: 16
+
+# Resource pool (optional)
+# pool: monitoring
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Mount configuration and data
+mounts:
+  - source: /tank/config/prometheus
+    target: /etc/prometheus
+    readonly: false
+  - source: /tank/data/prometheus
+    target: /prometheus
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /prometheus (time-series database)
+
+# Environment variables
+environment:
+  - PROMETHEUS_RETENTION_TIME=15d
+  - PROMETHEUS_STORAGE_TSDB_PATH=/prometheus
+
+# Post-deployment:
+# 1. Access web UI: http://<container-ip>:9090
+# 2. Create prometheus.yml config in /etc/prometheus/
+# 3. Configure scrape targets (exporters)
+# 4. Set up recording and alerting rules
+# 5. Configure AlertManager for notifications
+
+# Verification:
+# - Check web UI accessibility
+# - Verify scrape targets: Status > Targets
+# - Test PromQL queries
+# - Validate metrics collection
+
+# Example prometheus.yml:
+# global:
+#   scrape_interval: 15s
+#   evaluation_interval: 15s
+# 
+# scrape_configs:
+#   - job_name: 'prometheus'
+#     static_configs:
+#       - targets: ['localhost:9090']
+#   
+#   - job_name: 'node'
+#     static_configs:
+#       - targets: ['node-exporter:9100']
+#   
+#   - job_name: 'docker'
+#     static_configs:
+#       - targets: ['cadvisor:8080']
+
+# Common exporters:
+# - Node Exporter: system metrics (CPU, memory, disk)
+# - cAdvisor: container metrics
+# - Blackbox Exporter: endpoint monitoring
+# - MySQL/PostgreSQL Exporter: database metrics

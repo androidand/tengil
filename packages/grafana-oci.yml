@@ -1,0 +1,77 @@
+---
+# Grafana OCI Container Package
+# Open-source monitoring and observability platform
+#
+# Usage:
+#   tg apply packages/grafana-oci.yml
+
+name: grafana
+type: oci
+version: latest
+
+oci:
+  image: grafana/grafana
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: grafana
+cores: 2
+memory: 1024
+disk: 8
+
+# Resource pool (optional)
+# pool: monitoring
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Mount persistent storage
+mounts:
+  - source: /tank/config/grafana
+    target: /var/lib/grafana
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /var/lib/grafana (dashboards, plugins, settings)
+
+# Environment variables
+environment:
+  - GF_SECURITY_ADMIN_PASSWORD=admin
+  - GF_INSTALL_PLUGINS=
+  - GF_SERVER_ROOT_URL=http://grafana.local
+  - GF_ANALYTICS_REPORTING_ENABLED=false
+
+# Post-deployment:
+# 1. Access web UI: http://<container-ip>:3000
+# 2. Login with admin/admin (change password immediately)
+# 3. Add data sources (Prometheus, Loki, InfluxDB, etc.)
+# 4. Import dashboards from grafana.com/dashboards
+# 5. Configure alerting (SMTP, Slack, PagerDuty)
+
+# Verification:
+# - Check web UI accessibility
+# - Verify data source connectivity
+# - Test dashboard creation and queries
+# - Validate alert notifications
+
+# Common data sources:
+# - Prometheus: http://prometheus:9090
+# - Loki: http://loki:3100
+# - InfluxDB: http://influxdb:8086
+# - PostgreSQL/TimescaleDB
+
+# Popular dashboard IDs:
+# - Node Exporter Full: 1860
+# - Docker Monitoring: 893
+# - Proxmox: 10048
+# - Nginx: 12708
