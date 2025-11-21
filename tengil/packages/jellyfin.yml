@@ -128,11 +128,11 @@ post_deployment:
 
 # GPU transcoding verification
 gpu_verification:
-  - Check GPU access: 'ls -l /dev/dri' inside container
-  - Should see: renderD128 (Intel/AMD), card0, card1
-  - Enable in Jellyfin: Dashboard > Playback > Hardware acceleration
-  - Test: Play video and check Dashboard > Active Devices for "transcode (hw)"
-  - Verify: 'intel_gpu_top' or 'radeontop' on Proxmox host during playback
+  - "Check GPU access: 'ls -l /dev/dri' inside container"
+  - "Should see: renderD128 (Intel/AMD), card0, card1"
+  - "Enable in Jellyfin: Dashboard > Playback > Hardware acceleration"
+  - "Test: Play video and check Dashboard > Active Devices for 'transcode (hw)'"
+  - "Verify: 'intel_gpu_top' or 'radeontop' on Proxmox host during playback"
 
 # Common media organization
 media_structure:
@@ -159,13 +159,13 @@ recommended_settings:
 # Troubleshooting
 troubleshooting:
   no_gpu_detected:
-    - Check: 'ls -l /dev/dri' in container
-    - Verify: 'lspci | grep VGA' on Proxmox host
-    - Solution: GPU passthrough requires privileged container
+    - "Check: 'ls -l /dev/dri' in container"
+    - "Verify: 'lspci | grep VGA' on Proxmox host"
+    - "Solution: GPU passthrough requires privileged container"
   transcoding_fails:
-    - Check Jellyfin logs: Dashboard > Logs
-    - Verify ffmpeg can access GPU: 'ffmpeg -hwaccels'
-    - Try VAAPI instead of QuickSync
+    - "Check Jellyfin logs: Dashboard > Logs"
+    - "Verify ffmpeg can access GPU: 'ffmpeg -hwaccels'"
+    - "Try VAAPI instead of QuickSync"
   poor_performance:
     - Increase CPU cores (4+ recommended)
     - Add more RAM (6-8GB for multiple streams)

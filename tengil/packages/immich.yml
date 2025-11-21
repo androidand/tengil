@@ -218,11 +218,11 @@ backup_recommendations:
 # Troubleshooting
 troubleshooting:
   containers_not_starting:
-    - Check: 'docker compose logs' in /data
-    - Verify: All containers running with 'docker ps'
-    - Restart: 'docker compose restart'
+    - "Check: 'docker compose logs' in /data"
+    - "Verify: All containers running with 'docker ps'"
+    - "Restart: 'docker compose restart'"
   ml_not_working:
-    - Check GPU access: 'ls -l /dev/dri' in container
+    - "Check GPU access: 'ls -l /dev/dri' in container"
     - Verify: 'docker logs immich-machine-learning'
     - Check Admin > Machine Learning settings
   slow_upload:

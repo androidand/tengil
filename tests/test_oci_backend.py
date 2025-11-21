@@ -98,14 +98,21 @@ class TestOCIBackend(unittest.TestCase):
             }
         }
         
-        with patch('subprocess.run') as mock_run:
-            mock_run.return_value = MagicMock(returncode=0, stdout='', stderr='')
+        # Test in mock mode - check that command is generated
+        import io
+        import sys
+        captured_output = io.StringIO()
+        sys.stdout = captured_output
+        try:
             vmid = self.backend.create_container(spec)
             self.assertEqual(vmid, 200)
-            # ensure env flags present in command
-            args = mock_run.call_args[0][0]
-            env_flags = [a for a in args if a.startswith('--env') or 'KEY=VALUE' in a or 'FOO=BAR' in a]
-            self.assertTrue(env_flags)
+            output = captured_output.getvalue()
+            # Ensure env flags are present in the mock command
+            self.assertIn('--env', output)
+            self.assertIn('KEY=VALUE', output)
+            self.assertIn('FOO=BAR', output)
+        finally:
+            sys.stdout = sys.__stdout__
 
     def test_create_container_no_image(self):
         """Test error handling when no image specified."""

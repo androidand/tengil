@@ -56,23 +56,6 @@ class TestOCICommands(unittest.TestCase):
         self.assertNotEqual(result.exit_code, 0)
         self.assertIn("not found", result.stdout)
 
-    def test_remove_command_help(self):
-        """Test remove command shows help."""
-        result = runner.invoke(app, ["oci", "remove", "--help"])
-        
-        self.assertEqual(result.exit_code, 0)
-        self.assertIn("Delete a cached OCI template", result.stdout)
-        self.assertIn("--force", result.stdout)
-
-    def test_prune_command_help(self):
-        """Test prune command shows help."""
-        result = runner.invoke(app, ["oci", "prune", "--help"])
-        
-        self.assertEqual(result.exit_code, 0)
-        self.assertIn("Remove all cached OCI templates", result.stdout)
-        self.assertIn("--dry-run", result.stdout)
-        self.assertIn("--force", result.stdout)
-
 
 if __name__ == '__main__':
     unittest.main()

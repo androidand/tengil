@@ -483,7 +483,6 @@ storage_hints:
 
 **🚧 Planned**:
 - State import (`tg import`)
-- Pool analysis (`tg plan-pools`)
 - Backup integration
 - OCI remove command
 - OCI catalog search
@@ -512,20 +511,19 @@ storage_hints:
 
 ---
 
-## OCI Container Support (Proxmox 9.1+)
+## OCI Container Support (Proxmox 9.1+, Tech Preview)
 
-**NEW:** Native OCI container support via Docker Hub, GHCR, and Quay.io
+**Experimental:** OCI backend is available behind `type: oci` specs. Registry operations are limited to backend-driven pulls during `tg apply`; no `tg oci pull/list/login` commands exist.
 
 ### Why OCI?
-- ⚡ **5-7x faster** deployment (2 min vs 10-15 min traditional)
-- 🐳 **Millions of images** available (Docker Hub, GHCR)
-- 🔄 **Industry standard** - maintained by app vendors
-- ✅ **GPU passthrough** - Hardware transcoding (Intel/NVIDIA)
-- 📦 **Pre-built packages** - Jellyfin, Immich, Home Assistant, Nextcloud
+- ⚡ Faster deploys vs. building inside LXC
+- 🐳 Leverage existing images (Docker Hub/GHCR)
+- ✅ GPU passthrough and ZFS mounts supported (same as LXC)
+- ⚠️ Tech preview: updates require recreate + volume reuse
 
-### Implementation Approach
+### Implementation Approach (experimental)
 
-Tengil uses **direct CLI commands** (not Web UI APIs):
+Tengil uses **direct CLI commands** (skopeo + pct). Web UI/API capture is TODO:
 
 ```python
 # Our approach: Direct subprocess calls
@@ -533,12 +531,10 @@ subprocess.run(['skopeo', 'copy', 'docker://...', 'oci-archive:/path'])
 subprocess.run(['pct', 'create', '200', 'local:vztmpl/image.tar'])
 ```
 
-**Why CLI?**
-- ✅ More reliable (no HTTP/auth overhead)
-- ✅ Faster (direct execution)
-- ✅ Simpler (no HTTP dependencies)
-- ✅ Standard (Proxmox Web UI uses same commands)
-- ✅ Tested on production (192.168.1.42, Proxmox 9.1.1)
+**Status/limits:**
+- ⚠️ Backend pulls during apply; no standalone `tg oci pull/list/login`
+- ⚠️ Tests are mocked; manual validation only
+- ⚠️ Updates = recreate container; preserve volumes/binds
 
 ### Usage
 
@@ -567,7 +563,7 @@ mounts:
 tg apply packages/jellyfin-oci.yml  # Deploy in ~2 minutes
 ```
 
-**Available OCI Packages:**
+**Sample OCI Packages (tech preview):**
 - `jellyfin-oci.yml` - Media server with GPU transcoding
 - `homeassistant-oci.yml` - Home automation
 - `nextcloud-oci.yml` - File sync & collaboration

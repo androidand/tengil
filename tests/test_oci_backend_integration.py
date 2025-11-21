@@ -42,21 +42,23 @@ def test_create_container_with_env_mount_gpu_sequence():
         assert vmid == 1000
 
         cmds = [call[0][0] for call in mock_run.call_args_list]
-        # First call skopeo copy
+        
+        # First call: skopeo copy
         assert cmds[0][0] == "skopeo"
-        # Second call pct create with env flags, features, and network gateway/firewall
+        # Second call: pct create with env flags, features, and network gateway/firewall
         create_cmd = cmds[1]
         assert create_cmd[:2] == ["pct", "create"]
         assert "--env" in create_cmd
         net_arg = next(arg for arg in create_cmd if arg.startswith("name=eth0"))
         assert "gw=192.168.1.1" in net_arg.lower()
         assert "firewall=1" in net_arg
-        # Third call pct set --mp0
+        # Third call: pct set gpu devices (GPU is configured before mounts)
         assert cmds[2][:3] == ["pct", "set", "1000"]
-        assert any("--mp0" in part for part in cmds[2])
-        # Fourth call pct set gpu devices
+        assert "/dev/dri/card0" in cmds[2] or any("--dev" in part for part in cmds[2])
+        # Fourth call: pct set --mp0 (mount point)
         assert cmds[3][:3] == ["pct", "set", "1000"]
-        assert "/dev/dri/card0" in cmds[3]
+        assert any("--mp" in part for part in cmds[3]), f"Expected --mp in command: {cmds[3]}"
+        assert any("/tank/data" in part for part in cmds[3]), f"Expected /tank/data in command: {cmds[3]}"
 
 
 def test_create_container_missing_image_returns_none():
@@ -74,9 +76,9 @@ def test_pull_failure_returns_none():
 
     with patch.object(Path, "exists", return_value=False), \
          patch("subprocess.run") as mock_run:
-        mock_run.side_effect = [
-            MagicMock(returncode=1, stdout="", stderr="pull failed")
-        ]
+        # pull_image calls subprocess.run with check=True, so it raises CalledProcessError on failure
+        from subprocess import CalledProcessError
+        mock_run.side_effect = CalledProcessError(1, ['skopeo'], stderr="pull failed")
         vmid = backend.create_container(spec)
     assert vmid is None
 

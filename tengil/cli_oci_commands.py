@@ -206,6 +206,74 @@ def register_oci_commands(root: typer.Typer, console: Console) -> None:
         console.print(snippet)
         console.print("\n[dim]Tip: adjust dataset/pool to match your ZFS layout.[/dim]")
 
+    @OciTyper.command("remove")
+    def remove_command(
+        template: str = typer.Argument(..., help="Template name to remove (e.g., 'jellyfin-latest.tar')"),
+        force: bool = typer.Option(False, "--force", "-f", help="Force removal without confirmation"),
+    ):
+        """Delete a cached OCI template from local storage."""
+        backend = OCIBackend()
+        template_path = backend.template_dir / template
+        
+        if not template_path.exists():
+            console.print(f"[yellow]Template '{template}' not found[/yellow]")
+            raise typer.Exit(1)
+        
+        if not force:
+            confirm = typer.confirm(f"Remove template '{template}'?")
+            if not confirm:
+                console.print("[yellow]Cancelled[/yellow]")
+                raise typer.Exit(0)
+        
+        try:
+            template_path.unlink()
+            console.print(f"[green]✓[/green] Removed template: {template}")
+        except Exception as e:
+            console.print(f"[red]Error removing template: {e}[/red]")
+            raise typer.Exit(1)
+
+    @OciTyper.command("prune")
+    def prune_command(
+        dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be removed without deleting"),
+        force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
+    ):
+        """Remove all cached OCI templates to free up storage space."""
+        backend = OCIBackend()
+        templates = list(backend.template_dir.glob("*.tar"))
+        
+        if not templates:
+            console.print("[yellow]No cached templates found[/yellow]")
+            return
+        
+        console.print(f"[cyan]Found {len(templates)} cached template(s):[/cyan]")
+        total_size = 0
+        for tmpl in templates:
+            size_mb = tmpl.stat().st_size / (1024 * 1024)
+            total_size += size_mb
+            console.print(f"  - {tmpl.name} ({size_mb:.1f} MB)")
+        
+        console.print(f"\n[bold]Total size: {total_size:.1f} MB[/bold]")
+        
+        if dry_run:
+            console.print("\n[dim]Dry run - nothing removed[/dim]")
+            return
+        
+        if not force:
+            confirm = typer.confirm(f"Remove all {len(templates)} template(s)?")
+            if not confirm:
+                console.print("[yellow]Cancelled[/yellow]")
+                raise typer.Exit(0)
+        
+        removed = 0
+        for tmpl in templates:
+            try:
+                tmpl.unlink()
+                removed += 1
+            except Exception as e:
+                console.print(f"[red]Error removing {tmpl.name}: {e}[/red]")
+        
+        console.print(f"[green]✓[/green] Removed {removed}/{len(templates)} template(s)")
+
     root.add_typer(OciTyper, name="oci")
 
 
