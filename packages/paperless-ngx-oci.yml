@@ -1,0 +1,124 @@
+---
+# Paperless-ngx OCI Container Package
+# Document management system with OCR and full-text search
+#
+# Usage:
+#   tg apply packages/paperless-ngx-oci.yml
+
+name: paperless-ngx
+type: oci
+version: latest
+
+oci:
+  image: ghcr.io/paperless-ngx/paperless-ngx
+  tag: latest
+  registry: ghcr.io
+
+# Container configuration
+hostname: paperless
+cores: 2
+memory: 2048
+disk: 16
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: true
+
+# Environment variables
+env:
+  # Required settings
+  PAPERLESS_URL: "http://paperless.local"  # CHANGE THIS!
+  PAPERLESS_SECRET_KEY: ""  # Generate with: python3 -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+  
+  # OCR settings
+  PAPERLESS_OCR_LANGUAGE: "eng"  # eng, deu, fra, spa, etc.
+  PAPERLESS_OCR_MODE: "skip"  # skip, redo, force
+  PAPERLESS_OCR_CLEAN: "clean"
+  PAPERLESS_OCR_DESKEW: "true"
+  PAPERLESS_OCR_ROTATE_PAGES: "true"
+  PAPERLESS_OCR_ROTATE_PAGES_THRESHOLD: "12"
+  PAPERLESS_OCR_OUTPUT_TYPE: "pdfa"
+  PAPERLESS_OCR_PAGES: "0"  # 0 = all pages
+  PAPERLESS_OCR_IMAGE_DPI: "300"
+  PAPERLESS_OCR_MAX_IMAGE_PIXELS: "128000000"
+  
+  # Tika (optional, for better text extraction)
+  PAPERLESS_TIKA_ENABLED: "false"
+  
+  # User settings
+  PAPERLESS_ADMIN_USER: "admin"
+  PAPERLESS_ADMIN_PASSWORD: "changeme"  # CHANGE THIS!
+  PAPERLESS_ADMIN_MAIL: "admin@example.com"
+  
+  # Timezone
+  PAPERLESS_TIME_ZONE: "America/New_York"
+  
+  # Document processing
+  PAPERLESS_TASK_WORKERS: "2"
+  PAPERLESS_THREADS_PER_WORKER: "1"
+  PAPERLESS_WORKER_TIMEOUT: "1800"
+  
+  # Storage
+  PAPERLESS_FILENAME_FORMAT: "{created_year}/{correspondent}/{title}"
+  PAPERLESS_FILENAME_FORMAT_REMOVE_NONE: "true"
+  
+  # Features
+  PAPERLESS_CONSUMER_POLLING: "0"  # 0 = inotify, >0 = polling interval
+  PAPERLESS_CONSUMER_DELETE_DUPLICATES: "false"
+  PAPERLESS_CONSUMER_RECURSIVE: "false"
+  PAPERLESS_CONSUMER_SUBDIRS_AS_TAGS: "false"
+  
+  # Security
+  PAPERLESS_COOKIE_PREFIX: "paperless"
+  PAPERLESS_ENABLE_HTTP_REMOTE_USER: "false"
+  
+  # Email (optional, for document import via email)
+  PAPERLESS_EMAIL_TASK_CRON: "*/10 * * * *"
+  PAPERLESS_EMAIL_HOST: ""
+  PAPERLESS_EMAIL_PORT: "993"
+  PAPERLESS_EMAIL_HOST_USER: ""
+  PAPERLESS_EMAIL_HOST_PASSWORD: ""
+  
+  # Logging
+  PAPERLESS_LOGGING_DIR: "/usr/src/paperless/log"
+  
+  # Database (SQLite by default, can use PostgreSQL)
+  PAPERLESS_DBHOST: ""  # Leave empty for SQLite
+
+# ZFS dataset mounts
+mounts:
+  # Consume folder (watch for new documents)
+  - source: /tank/paperless/consume
+    target: /usr/src/paperless/consume
+    readonly: false
+  
+  # Export folder (for bulk export/backup)
+  # - source: /tank/paperless/export
+  #   target: /usr/src/paperless/export
+  #   readonly: false
+
+# Auto-created volumes:
+# - /usr/src/paperless/data (database if SQLite)
+# - /usr/src/paperless/media (processed documents, thumbnails, search index)
+
+# Resource notes:
+# - OCR is CPU intensive (2+ cores recommended)
+# - Memory usage grows with concurrent processing
+# - Storage depends on document volume and originals retention
+# - Consider GPU for faster OCR (experimental)
+# - PostgreSQL recommended for production (better performance)
+
+# Workflow:
+# 1. Drop documents in /consume directory
+# 2. Paperless detects, processes, and OCRs
+# 3. Auto-tags and stores with metadata
+# 4. Searchable via web interface
+# 5. Original and processed versions retained

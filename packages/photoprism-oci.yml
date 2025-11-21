@@ -1,0 +1,91 @@
+---
+# PhotoPrism OCI Container Package
+# AI-powered photo management and organization
+#
+# Usage:
+#   tg apply packages/photoprism-oci.yml
+
+name: photoprism
+type: oci
+version: latest
+
+oci:
+  image: photoprism/photoprism
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: photoprism
+cores: 4
+memory: 4096
+disk: 32
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: true
+
+# Environment variables
+env:
+  PHOTOPRISM_ADMIN_USER: "admin"
+  PHOTOPRISM_ADMIN_PASSWORD: "changeme"  # CHANGE THIS!
+  PHOTOPRISM_AUTH_MODE: "password"
+  PHOTOPRISM_SITE_URL: "http://photoprism.local:2342/"
+  PHOTOPRISM_DISABLE_TLS: "false"
+  PHOTOPRISM_DEFAULT_TLS: "true"
+  PHOTOPRISM_ORIGINALS_LIMIT: "5000"
+  PHOTOPRISM_HTTP_COMPRESSION: "gzip"
+  PHOTOPRISM_LOG_LEVEL: "info"
+  PHOTOPRISM_READONLY: "false"
+  PHOTOPRISM_EXPERIMENTAL: "false"
+  PHOTOPRISM_DISABLE_CHOWN: "false"
+  PHOTOPRISM_DISABLE_WEBDAV: "false"
+  PHOTOPRISM_DISABLE_SETTINGS: "false"
+  PHOTOPRISM_DISABLE_TENSORFLOW: "false"
+  PHOTOPRISM_DISABLE_FACES: "false"
+  PHOTOPRISM_DISABLE_CLASSIFICATION: "false"
+  PHOTOPRISM_DISABLE_VECTORS: "false"
+  PHOTOPRISM_DISABLE_RAW: "false"
+  PHOTOPRISM_RAW_PRESETS: "false"
+  PHOTOPRISM_SIDECAR_YAML: "true"
+  PHOTOPRISM_BACKUP_ALBUMS: "true"
+  PHOTOPRISM_BACKUP_DATABASE: "true"
+  PHOTOPRISM_BACKUP_SCHEDULE: "daily"
+  PHOTOPRISM_INDEX_SCHEDULE: ""
+  PHOTOPRISM_AUTO_INDEX: "300"
+  PHOTOPRISM_AUTO_IMPORT: "-1"
+  PHOTOPRISM_DETECT_NSFW: "false"
+  PHOTOPRISM_UPLOAD_NSFW: "true"
+  PHOTOPRISM_DATABASE_DRIVER: "sqlite"
+  PHOTOPRISM_SITE_CAPTION: "AI-Powered Photos App"
+  PHOTOPRISM_SITE_DESCRIPTION: ""
+  PHOTOPRISM_SITE_AUTHOR: ""
+
+# ZFS dataset mounts
+mounts:
+  # Original photos (can be readonly if you don't want imports)
+  - source: /tank/photos
+    target: /photoprism/originals
+    readonly: false
+  
+  # Import staging (optional)
+  # - source: /tank/import
+  #   target: /photoprism/import
+  #   readonly: false
+
+# Auto-created volumes:
+# - /photoprism/storage (database, sidecar files, cache, thumbnails)
+
+# Resource notes:
+# - TensorFlow AI requires significant CPU for face detection
+# - 4GB RAM minimum, 8GB+ recommended for large libraries
+# - Storage grows with thumbnail/preview generation
+# - Initial indexing is CPU intensive
+# - Consider GPU for faster face detection (CUDA support)

@@ -1,0 +1,68 @@
+---
+# Plex Media Server OCI Container Package
+# Popular media server with rich client ecosystem
+#
+# Usage:
+#   tg apply packages/plex-oci.yml
+
+name: plex
+type: oci
+version: latest
+
+oci:
+  image: linuxserver/plex
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: plex
+cores: 4
+memory: 4096
+disk: 16
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: true
+
+# GPU passthrough for hardware transcoding
+# Intel Quick Sync, NVIDIA NVENC, or AMD VCE
+gpu:
+  passthrough: true
+  type: intel  # intel, nvidia, amd
+
+# Environment variables
+env:
+  PUID: "1000"
+  PGID: "1000"
+  TZ: "America/New_York"
+  VERSION: "docker"
+
+# ZFS dataset mounts
+mounts:
+  # Media library (readonly recommended)
+  - source: /tank/media
+    target: /media
+    readonly: true
+  
+  # Transcoding cache (optional, uses tmpfs if not specified)
+  # - source: /tank/appdata/plex/transcode
+  #   target: /transcode
+  #   readonly: false
+
+# Auto-created volumes (by Plex):
+# - /config (persistent settings, metadata, thumbnails)
+# - /transcode (temporary transcoding files - can be tmpfs)
+
+# Resource notes:
+# - Transcoding is CPU/GPU intensive
+# - Metadata storage grows with library size
+# - Recommend 4+ cores for 4K transcoding
+# - GPU passthrough highly recommended for multiple streams

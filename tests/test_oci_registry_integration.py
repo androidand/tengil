@@ -145,12 +145,23 @@ class TestOCIRegistryCatalog(unittest.TestCase):
         apps = OciRegistryCatalog.list_popular_apps()
         app_images = [app.image for app in apps]
         
+        # Verify we have substantial catalog (expanded from 6 to 31+ apps)
+        self.assertGreaterEqual(len(apps), 30, "Should have at least 30 apps in catalog")
+        
         # Should have examples from different registries
         has_docker_hub = any('docker.io' not in img and '/' in img for img in app_images)
         has_ghcr = any('ghcr.io' in img for img in app_images)
         
         self.assertTrue(has_docker_hub or len(app_images) > 0, "Should have Docker Hub apps")
         self.assertTrue(has_ghcr, "Should have GHCR apps")
+        
+        # Verify key categories are represented
+        app_names = [app.name for app in apps]
+        self.assertIn('jellyfin', app_names, "Should have media server")
+        self.assertIn('nextcloud', app_names, "Should have file sync")
+        self.assertIn('home-assistant', app_names, "Should have home automation")
+        self.assertIn('vaultwarden', app_names, "Should have password manager")
+        self.assertIn('photoprism', app_names, "Should have photo management")
 
 
 if __name__ == '__main__':

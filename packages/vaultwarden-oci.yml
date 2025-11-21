@@ -1,0 +1,89 @@
+---
+# Vaultwarden OCI Container Package
+# Bitwarden-compatible password manager (lightweight Rust implementation)
+#
+# Usage:
+#   tg apply packages/vaultwarden-oci.yml
+
+name: vaultwarden
+type: oci
+version: latest
+
+oci:
+  image: vaultwarden/server
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: vaultwarden
+cores: 1
+memory: 512
+disk: 8
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Environment variables
+env:
+  # Domain for password manager (important for WebAuthn/U2F)
+  DOMAIN: "https://vault.example.com"  # CHANGE THIS!
+  
+  # Admin token for admin panel (generate with: openssl rand -base64 48)
+  # Leave empty to disable admin panel
+  ADMIN_TOKEN: ""  # RECOMMENDED: Set this to secure admin panel
+  
+  # Signups
+  SIGNUPS_ALLOWED: "true"  # Set to false after creating accounts
+  SIGNUPS_VERIFY: "true"   # Require email verification
+  SIGNUPS_DOMAINS_WHITELIST: ""  # Restrict signups to specific domains
+  
+  # Invitations
+  INVITATIONS_ALLOWED: "true"
+  
+  # Email configuration (required for invites/verification)
+  SMTP_HOST: ""  # smtp.example.com
+  SMTP_FROM: ""  # vaultwarden@example.com
+  SMTP_PORT: "587"
+  SMTP_SECURITY: "starttls"  # starttls, force_tls, or off
+  SMTP_USERNAME: ""
+  SMTP_PASSWORD: ""
+  
+  # Security
+  WEBSOCKET_ENABLED: "true"
+  WEB_VAULT_ENABLED: "true"
+  
+  # Performance
+  DATABASE_MAX_CONNS: "10"
+  
+  # Logging
+  LOG_LEVEL: "info"
+  EXTENDED_LOGGING: "true"
+
+# Auto-created volumes:
+# - /data (SQLite database, attachments, icons, RSA keys)
+
+# Resource notes:
+# - Very lightweight (512MB RAM sufficient)
+# - SQLite database by default (no external DB needed)
+# - Supports WebAuthn/U2F for 2FA
+# - Regular backups of /data recommended
+# - HTTPS strongly recommended (use reverse proxy)
+# - Consider fail2ban for login attempt protection
+
+# Security checklist:
+# 1. Set ADMIN_TOKEN or disable admin panel
+# 2. Configure DOMAIN correctly for WebAuthn
+# 3. Disable SIGNUPS_ALLOWED after initial setup
+# 4. Enable email verification
+# 5. Use HTTPS (Traefik, Nginx Proxy Manager, etc.)
+# 6. Regular database backups
+# 7. Consider 2FA for all accounts
