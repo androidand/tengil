@@ -3,7 +3,10 @@ import subprocess
 import shlex
 from pathlib import Path
 from typing import Dict, Optional
+from rich.console import Console
 from .base import ContainerBackend
+
+console = Console()
 
 
 class OCIBackend(ContainerBackend):
@@ -56,7 +59,7 @@ class OCIBackend(ContainerBackend):
         cmd = ['skopeo', 'copy', source, dest]
         
         if self.mock:
-            print(f"[MOCK] Would run: {' '.join(cmd)}")
+            console.print(f"[dim][MOCK] Would run: {' '.join(cmd)}[/dim]")
             return f'local:vztmpl/{filename}'
         
         try:
@@ -68,7 +71,7 @@ class OCIBackend(ContainerBackend):
             )
             return f'local:vztmpl/{filename}'
         except subprocess.CalledProcessError as e:
-            print(f"Error pulling image: {e.stderr}")
+            console.print(f"[red]✗[/red] Error pulling image: {e.stderr}")
             return None
 
     def create_container(
@@ -97,7 +100,7 @@ class OCIBackend(ContainerBackend):
         mounts = spec.get('mounts', [])
         for mount in mounts:
             if not mount.get('source') or not mount.get('target'):
-                print(f"Error: Invalid mount spec (source/target required): {mount}")
+                console.print(f"[red]✗[/red] Invalid mount spec (source/target required): {mount}")
                 return None
 
         # Pull image if needed (unless template supplied)
@@ -108,7 +111,7 @@ class OCIBackend(ContainerBackend):
             registry = oci_spec.get('registry')
             
             if not image:
-                print("Error: No image specified in oci section")
+                console.print("[red]✗[/red] No image specified in oci section")
                 return None
             
             # Check if template exists or pull it
@@ -117,7 +120,7 @@ class OCIBackend(ContainerBackend):
             template_path = self.template_dir / template_name
             
             if not template_path.exists():
-                print(f"Pulling OCI image: {image}:{tag}")
+                console.print(f"[cyan]→[/cyan] Pulling OCI image: {image}:{tag}")
                 template_ref = self.pull_image(image, tag, registry)
                 if not template_ref:
                     return None
@@ -184,7 +187,7 @@ class OCIBackend(ContainerBackend):
         
         # Execute creation
         if self.mock:
-            print(f"[MOCK] Would run: {' '.join(cmd)}")
+            console.print(f"[dim][MOCK] Would run: {' '.join(cmd)}[/dim]")
             return vmid
         
         try:
@@ -203,13 +206,13 @@ class OCIBackend(ContainerBackend):
             mounts = spec.get('mounts', [])
             for mount in mounts:
                 if not self._add_mount(vmid, mount):
-                    print(f"Error adding mount: {mount}")
+                    console.print(f"[red]✗[/red] Error adding mount: {mount}")
                     return None
             
             return vmid
             
         except subprocess.CalledProcessError as e:
-            print(f"Error creating container: {e.stderr}")
+            console.print(f"[red]✗[/red] Error creating container: {e.stderr}")
             return None
 
     def start_container(self, vmid: int) -> bool:
@@ -217,14 +220,14 @@ class OCIBackend(ContainerBackend):
         cmd = ['pct', 'start', str(vmid)]
         
         if self.mock:
-            print(f"[MOCK] Would run: {' '.join(cmd)}")
+            console.print(f"[dim][MOCK] Would run: {' '.join(cmd)}[/dim]")
             return True
         
         try:
             subprocess.run(cmd, capture_output=True, text=True, check=True)
             return True
         except subprocess.CalledProcessError as e:
-            print(f"Error starting container {vmid}: {e.stderr}")
+            console.print(f"[red]✗[/red] Error starting container {vmid}: {e.stderr}")
             return False
 
     def stop_container(self, vmid: int, timeout: int = 30) -> bool:
@@ -232,14 +235,14 @@ class OCIBackend(ContainerBackend):
         cmd = ['pct', 'stop', str(vmid), '--timeout', str(timeout)]
         
         if self.mock:
-            print(f"[MOCK] Would run: {' '.join(cmd)}")
+            console.print(f"[dim][MOCK] Would run: {' '.join(cmd)}[/dim]")
             return True
         
         try:
             subprocess.run(cmd, capture_output=True, text=True, check=True)
             return True
         except subprocess.CalledProcessError as e:
-            print(f"Error stopping container {vmid}: {e.stderr}")
+            console.print(f"[red]✗[/red] Error stopping container {vmid}: {e.stderr}")
             return False
 
     def destroy_container(self, vmid: int, purge: bool = False) -> bool:
@@ -249,14 +252,14 @@ class OCIBackend(ContainerBackend):
             cmd.append('--purge')
         
         if self.mock:
-            print(f"[MOCK] Would run: {' '.join(cmd)}")
+            console.print(f"[dim][MOCK] Would run: {' '.join(cmd)}[/dim]")
             return True
         
         try:
             subprocess.run(cmd, capture_output=True, text=True, check=True)
             return True
         except subprocess.CalledProcessError as e:
-            print(f"Error destroying container {vmid}: {e.stderr}")
+            console.print(f"[red]✗[/red] Error destroying container {vmid}: {e.stderr}")
             return False
 
     def container_exists(self, vmid: int) -> bool:
@@ -285,14 +288,14 @@ class OCIBackend(ContainerBackend):
             cmd.extend([flag, device])
         
         if self.mock:
-            print(f"[MOCK] Would run: {' '.join(cmd)}")
+            console.print(f"[dim][MOCK] Would run: {' '.join(cmd)}[/dim]")
             return True
         
         try:
             subprocess.run(cmd, capture_output=True, text=True, check=True)
             return True
         except subprocess.CalledProcessError as e:
-            print(f"Error configuring GPU for {vmid}: {e.stderr}")
+            console.print(f"[red]✗[/red] Error configuring GPU for {vmid}: {e.stderr}")
             return False
 
     def _add_mount(self, vmid: int, mount: Dict) -> bool:
@@ -302,7 +305,7 @@ class OCIBackend(ContainerBackend):
         readonly = mount.get('readonly', False)
         
         if not source or not target:
-            print(f"Invalid mount spec: {mount}")
+            console.print(f"[red]✗[/red] Invalid mount spec: {mount}")
             return False
         
         # Find next available mpX slot
@@ -313,14 +316,14 @@ class OCIBackend(ContainerBackend):
         cmd = ['pct', 'set', str(vmid), f'--mp{mp_id}', mount_spec]
         
         if self.mock:
-            print(f"[MOCK] Would run: {' '.join(cmd)}")
+            console.print(f"[dim][MOCK] Would run: {' '.join(cmd)}[/dim]")
             return True
         
         try:
             subprocess.run(cmd, capture_output=True, text=True, check=True)
             return True
         except subprocess.CalledProcessError as e:
-            print(f"Error adding mount {mount}: {e.stderr}")
+            console.print(f"[red]✗[/red] Error adding mount {mount}: {e.stderr}")
             return False
 
     def _get_next_vmid(self) -> int:

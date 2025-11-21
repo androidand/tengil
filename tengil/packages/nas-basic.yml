@@ -67,14 +67,11 @@ notes: |
   - Add nas-complete package to upgrade to full-featured NAS with Nextcloud
 
 config:
-    pools:
-    {{ pool_name }}:
+  pools:
+    tank:
       type: zfs
       datasets:
         # General documents and files
-        # WHY: Mixed file sizes (documents, downloads, etc.)
-        # PROFILE: dev = recordsize=128K, compression=lz4, atime=off
-        # RESULT: Good balance between small files and larger media
         files:
           profile: dev
           shares:
@@ -106,8 +103,6 @@ config:
               name: Backups
               browseable: yes
               comment: "Computer backups - compressed to save space"
-        {% if include_timemachine %}
-        
         # Time Machine backups - Mac-specific
         timemachine:
           profile: backups  # Heavy compression for Time Machine
@@ -117,4 +112,3 @@ config:
               browseable: no  # Hidden from normal browsing
               comment: "Mac Time Machine backups (AFP/SMB compatible)"
               fruit: yes  # Required for Mac Time Machine over SMB
-        {% endif %}

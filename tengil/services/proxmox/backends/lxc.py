@@ -1,7 +1,10 @@
 """LXC container backend (traditional templates)."""
 import subprocess
 from typing import Dict, Optional
+from rich.console import Console
 from .base import ContainerBackend
+
+console = Console()
 
 
 class LXCBackend(ContainerBackend):
@@ -38,7 +41,7 @@ class LXCBackend(ContainerBackend):
         # Get template
         template = spec.get('template')
         if not template:
-            print("Error: No template specified")
+            console.print("[red]✗[/red] No template specified")
             return None
         
         # Get or allocate VMID
@@ -86,7 +89,7 @@ class LXCBackend(ContainerBackend):
         
         # Execute
         if self.mock:
-            print(f"[MOCK] Would run: {' '.join(cmd)}")
+            console.print(f"[dim][MOCK] Would run: {' '.join(cmd)}[/dim]")
             return vmid
         
         try:
@@ -109,7 +112,7 @@ class LXCBackend(ContainerBackend):
             return vmid
             
         except subprocess.CalledProcessError as e:
-            print(f"Error creating container: {e.stderr}")
+            console.print(f"[red]✗[/red] Error creating container: {e.stderr}")
             return None
 
     def start_container(self, vmid: int) -> bool:
@@ -117,14 +120,14 @@ class LXCBackend(ContainerBackend):
         cmd = ['pct', 'start', str(vmid)]
         
         if self.mock:
-            print(f"[MOCK] Would run: {' '.join(cmd)}")
+            console.print(f"[dim][MOCK] Would run: {' '.join(cmd)}[/dim]")
             return True
         
         try:
             subprocess.run(cmd, capture_output=True, text=True, check=True)
             return True
         except subprocess.CalledProcessError as e:
-            print(f"Error starting container {vmid}: {e.stderr}")
+            console.print(f"[red]✗[/red] Error starting container {vmid}: {e.stderr}")
             return False
 
     def stop_container(self, vmid: int, timeout: int = 30) -> bool:
@@ -132,14 +135,14 @@ class LXCBackend(ContainerBackend):
         cmd = ['pct', 'stop', str(vmid), '--timeout', str(timeout)]
         
         if self.mock:
-            print(f"[MOCK] Would run: {' '.join(cmd)}")
+            console.print(f"[dim][MOCK] Would run: {' '.join(cmd)}[/dim]")
             return True
         
         try:
             subprocess.run(cmd, capture_output=True, text=True, check=True)
             return True
         except subprocess.CalledProcessError as e:
-            print(f"Error stopping container {vmid}: {e.stderr}")
+            console.print(f"[red]✗[/red] Error stopping container {vmid}: {e.stderr}")
             return False
 
     def destroy_container(self, vmid: int, purge: bool = False) -> bool:
@@ -149,14 +152,14 @@ class LXCBackend(ContainerBackend):
             cmd.append('--purge')
         
         if self.mock:
-            print(f"[MOCK] Would run: {' '.join(cmd)}")
+            console.print(f"[dim][MOCK] Would run: {' '.join(cmd)}[/dim]")
             return True
         
         try:
             subprocess.run(cmd, capture_output=True, text=True, check=True)
             return True
         except subprocess.CalledProcessError as e:
-            print(f"Error destroying container {vmid}: {e.stderr}")
+            console.print(f"[red]✗[/red] Error destroying container {vmid}: {e.stderr}")
             return False
 
     def container_exists(self, vmid: int) -> bool:
@@ -184,14 +187,14 @@ class LXCBackend(ContainerBackend):
             cmd.extend([flag, device])
         
         if self.mock:
-            print(f"[MOCK] Would run: {' '.join(cmd)}")
+            console.print(f"[dim][MOCK] Would run: {' '.join(cmd)}[/dim]")
             return True
         
         try:
             subprocess.run(cmd, capture_output=True, text=True, check=True)
             return True
         except subprocess.CalledProcessError as e:
-            print(f"Error configuring GPU for {vmid}: {e.stderr}")
+            console.print(f"[red]✗[/red] Error configuring GPU for {vmid}: {e.stderr}")
             return False
 
     def _add_mount(self, vmid: int, mount: Dict) -> bool:
@@ -210,7 +213,7 @@ class LXCBackend(ContainerBackend):
         cmd = ['pct', 'set', str(vmid), f'--mp{mp_id}', mount_spec]
         
         if self.mock:
-            print(f"[MOCK] Would run: {' '.join(cmd)}")
+            console.print(f"[dim][MOCK] Would run: {' '.join(cmd)}[/dim]")
             return True
         
         try:

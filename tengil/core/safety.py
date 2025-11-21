@@ -6,10 +6,12 @@ Tengil never accidentally destroys user data.
 from typing import List
 from pathlib import Path
 import subprocess
+from rich.console import Console
 
 from tengil.core.logger import get_logger
 
 logger = get_logger(__name__)
+console = Console()
 
 
 class SafetyGuard:
@@ -63,10 +65,10 @@ class SafetyGuard:
         Returns:
             True if user confirms, False otherwise
         """
-        print(f"\n⚠️  SAFETY CHECK")
-        print(f"Operation: {operation}")
-        print(f"Resource: {resource}")
-        print(f"\nThis will make changes to your system.")
+        console.print(f"\n[yellow]⚠️  SAFETY CHECK[/yellow]")
+        console.print(f"[cyan]Operation:[/cyan] {operation}")
+        console.print(f"[cyan]Resource:[/cyan] {resource}")
+        console.print(f"\n[yellow]This will make changes to your system.[/yellow]")
         response = input("Continue? [y/N]: ").lower().strip()
         
         return response == 'y'
