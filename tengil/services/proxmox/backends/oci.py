@@ -29,19 +29,22 @@ class OCIBackend(ContainerBackend):
         """Pull OCI image using skopeo.
         
         Args:
-            image: Image name (e.g., 'jellyfin/jellyfin')
+            image: Image name (e.g., 'jellyfin/jellyfin' or 'ghcr.io/owner/image')
             tag: Image tag (default: 'latest')
-            registry: Registry URL (default: Docker Hub)
+            registry: Registry URL (default: Docker Hub, ignored if image contains registry)
             
         Returns:
             Template reference (e.g., 'local:vztmpl/jellyfin-latest.tar') or None if failed
         """
-        # Default to Docker Hub
-        if not registry:
-            registry = 'docker.io'
-        
-        # Build full image reference
-        source = f'docker://{registry}/{image}:{tag}'
+        # Check if image already contains a registry (has domain-like prefix)
+        if '/' in image and '.' in image.split('/')[0]:
+            # Image already has registry (e.g., ghcr.io/owner/image)
+            source = f'docker://{image}:{tag}'
+        else:
+            # Use provided registry or default to Docker Hub
+            if not registry:
+                registry = 'docker.io'
+            source = f'docker://{registry}/{image}:{tag}'
         
         # Generate filename
         image_name = image.split('/')[-1]
