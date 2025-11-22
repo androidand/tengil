@@ -285,11 +285,10 @@ class ContainerOrchestrator:
                         # Use pool name from container spec, fallback to tank then local-zfs
                         # TODO: Pass pool name through dataset context instead of via container spec
                         storage = container_spec.get('_pool_name') or container_spec.get('pool', 'tank')
-                        created_vmid = self.lifecycle.create_container(
+                        created_vmid = self.create_container(  # Use self.create_container for type routing
                             container_spec,
                             storage=storage,
-                            pool=container_spec.get('pool'),
-                            template_storage='local'  # Templates are always in 'local' storage
+                            pool=container_spec.get('pool')
                         )
 
                         if not created_vmid:
