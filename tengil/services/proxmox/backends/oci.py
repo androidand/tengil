@@ -65,7 +65,7 @@ class OCIBackend(ContainerBackend):
         
         try:
             with console.status(f"[cyan]Pulling {image}:{tag}...[/cyan]", spinner="dots"):
-                result = subprocess.run(
+                _ = subprocess.run(
                     cmd,
                     capture_output=True,
                     text=True,
@@ -195,7 +195,7 @@ class OCIBackend(ContainerBackend):
         
         try:
             with console.status(f"[cyan]Creating container {vmid}...[/cyan]", spinner="dots"):
-                result = subprocess.run(
+                _ = subprocess.run(
                     cmd,
                     capture_output=True,
                     text=True,

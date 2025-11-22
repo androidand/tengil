@@ -220,9 +220,9 @@ def _validate_templates_available(processed_config: Dict[str, Any]) -> List[str]
     # Collect all required templates
     templates = set()
     pools = processed_config.get("pools", {})
-    for pool_name, pool_cfg in pools.items():
+    for _pool_name, pool_cfg in pools.items():
         datasets = pool_cfg.get("datasets", {})
-        for dataset_name, dataset_cfg in datasets.items():
+        for _dataset_name, dataset_cfg in datasets.items():
             containers = dataset_cfg.get("containers", [])
             for container in containers:
                 if isinstance(container, dict) and container.get("auto_create"):
@@ -451,15 +451,16 @@ def scan(
 
     desired_state = None
     config_file: Optional[Path] = None
-    if config:
-        try:
-            config_file = Path(find_config(config))
-            loader = ConfigLoader(config_file)
-            desired_state = loader.build_desired_state()
-        except FileNotFoundError as exc:
-            print_warning(console, f"Config not found ({exc}); saving reality only")
-        except Exception as exc:  # pragma: no cover - defensive
-            print_warning(console, f"Failed to parse desired config: {exc}")
+    try:
+        # Resolve config even when --config not provided (default search order)
+        resolved_config = find_config(config)
+        config_file = Path(resolved_config)
+        loader = ConfigLoader(config_file)
+        desired_state = loader.build_desired_state()
+    except FileNotFoundError as exc:
+        print_warning(console, f"Config not found ({exc}); saving reality only")
+    except Exception as exc:  # pragma: no cover - defensive
+        print_warning(console, f"Failed to parse desired config: {exc}")
 
     if save_state:
         store = StateStore(config_path=config_file)

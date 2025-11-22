@@ -101,7 +101,7 @@ class LXCBackend(ContainerBackend):
         
         try:
             with console.status(f"[cyan]Creating container {vmid}...[/cyan]", spinner="dots"):
-                result = subprocess.run(
+                _ = subprocess.run(
                     cmd,
                     capture_output=True,
                     text=True,

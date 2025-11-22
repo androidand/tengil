@@ -391,6 +391,10 @@ tg doctor                              # System hardware/software info
 **Infrastructure Management:**
 ```bash
 tg import tank                         # Import existing infrastructure
+tg import tank -o tengil.yml           # Save to specific file
+tg import tank --container 200-210     # Import specific container range
+tg import tank --dry-run               # Preview without writing
+tg import tank --verbose               # Show detailed dataset/container info
 tg snapshot --name backup              # Create ZFS snapshots
 tg rollback dataset --to snapshot      # Rollback to snapshot
 tg suggest media                       # Suggest containers for dataset types
@@ -468,6 +472,7 @@ storage_hints:
 - Docker Compose integration
 - State tracking
 - Profile system
+- Infrastructure import (`tg import`)
 - **OCI container support** (Proxmox 9.1+)
   - Image pulling from Docker Hub, GHCR, Quay.io
   - Auto-detection in `tg apply`
@@ -482,7 +487,6 @@ storage_hints:
 - Docker Compose deployment to containers
 
 **🚧 Planned**:
-- State import (`tg import`)
 - Backup integration
 
 ---

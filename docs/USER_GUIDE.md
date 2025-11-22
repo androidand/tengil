@@ -365,10 +365,309 @@ datasets:
 
 **Note**: Post-install is experimental. Test in dev environment first.
 
+## Importing Existing Infrastructure
+
+If you already have ZFS datasets and containers on Proxmox, use `tg import` to generate a tengil.yml from your existing setup. This is useful for:
+- Adopting Tengil on existing homelab infrastructure
+- Migrating manual configuration to declarative YAML
+- Creating backups of current infrastructure state
+- Understanding current system configuration
+
+### Basic Import
+
+```bash
+# Scan pool and generate config
+tg import tank
+
+# Output: tengil-imported.yml (review before using)
+```
+
+The importer scans your Proxmox system and generates a complete tengil.yml with:
+- All ZFS datasets in the specified pool
+- ZFS properties (compression, recordsize, atime, sync)
+- Inferred dataset profiles based on properties
+- All LXC containers (both OCI and traditional)
+- Container specs (cores, memory, disk, mounts, env vars)
+- Mount points and bind mounts
+
+### Import Options
+
+```bash
+# Save to specific file
+tg import tank -o tengil.yml
+
+# Import only specific containers (by VMID range)
+tg import tank --container 200-210
+
+# Preview without writing (dry-run)
+tg import tank --dry-run
+
+# Show detailed dataset/container tables
+tg import tank --verbose
+```
+
+### What Gets Detected
+
+**ZFS Datasets:**
+- Compression algorithm (off, lz4, gzip, zstd, etc.)
+- Recordsize (128K, 1M, etc.)
+- Access time tracking (atime on/off)
+- Sync behavior (standard, always, disabled)
+- Inferred profile (media, backups, documents)
+
+**Container Detection:**
+- **Container Type**: Automatically detects OCI vs LXC
+  - OCI: rootfs contains `subvol` or `oci:` prefix
+  - LXC: traditional template-based rootfs
+- **Resources**: cores, memory, disk size
+- **Mounts**: All mount points (mp0, mp1, mp2, etc.)
+- **Environment Variables**: Extracted from `lxc.environment.*`
+- **Network**: Bridge, IP, gateway configuration
+
+### Container Type Detection
+
+The importer intelligently detects whether containers are OCI or LXC:
+
+**OCI Containers:**
+```yaml
+- name: jellyfin
+  type: oci
+  image: jellyfin/jellyfin:latest
+  cores: 4
+  memory: 4096
+  disk: 16
+  auto_create: false  # Already exists
+```
+
+**LXC Containers:**
+```yaml
+- name: debian-host
+  type: lxc
+  template: debian-12-standard
+  cores: 2
+  memory: 2048
+  disk: 8
+  auto_create: false  # Already exists
+```
+
+### Example Output
+
+```yaml
+pools:
+  tank:
+    type: zfs
+    datasets:
+      media:
+        profile: media
+        zfs:
+          compression: lz4
+          recordsize: 1M
+          atime: off
+          sync: standard
+        containers:
+          - name: jellyfin
+            type: oci
+            image: jellyfin/jellyfin:latest
+            cores: 4
+            memory: 4096
+            disk: 16
+            auto_create: false  # Don't recreate existing
+            env:
+              JELLYFIN_PublishedServerUrl: http://jellyfin.local
+            mounts:
+              - source: /tank/media
+                target: /media
+                readonly: true
+
+      appdata:
+        profile: appdata
+        zfs:
+          compression: lz4
+          recordsize: 128K
+          atime: off
+        containers:
+          - name: nextcloud
+            type: lxc
+            template: debian-12-standard
+            cores: 2
+            memory: 4096
+            disk: 32
+            auto_create: false
+            mounts:
+              - source: /tank/appdata/nextcloud
+                target: /var/www/nextcloud/data
+                readonly: false
+```
+
+### Migration Workflow
+
+**Step 1: Import Current State**
+```bash
+tg import tank -o tengil.yml --verbose
+```
+
+This generates a complete snapshot of your current infrastructure.
+
+**Step 2: Review Generated Config**
+```bash
+cat tengil.yml
+
+# Check:
+# - Dataset profiles match your usage (media, appdata, backups, etc.)
+# - Container specs are accurate
+# - auto_create is set to false for existing containers
+# - Mounts are correctly detected
+```
+
+**Step 3: Adjust if Needed**
+
+Common adjustments:
+- **Fix profiles**: If inference was wrong, change `profile: media` to correct type
+- **Set auto_create**: All containers default to `auto_create: false` (safe)
+- **Add missing shares**: Import doesn't detect Samba/NFS shares, add manually
+- **Adjust mounts**: Verify mount points match your needs
+
+**Step 4: Validate**
+```bash
+tg diff --config tengil.yml
+
+# Should show minimal diff (mostly "already exists")
+# Any CREATE operations indicate missing resources
+```
+
+**Step 5: Apply Additions**
+```bash
+tg apply --config tengil.yml
+
+# Tengil will:
+# - Skip existing datasets (idempotent)
+# - Skip existing containers (auto_create: false)
+# - Add any missing mounts
+# - Create any missing shares (if you added them)
+```
+
+### Profile Inference Logic
+
+The importer infers dataset profiles from ZFS properties:
+
+| Properties | Inferred Profile |
+|-----------|-----------------|
+| recordsize=1M, compression=off | `media` |
+| recordsize=128K, compression=zstd | `backups` |
+| recordsize=128K, compression=lz4 | `documents` |
+| Default | `media` |
+
+**Tip**: Always review and adjust profiles to match your actual usage patterns.
+
+### Filtering by Container Range
+
+For large deployments, import incrementally:
+
+```bash
+# Import only containers 200-210
+tg import tank --container 200-210 -o jellyfin-cluster.yml
+
+# Import only containers 100-150
+tg import tank --container 100-150 -o app-cluster.yml
+
+# Import single container
+tg import tank --container 205 -o jellyfin.yml
+```
+
+### Dry Run Mode
+
+Preview what would be generated without writing files:
+
+```bash
+tg import tank --dry-run
+
+# Shows:
+# - Dataset table (name, profile, compression, recordsize)
+# - Container table (VMID, name, status, type)
+# - Generated YAML preview
+# - Would write to: tengil-imported.yml
+```
+
+### Environment Variables
+
+The importer extracts environment variables from container configs:
+
+**Proxmox Config:**
+```
+lxc.environment.PUID: 1000
+lxc.environment.PGID: 1000
+lxc.environment.TZ: America/New_York
+```
+
+**Generated YAML:**
+```yaml
+env:
+  PUID: "1000"
+  PGID: "1000"
+  TZ: "America/New_York"
+```
+
+### Tips & Best Practices
+
+**✅ Do:**
+- Always review generated config before applying
+- Set `auto_create: false` for existing containers (default)
+- Verify profiles match actual usage patterns
+- Add missing Samba/NFS shares manually
+- Use `--dry-run` first to preview
+- Filter by container range for large setups
+
+**❌ Don't:**
+- Set `auto_create: true` for existing containers (will fail)
+- Trust profile inference blindly (validate first)
+- Skip the diff step (always run `tg diff` before `tg apply`)
+- Import without backing up existing config
+
+### Limitations
+
+**Not Detected:**
+- Samba/NFS share configurations (add manually)
+- Container network details beyond basic IP/gateway
+- Proxmox resource pools (add manually if needed)
+- Container startup order/delay settings
+
+**Known Issues:**
+- Profile inference is best-effort (validate manually)
+- OCI image tags may be `latest` if not determinable
+- Private registries require manual registry field addition
+
+### Advanced: Import + Git Workflow
+
+```bash
+# 1. Import existing infrastructure
+cd ~/tengil-configs
+tg import tank -o tengil.yml
+
+# 2. Initialize Git repo
+tg repo init --path .
+
+# 3. Commit initial state
+git add tengil.yml
+git commit -m "Initial import from existing Proxmox infrastructure"
+
+# 4. Make changes
+$EDITOR tengil.yml
+
+# 5. Preview changes
+tg diff
+
+# 6. Apply and track
+tg apply
+git commit -am "Add Jellyfin media shares"
+git push
+```
+
+This workflow lets you track infrastructure changes over time with full version history.
+
 ## Troubleshooting
 
 ### "Dataset already exists"
-Tengil detects existing datasets and won't recreate them. Use `tg import` to generate config from existing setup.
+Tengil detects existing datasets and won't recreate them. Use `tg import` to generate config from existing setup, or manually add the dataset to your tengil.yml with matching properties.
 
 ### "Container not found" with manual containers
 If you created containers manually in Proxmox, Tengil can mount datasets into them. Just specify the container name in your config.

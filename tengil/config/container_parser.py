@@ -47,7 +47,7 @@ class ContainerParser:
             return containers
 
         fixed = []
-        for idx, container in enumerate(containers):
+        for _idx, container in enumerate(containers):
             if isinstance(container, str):
                 # String format is fine (e.g., 'jellyfin:/media')
                 fixed.append(container)
@@ -320,6 +320,8 @@ class ContainerParser:
                 image, tag = self._split_image_and_tag(container['image'])
                 oci_spec['image'] = image
                 oci_spec.setdefault('tag', tag)
+                if container.get('registry') and 'registry' not in oci_spec:
+                    oci_spec['registry'] = container['registry']
                 container['oci'] = oci_spec
             elif not oci_spec.get('image'):
                 raise ConfigValidationError(
@@ -334,7 +336,11 @@ class ContainerParser:
             )
 
         image, tag = self._split_image_and_tag(image_value)
-        container['oci'] = {'image': image, 'tag': tag}
+        registry = container.get('registry')
+        oci_spec = {'image': image, 'tag': tag}
+        if registry:
+            oci_spec['registry'] = registry
+        container['oci'] = oci_spec
         return container
 
     @staticmethod
