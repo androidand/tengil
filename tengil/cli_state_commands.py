@@ -700,6 +700,8 @@ def apply(
             console.print(f"[dim]Use 'tg rollback --to {checkpoint['timestamp']}' if needed[/dim]")
 
     except Exception as err:
+        import traceback
+        traceback.print_exc()  # DEBUG: Print full traceback
         error_msg, suggestions = _parse_common_errors(str(err))
         print_error(console, f"Apply failed: {error_msg}")
         
