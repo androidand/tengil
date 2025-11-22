@@ -178,9 +178,10 @@ class ContainerLifecycle:
         ])
 
         # GPU passthrough if requested (check both old format and new features.gpu format)
-        gpu_config = spec.get('gpu', {})
+        gpu_val = spec.get('gpu')
+        gpu_config = gpu_val if isinstance(gpu_val, dict) else {}
         features = spec.get('features', {})
-        gpu_requested = (gpu_config and gpu_config.get('passthrough', False)) or features.get('gpu', False)
+        gpu_requested = (gpu_val is True) or (gpu_config and gpu_config.get('passthrough', False)) or features.get('gpu', False)
         
         if gpu_requested:
             gpu_type = gpu_config.get('type', 'auto')
