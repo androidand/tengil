@@ -87,6 +87,43 @@ class TemplateManager:
             logger.error(f"Failed to check local templates: {e}")
             return False
 
+    def resolve_template_filename(self, template: str) -> str:
+        """Resolve short template name to full filename.
+
+        Args:
+            template: Template name (e.g., 'debian-12-standard')
+
+        Returns:
+            Full template filename (e.g., 'debian-12-standard_12.12-1_amd64.tar.zst')
+            or original template if not found
+        """
+        if self.mock:
+            return f'{template}.tar.zst'
+
+        try:
+            result = subprocess.run(
+                ['pveam', 'list', 'local'],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            # Find line containing the template name
+            for line in result.stdout.splitlines():
+                if template in line and 'vztmpl' in line:
+                    # Extract filename from line like:
+                    # local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst  118.00MB
+                    parts = line.split()
+                    if len(parts) >= 1:
+                        full_path = parts[0]  # local:vztmpl/filename.tar.zst
+                        # Extract just the filename
+                        filename = full_path.split('/')[-1]
+                        return filename
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to resolve template filename: {e}")
+
+        # Fallback: assume .tar.zst extension
+        return f'{template}.tar.zst' if '.tar' not in template else template
+
     @retry(max_attempts=3, delay=5, exceptions=(subprocess.CalledProcessError,))
     def download_template(self, template: str) -> bool:
         """Download template from Proxmox repository with retry on failure.

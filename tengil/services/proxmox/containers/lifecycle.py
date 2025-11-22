@@ -75,8 +75,8 @@ class ContainerLifecycle:
         # Extract configuration
         name = spec.get('name', f'ct{vmid}')
 
-        # Handle template file extension - user might provide full name or base name
-        template_file = template if '.tar' in template else f'{template}.tar.zst'
+        # Resolve template name to full filename
+        template_file = self.templates.resolve_template_filename(template)
 
         # Build pct create command
         # Template is always from template_storage (usually 'local'), rootfs goes to storage

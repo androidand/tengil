@@ -3,12 +3,15 @@ from __future__ import annotations
 
 import typer
 from pathlib import Path
+from typing import List, Set
 from rich.console import Console
 from rich.table import Table
 
+from tengil.cli_support import is_mock
 from tengil.services.oci_capability import detect_oci_support
 from tengil.services.oci_registry import OciRegistryCatalog, OciApp
 from tengil.services.proxmox.backends.oci import OCIBackend
+from tengil.services.proxmox.containers.discovery import ContainerDiscovery
 
 OciTyper = typer.Typer(help="OCI/LXC app helpers")
 
@@ -208,28 +211,56 @@ def register_oci_commands(root: typer.Typer, console: Console) -> None:
 
     @OciTyper.command("remove")
     def remove_command(
-        template: str = typer.Argument(..., help="Template name to remove (e.g., 'jellyfin-latest.tar')"),
+        image: str = typer.Argument(..., help="Image/tag or template filename to remove (e.g., 'alpine:latest' or 'alpine-*.tar')"),
         force: bool = typer.Option(False, "--force", "-f", help="Force removal without confirmation"),
     ):
-        """Delete a cached OCI template from local storage."""
-        backend = OCIBackend()
-        template_path = backend.template_dir / template
-        
-        if not template_path.exists():
-            console.print(f"[yellow]Template '{template}' not found[/yellow]")
+        """Delete cached OCI templates (supports wildcards and safety checks)."""
+        backend = OCIBackend(mock=is_mock())
+        discovery = ContainerDiscovery(mock=is_mock())
+
+        if not backend.template_dir.exists():
+            console.print(f"[yellow]Template directory not found: {backend.template_dir}[/yellow]")
             raise typer.Exit(1)
-        
+
+        matches = _resolve_template_matches(backend.template_dir, image)
+        if not matches:
+            console.print(f"[yellow]No cached templates match '{image}'[/yellow]")
+            raise typer.Exit(1)
+
+        in_use_templates = _templates_in_use(discovery)
+        still_in_use = [m for m in matches if m.name in in_use_templates]
+        if still_in_use:
+            console.print("[red]Cannot remove template(s) currently used by containers:[/red]")
+            for tmpl in still_in_use:
+                console.print(f"  - {tmpl.name}")
+            raise typer.Exit(1)
+
+        total_size = sum(m.stat().st_size for m in matches)
+        total_mb = total_size / (1024 * 1024)
+
+        console.print(f"[cyan]Found {len(matches)} template(s) totalling {total_mb:.1f} MB:[/cyan]")
+        for tmpl in matches:
+            size_mb = tmpl.stat().st_size / (1024 * 1024)
+            console.print(f"  - {tmpl.name} ({size_mb:.1f} MB)")
+
         if not force:
-            confirm = typer.confirm(f"Remove template '{template}'?")
+            confirm = typer.confirm(f"Remove {len(matches)} template(s)?")
             if not confirm:
                 console.print("[yellow]Cancelled[/yellow]")
                 raise typer.Exit(0)
-        
-        try:
-            template_path.unlink()
-            console.print(f"[green]✓[/green] Removed template: {template}")
-        except Exception as e:
-            console.print(f"[red]Error removing template: {e}[/red]")
+
+        removed = 0
+        for tmpl in matches:
+            try:
+                tmpl.unlink()
+                removed += 1
+            except Exception as e:
+                console.print(f"[red]Error removing {tmpl.name}: {e}[/red]")
+
+        if removed == len(matches):
+            console.print(f"[green]✓[/green] Removed {removed} template(s)")
+        else:
+            console.print(f"[yellow]Removed {removed}/{len(matches)} template(s)[/yellow]")
             raise typer.Exit(1)
 
     @OciTyper.command("prune")
@@ -237,42 +268,53 @@ def register_oci_commands(root: typer.Typer, console: Console) -> None:
         dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be removed without deleting"),
         force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation prompt"),
     ):
-        """Remove all cached OCI templates to free up storage space."""
-        backend = OCIBackend()
-        templates = list(backend.template_dir.glob("*.tar"))
-        
+        """Remove all unused OCI templates to free up storage space."""
+        backend = OCIBackend(mock=is_mock())
+        discovery = ContainerDiscovery(mock=is_mock())
+
+        if not backend.template_dir.exists():
+            console.print(f"[yellow]Template directory not found: {backend.template_dir}[/yellow]")
+            raise typer.Exit(1)
+
+        templates = sorted(backend.template_dir.glob("*.tar"))
         if not templates:
             console.print("[yellow]No cached templates found[/yellow]")
             return
-        
-        console.print(f"[cyan]Found {len(templates)} cached template(s):[/cyan]")
-        total_size = 0
-        for tmpl in templates:
+
+        in_use_templates = _templates_in_use(discovery)
+        unused_templates = [tmpl for tmpl in templates if tmpl.name not in in_use_templates]
+
+        if not unused_templates:
+            console.print("[yellow]All cached templates are referenced by containers; nothing to prune[/yellow]")
+            return
+
+        total_size = sum(tmpl.stat().st_size for tmpl in unused_templates)
+        total_mb = total_size / (1024 * 1024)
+
+        console.print(f"[cyan]Pruning {len(unused_templates)} unused template(s) ({total_mb:.1f} MB):[/cyan]")
+        for tmpl in unused_templates:
             size_mb = tmpl.stat().st_size / (1024 * 1024)
-            total_size += size_mb
             console.print(f"  - {tmpl.name} ({size_mb:.1f} MB)")
-        
-        console.print(f"\n[bold]Total size: {total_size:.1f} MB[/bold]")
-        
+
         if dry_run:
             console.print("\n[dim]Dry run - nothing removed[/dim]")
             return
-        
+
         if not force:
-            confirm = typer.confirm(f"Remove all {len(templates)} template(s)?")
+            confirm = typer.confirm(f"Remove {len(unused_templates)} template(s)?")
             if not confirm:
                 console.print("[yellow]Cancelled[/yellow]")
                 raise typer.Exit(0)
-        
+
         removed = 0
-        for tmpl in templates:
+        for tmpl in unused_templates:
             try:
                 tmpl.unlink()
                 removed += 1
             except Exception as e:
                 console.print(f"[red]Error removing {tmpl.name}: {e}[/red]")
-        
-        console.print(f"[green]✓[/green] Removed {removed}/{len(templates)} template(s)")
+
+        console.print(f"[green]✓[/green] Removed {removed}/{len(unused_templates)} template(s)")
 
     root.add_typer(OciTyper, name="oci")
 
@@ -302,3 +344,45 @@ def _render_snippet(app: OciApp, runtime: str, dataset: str, mount: str) -> str:
     ports: []
     volumes: []
 """
+
+
+def _templates_in_use(discovery: ContainerDiscovery) -> Set[str]:
+    """Return template filenames referenced by existing containers."""
+    in_use: Set[str] = set()
+    try:
+        containers = discovery.get_all_containers_info()
+    except Exception:
+        containers = []
+
+    for container in containers or []:
+        template_ref = container.get("template")
+        if not template_ref:
+            continue
+        # Handle values like local:vztmpl/alpine-latest.tar
+        name = template_ref.split("/")[-1]
+        if "vztmpl/" in template_ref:
+            name = template_ref.split("vztmpl/")[-1]
+        in_use.add(name)
+    return in_use
+
+
+def _resolve_template_matches(template_dir: Path, target: str) -> List[Path]:
+    """Translate image/tag input to template filename pattern and return matches."""
+    if target.endswith(".tar"):
+        pattern = target
+    else:
+        last_colon = target.rfind(":")
+        last_slash = target.rfind("/")
+        if last_colon > last_slash:
+            image_part = target[:last_colon]
+            tag = target[last_colon + 1 :] or "latest"
+        else:
+            image_part = target
+            tag = "latest"
+
+        base_name = image_part.split("/")[-1]
+        pattern = f"{base_name}-{tag}.tar"
+
+    # Use glob to support wildcards
+    matches = sorted(template_dir.glob(pattern))
+    return matches

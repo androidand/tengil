@@ -8,6 +8,7 @@ from rich.console import Console
 
 from tengil.cli_container_resolution import ContainerResolutionError, resolve_container_target
 from tengil.cli_support import is_mock
+from tengil.services.proxmox.containers import ContainerOrchestrator
 from tengil.services.proxmox.backends.lxc import LXCBackend
 from tengil.services.proxmox.containers.lifecycle import ContainerLifecycle
 
@@ -181,6 +182,60 @@ def register_container_commands(root: typer.Typer, console: Console) -> None:
         else:
             print_error(console, f"Failed to update {resolved.name}")
             raise typer.Exit(1)
+
+    @ContainerTyper.command("launch")
+    def launch_command(
+        name: str = typer.Argument(..., help="Container name/hostname."),
+        vmid: Optional[int] = typer.Option(None, "--vmid", help="VMID (optional, auto-alloc if omitted)."),
+        type_: str = typer.Option("oci", "--type", case_sensitive=False, help="Container type: oci or lxc (default: oci)."),
+        image: Optional[str] = typer.Option(None, "--image", help="OCI image (e.g., docker.io/library/nginx:latest)."),
+        template: Optional[str] = typer.Option(None, "--template", help="LXC template (e.g., debian-12-standard)."),
+        storage: str = typer.Option("local-lvm", "--storage", help="Rootfs storage (default: local-lvm)."),
+        pool: Optional[str] = typer.Option(None, "--pool", help="Proxmox pool to assign (optional)."),
+        env: List[str] = typer.Option(None, "--env", "-e", help="Environment variable (KEY=VALUE).", metavar="KEY=VALUE"),
+    ) -> None:
+        """Launch a simple container with optional env vars (one-shot create)."""
+        from tengil.cli_support import print_success, print_error
+
+        env_dict: Dict[str, str] = {}
+        for item in env or []:
+            if "=" not in item:
+                raise typer.BadParameter("Environment variables must be KEY=VALUE", param_name="env")
+            key, value = item.split("=", 1)
+            env_dict[key] = value
+
+        spec: Dict[str, object] = {
+            "name": name,
+            "hostname": name,
+            "vmid": vmid,
+            "env": env_dict,
+        }
+
+        is_oci = type_.lower() == "oci"
+        if is_oci:
+            if not image:
+                console.print("[red]Error:[/red] --image is required for OCI launch")
+                raise typer.Exit(2)
+            spec["type"] = "oci"
+            spec["oci"] = {"image": image}
+        else:
+            if not template:
+                console.print("[red]Error:[/red] --template is required for LXC launch")
+                raise typer.Exit(2)
+            spec["type"] = "lxc"
+            spec["template"] = template
+
+        orch = ContainerOrchestrator(mock=is_mock())
+        vmid_result = orch.create_container(spec, storage=storage, pool=pool)
+
+        if not vmid_result:
+            print_error(console, f"Failed to launch {name}")
+            raise typer.Exit(1)
+
+        # Ensure env is persisted (especially for LXC which may need pct set)
+        orch._apply_env(vmid_result, spec, name)
+
+        print_success(console, f"Launched {name} (vmid={vmid_result})")
 
     @ContainerTyper.command("env")
     def env_set_command(

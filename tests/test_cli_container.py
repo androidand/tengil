@@ -6,6 +6,7 @@ from typer.testing import CliRunner
 from tengil.cli import app
 from tengil.services.proxmox.containers.lifecycle import ContainerLifecycle
 from tengil.services.proxmox.backends.lxc import LXCBackend
+from tengil.services.proxmox.containers import ContainerOrchestrator
 
 runner = CliRunner()
 
@@ -202,6 +203,42 @@ def test_container_env_set_no_restart(monkeypatch):
     assert captured['vmid'] == 100
     assert captured['env'] == {'KEY': 'VALUE'}
     assert captured['restarted'] is False
+    monkeypatch.delenv('TG_MOCK', raising=False)
+
+
+def test_container_launch_oci(monkeypatch):
+    """Launch OCI container with env vars."""
+    monkeypatch.setenv('TG_MOCK', '1')
+    captured = {}
+
+    def fake_create(self, spec, storage='local-lvm', pool=None):
+        captured['spec'] = spec
+        captured['storage'] = storage
+        captured['pool'] = pool
+        return 555
+
+    def fake_apply_env(self, vmid, spec, name=None):
+        captured['apply_env'] = (vmid, spec, name)
+        return True
+
+    monkeypatch.setattr(ContainerOrchestrator, 'create_container', fake_create)
+    monkeypatch.setattr(ContainerOrchestrator, '_apply_env', fake_apply_env)
+
+    result = runner.invoke(
+        app,
+        [
+            'container', 'launch', 'myapp',
+            '--type', 'oci',
+            '--image', 'docker.io/library/nginx:latest',
+            '-e', 'API=123',
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured['spec']['name'] == 'myapp'
+    assert captured['spec']['oci']['image'] == 'docker.io/library/nginx:latest'
+    assert captured['spec']['env'] == {'API': '123'}
+    assert captured['apply_env'][0] == 555
     monkeypatch.delenv('TG_MOCK', raising=False)
 
 
