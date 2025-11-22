@@ -1,0 +1,366 @@
+# Full Homelab Deployment with Tengil
+# Production-ready configuration for all essential services
+# Deploy with: tg apply --config examples/full-homelab-deploy.yml --yes
+
+pools:
+  tank:
+    type: zfs
+    datasets:
+      # Media Server Storage
+      jellyfin-config:
+        profile: appdata
+        zfs:
+          compression: lz4
+          atime: "off"
+        containers:
+          - name: jellyfin
+            vmid: 200
+            type: oci
+            image: jellyfin/jellyfin:latest
+            cores: 4
+            memory: 4096
+            disk: 16
+            auto_create: true
+            auto_start: true
+            mount: /config
+            mounts:
+              - source: /tank/media
+                target: /media
+                readonly: true
+            env:
+              JELLYFIN_PublishedServerUrl: http://192.168.1.26:8096
+            gpu: true  # Intel Quick Sync hardware transcoding
+
+      # Photo Management
+      immich-app:
+        profile: appdata
+        zfs:
+          compression: lz4
+          atime: "off"
+        containers:
+          - name: immich
+            vmid: 201
+            type: oci
+            image: ghcr.io/immich-app/immich-server:release
+            cores: 4
+            memory: 8192
+            disk: 32
+            auto_create: true
+            auto_start: true
+            mount: /usr/src/app/upload
+            mounts:
+              - source: /tank/photos
+                target: /import
+                readonly: true
+            env:
+              DB_HOSTNAME: immich-postgres
+              DB_DATABASE_NAME: immich
+              DB_USERNAME: postgres
+              DB_PASSWORD: postgres
+              REDIS_HOSTNAME: immich-redis
+            gpu: true  # AI face recognition & photo ML
+
+      immich-postgres:
+        profile: database
+        zfs:
+          compression: lz4
+          recordsize: 16K
+        containers:
+          - name: immich-postgres
+            vmid: 211
+            type: oci
+            image: tensorchord/pgvecto-rs:pg14-v0.2.0
+            cores: 2
+            memory: 2048
+            disk: 32
+            auto_create: true
+            auto_start: true
+            mount: /var/lib/postgresql/data
+            env:
+              POSTGRES_PASSWORD: postgres
+              POSTGRES_USER: postgres
+              POSTGRES_DB: immich
+
+      immich-redis:
+        profile: cache
+        zfs:
+          compression: lz4
+        containers:
+          - name: immich-redis
+            vmid: 212
+            type: oci
+            image: redis:7-alpine
+            cores: 1
+            memory: 512
+            disk: 4
+            auto_create: true
+            auto_start: true
+            mount: /data
+
+      # Git Hosting
+      gitea:
+        profile: appdata
+        zfs:
+          compression: lz4
+        containers:
+          - name: gitea
+            vmid: 221
+            type: oci
+            image: gitea/gitea:latest
+            cores: 2
+            memory: 2048
+            disk: 16
+            auto_create: true
+            auto_start: true
+            mount: /data
+            env:
+              USER_UID: "1000"
+              USER_GID: "1000"
+              GITEA__database__DB_TYPE: sqlite3
+              GITEA__server__DOMAIN: git.local
+              GITEA__server__ROOT_URL: http://git.local:3000/
+
+      # Monitoring Stack
+      prometheus:
+        profile: monitoring
+        zfs:
+          compression: lz4
+        containers:
+          - name: prometheus
+            vmid: 230
+            type: oci
+            image: prom/prometheus:latest
+            cores: 2
+            memory: 2048
+            disk: 16
+            auto_create: true
+            auto_start: true
+            mount: /prometheus
+
+      grafana:
+        profile: appdata
+        zfs:
+          compression: lz4
+        containers:
+          - name: grafana
+            vmid: 231
+            type: oci
+            image: grafana/grafana:latest
+            cores: 2
+            memory: 2048
+            disk: 8
+            auto_create: true
+            auto_start: true
+            mount: /var/lib/grafana
+            env:
+              GF_SECURITY_ADMIN_USER: admin
+              GF_SECURITY_ADMIN_PASSWORD: admin
+              GF_SERVER_ROOT_URL: http://grafana.local:3000
+
+      # Home Automation
+      homeassistant:
+        profile: appdata
+        zfs:
+          compression: lz4
+        containers:
+          - name: homeassistant
+            vmid: 240
+            type: oci
+            image: ghcr.io/home-assistant/home-assistant:stable
+            cores: 2
+            memory: 2048
+            disk: 16
+            auto_create: true
+            auto_start: true
+            mount: /config
+            env:
+              TZ: Europe/Stockholm
+
+      # File Sync
+      syncthing:
+        profile: appdata
+        zfs:
+          compression: lz4
+        containers:
+          - name: syncthing
+            vmid: 250
+            type: oci
+            image: syncthing/syncthing:latest
+            cores: 2
+            memory: 1024
+            disk: 8
+            auto_create: true
+            auto_start: true
+            mount: /var/syncthing
+            mounts:
+              - source: /tank/sync
+                target: /data
+            env:
+              PUID: "1000"
+              PGID: "1000"
+
+      # Document Management
+      paperless-ngx:
+        profile: appdata
+        zfs:
+          compression: lz4
+        containers:
+          - name: paperless-ngx
+            vmid: 260
+            type: oci
+            image: ghcr.io/paperless-ngx/paperless-ngx:latest
+            cores: 2
+            memory: 2048
+            disk: 16
+            auto_create: true
+            auto_start: true
+            mount: /usr/src/paperless/data
+            mounts:
+              - source: /tank/documents
+                target: /usr/src/paperless/media
+            env:
+              PAPERLESS_REDIS: redis://paperless-redis:6379
+              PAPERLESS_DBHOST: paperless-postgres
+              PAPERLESS_DBNAME: paperless
+              PAPERLESS_DBUSER: paperless
+              PAPERLESS_DBPASS: paperless
+              PAPERLESS_TIME_ZONE: Europe/Stockholm
+              PAPERLESS_OCR_LANGUAGE: eng+swe
+
+      paperless-postgres:
+        profile: database
+        zfs:
+          compression: lz4
+          recordsize: 16K
+        containers:
+          - name: paperless-postgres
+            vmid: 261
+            type: oci
+            image: postgres:15-alpine
+            cores: 1
+            memory: 512
+            disk: 8
+            auto_create: true
+            auto_start: true
+            mount: /var/lib/postgresql/data
+            env:
+              POSTGRES_DB: paperless
+              POSTGRES_USER: paperless
+              POSTGRES_PASSWORD: paperless
+
+      paperless-redis:
+        profile: cache
+        zfs:
+          compression: lz4
+        containers:
+          - name: paperless-redis
+            vmid: 262
+            type: oci
+            image: redis:7-alpine
+            cores: 1
+            memory: 256
+            disk: 2
+            auto_create: true
+            auto_start: true
+            mount: /data
+
+      # Password Manager
+      vaultwarden:
+        profile: appdata
+        zfs:
+          compression: lz4
+        containers:
+          - name: vaultwarden
+            vmid: 270
+            type: oci
+            image: vaultwarden/server:latest
+            cores: 1
+            memory: 512
+            disk: 4
+            auto_create: true
+            auto_start: true
+            mount: /data
+            env:
+              DOMAIN: https://vault.local
+              SIGNUPS_ALLOWED: "false"
+
+      # Uptime Monitoring
+      uptime-kuma:
+        profile: appdata
+        zfs:
+          compression: lz4
+        containers:
+          - name: uptime-kuma
+            vmid: 280
+            type: oci
+            image: louislam/uptime-kuma:latest
+            cores: 1
+            memory: 512
+            disk: 4
+            auto_create: true
+            auto_start: true
+            mount: /app/data
+
+      # Shared Media Storage (no containers, just datasets)
+      media:
+        profile: media
+        zfs:
+          compression: lz4
+          atime: "off"
+
+      photos:
+        profile: media
+        zfs:
+          compression: lz4
+          atime: "off"
+
+      documents:
+        profile: documents
+        zfs:
+          compression: lz4
+          atime: "off"
+
+      sync:
+        profile: appdata
+        zfs:
+          compression: lz4
+          atime: "off"
+
+# Profiles define common ZFS property templates
+profiles:
+  appdata:
+    zfs:
+      compression: lz4
+      atime: "off"
+      recordsize: 128K
+  
+  database:
+    zfs:
+      compression: lz4
+      atime: "off"
+      recordsize: 16K
+      logbias: throughput
+  
+  cache:
+    zfs:
+      compression: lz4
+      atime: "off"
+      primarycache: metadata
+  
+  media:
+    zfs:
+      compression: lz4
+      atime: "off"
+      recordsize: 1M
+  
+  documents:
+    zfs:
+      compression: lz4
+      atime: "off"
+      recordsize: 128K
+  
+  monitoring:
+    zfs:
+      compression: lz4
+      atime: "off"
+      recordsize: 128K

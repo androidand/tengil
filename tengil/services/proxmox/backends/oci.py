@@ -149,7 +149,8 @@ class OCIBackend(ContainerBackend):
         cmd.extend([
             '--cores', str(cores),
             '--memory', str(memory),
-            '--rootfs', f'{storage}:{disk}'
+            '--rootfs', f'{storage}:{disk}',
+            '--ostype', 'unmanaged'  # CRITICAL: Run as OCI container, not LXC
         ])
         
         # Network

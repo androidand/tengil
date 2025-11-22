@@ -1,0 +1,124 @@
+# Homelab Deployment - Batch 2
+# Additional services to complement existing setup
+# Deploy with: tg apply --config examples/homelab-batch2.yml --yes
+
+pools:
+  tank:
+    type: zfs
+    datasets:
+      # Home Automation (use existing if present)
+      homeassistant-new:
+        profile: appdata
+        zfs:
+          compression: lz4
+        containers:
+          - name: homeassistant
+            vmid: 241
+            type: oci
+            image: ghcr.io/home-assistant/home-assistant:stable
+            cores: 2
+            memory: 2048
+            disk: 16
+            auto_create: true
+            auto_start: true
+            mount: /config
+            env:
+              TZ: Europe/Stockholm
+
+      # File Sync
+      syncthing-new:
+        profile: appdata
+        zfs:
+          compression: lz4
+        containers:
+          - name: syncthing
+            vmid: 251
+            type: oci
+            image: syncthing/syncthing:latest
+            cores: 2
+            memory: 1024
+            disk: 8
+            auto_create: true
+            auto_start: true
+            mount: /var/syncthing
+            mounts:
+              - source: /tank/sync
+                target: /data
+            env:
+              PUID: "1000"
+              PGID: "1000"
+
+      # Password Manager
+      vaultwarden:
+        profile: appdata
+        zfs:
+          compression: lz4
+        containers:
+          - name: vaultwarden
+            vmid: 271
+            type: oci
+            image: vaultwarden/server:latest
+            cores: 1
+            memory: 512
+            disk: 4
+            auto_create: true
+            auto_start: true
+            mount: /data
+            env:
+              DOMAIN: https://vault.local
+              SIGNUPS_ALLOWED: "false"
+
+      # Uptime Monitoring
+      uptime-kuma:
+        profile: appdata
+        zfs:
+          compression: lz4
+        containers:
+          - name: uptime-kuma
+            vmid: 281
+            type: oci
+            image: louislam/uptime-kuma:latest
+            cores: 1
+            memory: 512
+            disk: 4
+            auto_create: true
+            auto_start: true
+            mount: /app/data
+
+      # Monitoring
+      prometheus-new:
+        profile: monitoring
+        zfs:
+          compression: lz4
+        containers:
+          - name: prometheus
+            vmid: 232
+            type: oci
+            image: prom/prometheus:latest
+            cores: 2
+            memory: 2048
+            disk: 16
+            auto_create: true
+            auto_start: true
+            mount: /prometheus
+
+      # Storage datasets (no containers)
+      sync:
+        profile: appdata
+        zfs:
+          compression: lz4
+          atime: "off"
+
+# Profiles
+profiles:
+  appdata:
+    zfs:
+      compression: lz4
+      atime: "off"
+      recordsize: 128K
+  
+  monitoring:
+    zfs:
+      compression: lz4
+      atime: "off"
+      recordsize: 128K
