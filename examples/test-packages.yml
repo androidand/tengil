@@ -2,72 +2,77 @@
 # Test Package Deployment
 # Testing: package specs with post-install, OCI backend, GPU passthrough, mounts
 
-pool: tank
 node: pve
 
-datasets:
-  # Clean jellyfin deployment
-  tank/jellyfin-test:
-    profile: media
-    zfs:
-      compression: lz4
-    containers:
-      - name: jellyfin-pkg
-        vmid: 400
-        package: jellyfin  # Use package spec
-        auto_create: true
-        backend: oci
-        cpu: 4
-        memory: 4096
-        disk: 8G
-        network:
-          bridge: vmbr0
-          ip: dhcp
-        gpu:
-          passthrough: true
-        mounts:
-          - source: /tank/media/video
-            target: /media
-            readonly: true
+pools:
+  tank:
+    type: zfs
+    datasets:
+      # Clean jellyfin deployment
+      jellyfin-test:
+        profile: media
+        zfs:
+          compression: lz4
+        containers:
+          - name: jellyfin-pkg
+            vmid: 400
+            package: jellyfin  # Use package spec
+            auto_create: true
+            backend: oci
+            mount: /data  # Primary mount to this dataset
+            cpu: 4
+            memory: 4096
+            disk: 8G
+            network:
+              bridge: vmbr0
+              ip: dhcp
+            gpu:
+              passthrough: true
+            mounts:
+              - source: /tank/media/video
+                target: /media
+                readonly: true
 
-  # Immich photo management
-  tank/immich-test:
-    profile: photos
-    zfs:
-      compression: lz4
-    containers:
-      - name: immich-pkg
-        vmid: 401
-        package: immich  # Use package spec
-        auto_create: true
-        backend: oci
-        cpu: 4
-        memory: 8192
-        disk: 16G
-        network:
-          bridge: vmbr0
-          ip: dhcp
-        mounts:
-          - source: /tank/media/photos
-            target: /photos
-            readonly: false
+      # Immich photo management
+      immich-test:
+        profile: photos
+        zfs:
+          compression: lz4
+        containers:
+          - name: immich-pkg
+            vmid: 401
+            package: immich  # Use package spec
+            auto_create: true
+            backend: oci
+            mount: /data  # Primary mount to this dataset
+            cpu: 4
+            memory: 8192
+            disk: 16G
+            network:
+              bridge: vmbr0
+              ip: dhcp
+            mounts:
+              - source: /tank/media/photos
+                target: /photos
+                readonly: false
 
-  # Home Assistant
-  tank/homeassistant-test:
-    profile: appdata
-    zfs:
-      compression: lz4
-    containers:
-      - name: homeassistant-pkg
-        vmid: 402
-        package: ha-mcp  # Use package spec
-        auto_create: true
-        backend: oci
-        cpu: 2
-        memory: 2048
-        disk: 8G
-        network:
-          bridge: vmbr0
-          ip: dhcp
-        features:
-          nesting: true
+      # Home Assistant
+      homeassistant-test:
+        profile: appdata
+        zfs:
+          compression: lz4
+        containers:
+          - name: homeassistant-pkg
+            vmid: 402
+            package: ha-mcp  # Use package spec
+            auto_create: true
+            backend: oci
+            mount: /config  # Primary mount to this dataset
+            cpu: 2
+            memory: 2048
+            disk: 8G
+            network:
+              bridge: vmbr0
+              ip: dhcp
+            features:
+              nesting: true

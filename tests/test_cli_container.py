@@ -5,6 +5,7 @@ from typer.testing import CliRunner
 
 from tengil.cli import app
 from tengil.services.proxmox.containers.lifecycle import ContainerLifecycle
+from tengil.services.proxmox.backends.lxc import LXCBackend
 
 runner = CliRunner()
 
@@ -148,6 +149,59 @@ def test_container_stop_by_vmid(monkeypatch):
     assert result.exit_code == 0
     assert captured['vmid'] == 101
     assert 'Stopped' in result.stdout
+    monkeypatch.delenv('TG_MOCK', raising=False)
+
+
+def test_container_env_set(monkeypatch):
+    """Set env vars and restart container."""
+    monkeypatch.setenv('TG_MOCK', '1')
+    captured = {'env': None, 'restarted': False}
+
+    def fake_update(self, vmid, env):
+        captured['vmid'] = vmid
+        captured['env'] = env
+        return True
+
+    def fake_restart(self, vmid):
+        captured['restarted'] = True
+        captured['restart_vmid'] = vmid
+        return True
+
+    monkeypatch.setattr(LXCBackend, 'update_env', fake_update)
+    monkeypatch.setattr(ContainerLifecycle, 'restart_container', fake_restart)
+
+    result = runner.invoke(app, ['container', 'env', 'jellyfin', '-e', 'KEY=VALUE'])
+
+    assert result.exit_code == 0
+    assert captured['vmid'] == 100
+    assert captured['env'] == {'KEY': 'VALUE'}
+    assert captured['restarted'] is True
+    monkeypatch.delenv('TG_MOCK', raising=False)
+
+
+def test_container_env_set_no_restart(monkeypatch):
+    """Set env vars without restart."""
+    monkeypatch.setenv('TG_MOCK', '1')
+    captured = {'env': None, 'restarted': False}
+
+    def fake_update(self, vmid, env):
+        captured['vmid'] = vmid
+        captured['env'] = env
+        return True
+
+    def fake_restart(self, vmid):
+        captured['restarted'] = True
+        return True
+
+    monkeypatch.setattr(LXCBackend, 'update_env', fake_update)
+    monkeypatch.setattr(ContainerLifecycle, 'restart_container', fake_restart)
+
+    result = runner.invoke(app, ['container', 'env', 'jellyfin', '-e', 'KEY=VALUE', '--no-restart'])
+
+    assert result.exit_code == 0
+    assert captured['vmid'] == 100
+    assert captured['env'] == {'KEY': 'VALUE'}
+    assert captured['restarted'] is False
     monkeypatch.delenv('TG_MOCK', raising=False)
 
 

@@ -1,0 +1,26 @@
+---
+# Simplest possible OCI test
+node: pve
+
+pools:
+  tank:
+    type: zfs
+    datasets:
+      simple-test:
+        profile: dev
+        containers:
+          - name: simple-ct
+            vmid: 500
+            auto_create: true
+            type: oci
+            mount: /data
+            cores: 1
+            memory: 256
+            disk: 4
+            oci:
+              image: nginx
+              tag: alpine
+              registry: docker.io
+            network:
+              bridge: vmbr0
+              ip: dhcp

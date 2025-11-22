@@ -251,6 +251,29 @@ class OCIBackend(ContainerBackend):
             console.print(f"[red]✗[/red] Error stopping container {vmid}: {e.stderr}")
             return False
 
+    def update_env(self, vmid: int, env: Dict[str, str]) -> bool:
+        """Apply environment variables to an existing OCI container."""
+        if not env:
+            return True
+
+        args = []
+        for key, value in env.items():
+            args.extend(['--env', f'{key}={value}'])
+
+        cmd = ['pct', 'set', str(vmid)] + args
+
+        if self.mock:
+            console.print(f"[dim][MOCK] Would run: {' '.join(cmd)}[/dim]")
+            return True
+
+        try:
+            subprocess.run(cmd, capture_output=True, text=True, check=True)
+            console.print(f"[green]✓[/green] Updated env for OCI container {vmid}")
+            return True
+        except subprocess.CalledProcessError as e:
+            console.print(f"[red]✗[/red] Error updating env for container {vmid}: {e.stderr}")
+            return False
+
     def destroy_container(self, vmid: int, purge: bool = False) -> bool:
         """Destroy OCI container."""
         cmd = ['pct', 'destroy', str(vmid)]

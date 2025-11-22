@@ -391,6 +391,8 @@ class ContainerOrchestrator:
             if self.mounts.container_has_mount(vmid, host_path):
                 msg = f"Mount already exists: {host_path} → {container_name}:{mount_path}"
                 logger.info(f"✓ {msg}")
+                # Apply env if requested even when mount already exists
+                self._apply_env(vmid, container_spec, container_name)
                 results.append((vmid, True, "already exists"))
                 continue
 
@@ -420,12 +422,36 @@ class ContainerOrchestrator:
                 else:
                     results.append((vmid, True, "mounted"))
                 logger.info(f"✓ {msg}")
+                # Apply env after mount succeeds
+                self._apply_env(vmid, container_spec, container_name)
             else:
                 msg = f"Failed to mount {host_path} → {container_name}"
                 logger.error(msg)
                 results.append((vmid, False, "mount failed"))
 
         return results
+
+    def _apply_env(self, vmid: int, container_spec: Dict, container_name: Optional[str] = None) -> bool:
+        """Ensure container env matches spec, restarting if running."""
+        if not isinstance(container_spec, dict):
+            return True
+        env = container_spec.get('env') or container_spec.get('oci', {}).get('env') or {}
+        if not env:
+            return True
+
+        is_oci = container_spec.get('type') == 'oci' or 'oci' in container_spec
+        updater = self.oci_backend.update_env if is_oci else self.lxc_backend.update_env
+
+        if not updater(vmid, env):
+            logger.error(f"Failed to apply env to container {vmid}")
+            return False
+
+        # Restart if running to apply env
+        info = self.discovery.get_container_info(vmid)
+        status = info.get('status') if info else None
+        if status == 'running':
+            self.lifecycle.restart_container(vmid)
+        return True
     
     def _display_container_access_info(self, vmid: int, container_name: str, post_install: list = None):
         """Display container IP address and access information.

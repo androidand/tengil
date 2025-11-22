@@ -8,6 +8,9 @@ import typer
 from rich.console import Console
 
 from tengil.services.proxmox.containers import ContainerOrchestrator
+from tengil.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 # Default config search paths (ordered by proximity to current run)
 CONFIG_PATHS = [
@@ -20,15 +23,26 @@ CONFIG_PATHS = [
 def find_config(config_path: Optional[str] = None) -> str:
     """Locate the active Tengil configuration file."""
     if config_path:
+        logger.debug(f"Using explicit config path: {config_path}")
         return config_path
 
     if env_config := os.environ.get("TENGIL_CONFIG"):
+        logger.debug(f"Using config from TENGIL_CONFIG: {env_config}")
         return env_config
 
-    for path in CONFIG_PATHS:
-        if Path(path).exists():
-            return path
+    found = [path for path in CONFIG_PATHS if Path(path).exists()]
+    if found:
+        if len(found) > 1:
+            logger.warning(
+                "Multiple tengil.yml candidates found; using first match: %s (others: %s)",
+                found[0],
+                ", ".join(found[1:]),
+            )
+        else:
+            logger.debug("Config resolved to %s", found[0])
+        return found[0]
 
+    logger.debug("No config found in defaults; falling back to tengil.yml")
     return "tengil.yml"
 
 

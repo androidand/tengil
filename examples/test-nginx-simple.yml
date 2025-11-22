@@ -1,0 +1,25 @@
+---
+# Simple nginx deployment test
+# Tests: OCI container with proper config format
+
+node: pve
+
+pools:
+  tank:
+    type: zfs
+    datasets:
+      nginx-test:
+        profile: dev
+        containers:
+          - name: nginx-test
+            vmid: 501
+            auto_create: true
+            type: oci
+            image: nginx:alpine  # OCI image (registry defaults to docker.io)
+            mount: /data
+            cores: 1
+            memory: 512
+            disk: 4
+            network:
+              bridge: vmbr0
+              ip: dhcp

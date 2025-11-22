@@ -53,7 +53,7 @@ INFO     ✓ Mounted /tank/syncthing → jellyfin-oci:/var/lib/syncthing
 **Workaround (old):** Must use `tg diff --config /root/tengil.yml`  
 **Root Cause:** Config file discovery didn't prioritize CWD `tengil.yml`  
 **Fix:** Config search order is now `./tengil.yml` → `~/tengil-configs/tengil.yml` → `/etc/tengil/tengil.yml`.  
-**TODO:** Add debug logging showing which config file was loaded and warn when multiple `tengil.yml` files exist.
+**Status update:** CLI now logs the chosen config and warns if multiple candidates exist.
 
 ### Bug #6: Env vars not applied to existing containers
 **Severity:** High  
@@ -87,3 +87,32 @@ oci:
 ```
 
 Not `backend: oci`.
+
+### Bug #8: Config schema mismatch - OCI containers need top-level `image` field
+**Severity:** High (Config Format)  
+**Status:** ✅ Documented  
+**Found:** Trying to use `type: oci` with nested `oci: image: nginx`  
+**Symptom:** Error: "auto_create requires 'template' field (LXC) or 'image' field (OCI)"  
+**Root Cause:** The container orchestrator expects OCI image as a top-level `image` field, not nested under `oci:`. Example file `test-oci-auto.yml` shows nested format but code doesn't support it.
+
+**Working Format:**
+```yaml
+containers:
+  - name: nginx-test
+    type: oci
+    image: nginx:alpine  # Top-level field
+    auto_create: true
+```
+
+**Non-Working Format:**
+```yaml
+containers:
+  - name: nginx-test
+    type: oci
+    auto_create: true
+    oci:  # Nested - NOT supported by code
+      image: nginx
+      tag: alpine
+```
+
+**Fix:** Use top-level `image: nginx:alpine` field. The code splits on `:` to extract tag.

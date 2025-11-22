@@ -8,6 +8,7 @@ from rich.console import Console
 
 from tengil.cli_container_resolution import ContainerResolutionError, resolve_container_target
 from tengil.cli_support import is_mock
+from tengil.services.proxmox.backends.lxc import LXCBackend
 from tengil.services.proxmox.containers.lifecycle import ContainerLifecycle
 
 ContainerTyper = typer.Typer(help="Interact with Proxmox containers")
@@ -180,5 +181,39 @@ def register_container_commands(root: typer.Typer, console: Console) -> None:
         else:
             print_error(console, f"Failed to update {resolved.name}")
             raise typer.Exit(1)
+
+    @ContainerTyper.command("env")
+    def env_set_command(
+        target: str = typer.Argument(..., help="Container target (name, vmid, or pool/dataset:name)."),
+        env: List[str] = typer.Option(..., "--env", "-e", help="Environment variable (KEY=VALUE).", metavar="KEY=VALUE"),
+        no_restart: bool = typer.Option(False, "--no-restart", help="Do not restart the container after applying env."),
+        config: Optional[str] = typer.Option(None, "--config", "-c", help="Explicit Tengil config for dataset resolution."),
+    ) -> None:
+        """Set persistent environment variables on a container (uses pct set --env)."""
+        from tengil.cli_support import print_success, print_error
+
+        try:
+            resolved = resolve_container_target(target, config_path=config)
+        except ContainerResolutionError as exc:
+            console.print(f"[red]Error:[/red] {exc}")
+            raise typer.Exit(2) from exc
+
+        env_dict: Dict[str, str] = {}
+        for item in env:
+            if "=" not in item:
+                raise typer.BadParameter("Environment variables must be KEY=VALUE", param_name="env")
+            key, value = item.split("=", 1)
+            env_dict[key] = value
+
+        backend = LXCBackend(mock=is_mock())
+        if not backend.update_env(resolved.vmid, env_dict):
+            print_error(console, f"Failed to update env for {resolved.name}")
+            raise typer.Exit(1)
+
+        if not no_restart:
+            lifecycle = ContainerLifecycle(mock=is_mock())
+            lifecycle.restart_container(resolved.vmid)
+
+        print_success(console, f"Updated env for {resolved.name} ({resolved.vmid})")
 
     root.add_typer(ContainerTyper, name="container")
