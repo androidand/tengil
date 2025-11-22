@@ -423,6 +423,11 @@ class ContainerOrchestrator:
                 else:
                     results.append((vmid, True, "mounted"))
                 logger.info(f"✓ {msg}")
+                
+                # Apply additional mounts if specified in container spec
+                if isinstance(container_spec, dict) and container_spec.get('mounts'):
+                    self._apply_additional_mounts(vmid, container_spec, container_name)
+                
                 # Apply env after mount succeeds
                 self._apply_env(vmid, container_spec, container_name)
             else:
@@ -453,6 +458,70 @@ class ContainerOrchestrator:
         if status == 'running':
             self.lifecycle.restart_container(vmid)
         return True
+    
+    def _apply_additional_mounts(self, vmid: int, container_spec: Dict, container_name: Optional[str] = None) -> bool:
+        """Apply additional mounts from container spec's mounts: field.
+        
+        The primary dataset mount is handled separately. This method processes
+        any additional mounts specified in the mounts: array.
+        
+        Args:
+            vmid: Container ID
+            container_spec: Container specification dict
+            container_name: Optional container name for logging
+            
+        Returns:
+            True if all mounts applied successfully or no mounts to apply
+        """
+        additional_mounts = container_spec.get('mounts', [])
+        if not additional_mounts:
+            return True
+        
+        logger.info(f"Applying {len(additional_mounts)} additional mount(s) to container {vmid}")
+        
+        success_count = 0
+        for mount in additional_mounts:
+            if not isinstance(mount, dict):
+                logger.warning(f"Invalid mount specification (not a dict): {mount}")
+                continue
+            
+            source = mount.get('source')
+            target = mount.get('target')
+            readonly = mount.get('readonly', False)
+            
+            if not source or not target:
+                logger.warning(f"Mount missing source or target: {mount}")
+                continue
+            
+            # Check if mount already exists
+            if self.mounts.container_has_mount(vmid, source):
+                logger.info(f"  ✓ Additional mount already exists: {source} → {target}")
+                success_count += 1
+                continue
+            
+            # Find next available mount point
+            try:
+                mp_num = self.mounts.get_next_free_mountpoint(vmid)
+            except ValueError as e:
+                logger.error(f"  ✗ No free mount points for additional mount: {e}")
+                continue
+            
+            # Add the mount
+            if self.mounts.add_container_mount(
+                vmid=vmid,
+                mount_point=mp_num,
+                host_path=source,
+                container_path=target,
+                readonly=readonly,
+                container_name=container_name
+            ):
+                logger.info(f"  ✓ Added additional mount: {source} → {target} (readonly={readonly})")
+                success_count += 1
+            else:
+                logger.error(f"  ✗ Failed to add mount: {source} → {target}")
+        
+        logger.info(f"Applied {success_count}/{len(additional_mounts)} additional mount(s)")
+        return success_count == len(additional_mounts)
     
     def _display_container_access_info(self, vmid: int, container_name: str, post_install: list = None):
         """Display container IP address and access information.

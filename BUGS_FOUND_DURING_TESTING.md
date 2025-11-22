@@ -189,3 +189,59 @@ template_file = self.templates.resolve_template_filename(template)
 ```
 
 **Result:** LXC containers now create successfully with short template names like `debian-12-standard`.
+
+---
+
+## Bug #11: Additional Mounts Not Applied to Containers
+
+**Status:** 🔍 INVESTIGATING
+
+**Severity:** Medium - Feature partially working
+
+**Impact:** Additional mounts from `mounts:` field in container spec not being applied
+
+### Problem Description
+
+When a container spec includes a `mounts:` section with additional mount points, only the primary dataset mount is applied. Additional mounts are parsed but never actually mounted to the container.
+
+### Reproduction
+
+```yaml
+containers:
+  - name: jellyfin-test
+    vmid: 502
+    mount: /config  # Primary mount - WORKS ✅
+    mounts:         # Additional mounts - NOT APPLIED ❌
+      - source: /tank/media-test
+        target: /media
+        readonly: true
+```
+
+**Expected behavior:**
+- Container should have two mount points: `mp0` (primary) and `mp1` (additional)
+
+**Actual behavior:**
+- Only `mp0` exists
+- `mounts:` field is ignored during container creation
+
+### Investigation
+
+**Config parsing:** The `mounts:` field is correctly parsed in config files.
+
+**Container creation:** `lifecycle.py` `create_container()` method does NOT process the `mounts:` field.
+
+**Root cause:** Additional mounts need to be applied AFTER container creation, but there's no code path that:
+1. Extracts `mounts:` from container spec
+2. Calls `add_container_mount()` for each additional mount
+3. Applies them post-creation
+
+### Proposed Fix
+
+Add mount processing after container creation in `setup_container_mounts()` or create a new method `_apply_additional_mounts()` that:
+
+1. Checks if container spec has `mounts:` field
+2. Iterates through additional mounts
+3. Calls `mounts.add_container_mount()` for each
+4. Handles errors gracefully
+
+**Location:** `tengil/services/proxmox/containers/orchestrator.py` or `lifecycle.py`

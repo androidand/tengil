@@ -13,6 +13,7 @@ from tengil.cli_discover_commands import register_discover_commands
 from tengil.cli_drift_commands import register_drift_commands
 from tengil.cli_env_commands import register_env_commands
 from tengil.cli_git_commands import register_git_commands
+from tengil.cli_import_commands import register_import_commands
 from tengil.cli_oci_commands import register_oci_commands
 from tengil.core.logger import get_logger
 from tengil.core.template_loader import TemplateLoader
@@ -48,6 +49,7 @@ register_compose_commands(app, console)
 register_discover_commands(app, console)
 register_drift_commands(app, console)
 register_git_commands(app, console)
+register_import_commands(app, console)
 register_oci_commands(app, console)
 
 if __name__ == "__main__":
