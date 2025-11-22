@@ -1,0 +1,50 @@
+---
+# Jellyfin Media Server with GPU Transcoding
+# Tests: LXC container, GPU passthrough, media mounts
+
+node: pve
+
+pools:
+  tank:
+    type: zfs
+    datasets:
+      # Media storage
+      media-test:
+        profile: media
+        zfs:
+          compression: off
+          recordsize: 1M
+          atime: off
+          sync: standard
+      
+      # Jellyfin container dataset
+      jellyfin-test:
+        profile: media
+        zfs:
+          compression: lz4
+          recordsize: 128K
+          atime: off
+        containers:
+          - name: jellyfin-test
+            vmid: 502
+            auto_create: true
+            template: debian-12-standard
+            mount: /config
+            cores: 4
+            memory: 4096
+            disk: 16G
+            network:
+              bridge: vmbr0
+              ip: dhcp
+            gpu:
+              passthrough: true
+            features:
+              nesting: true
+            mounts:
+              - source: /tank/media-test
+                target: /media
+                readonly: true
+            post_install:
+              - apt-get update
+              - apt-get install -y curl gnupg
+              - curl -fsSL https://repo.jellyfin.org/install-debuntu.sh | bash
