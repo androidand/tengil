@@ -172,7 +172,7 @@ def compose_convert(
         raise typer.Exit(1) from exc
 
     # Show summary
-    _console.print(f"[bold cyan]Conversion Summary[/bold cyan]")
+    _console.print("[bold cyan]Conversion Summary[/bold cyan]")
     _console.print(f"  App: [bold]{result.app_name}[/bold]")
     _console.print(f"  Pool: {result.pool}")
     _console.print(f"  Datasets: {len(result.datasets)}")
@@ -229,7 +229,7 @@ def compose_convert(
                 for secret in result.secrets_needed:
                     _console.print(f"  - {secret}")
 
-            _console.print(f"\n[dim]Next steps:[/dim]")
+            _console.print("\n[dim]Next steps:[/dim]")
             _console.print(f"  1. Review and edit: {output}")
             _console.print(f"  2. Preview changes: tg diff --config {output}")
             _console.print(f"  3. Deploy: tg apply --config {output}")

@@ -4,8 +4,9 @@ import subprocess
 from typing import Dict, List, Optional
 
 from tengil.core.logger import get_logger
-from .templates import TemplateManager
+
 from .discovery import ContainerDiscovery
+from .templates import TemplateManager
 
 logger = get_logger(__name__)
 
@@ -83,7 +84,7 @@ class ContainerLifecycle:
         cmd = [
             'pct', 'create', str(vmid),
             f'{template_storage}:vztmpl/{template_file}',
-            f'--hostname', name,
+            '--hostname', name,
         ]
 
         # Add resources - support both nested resources dict and top-level fields
@@ -247,7 +248,7 @@ class ContainerLifecycle:
             logger.info(f"Configuring Docker support for container {vmid}")
             
             # Read current config
-            with open(config_path, 'r') as f:
+            with open(config_path) as f:
                 config_lines = f.readlines()
             
             # Check if already configured
@@ -259,7 +260,7 @@ class ContainerLifecycle:
             # Add AppArmor profile if not present
             if not has_apparmor:
                 config_lines.append('lxc.apparmor.profile: unconfined\n')
-                logger.info(f"  ✓ Added AppArmor unconfined profile")
+                logger.info("  ✓ Added AppArmor unconfined profile")
                 modified = True
             
             # Add keyctl to features if not present
@@ -269,13 +270,13 @@ class ContainerLifecycle:
                     if line.startswith('features:'):
                         # Add keyctl to existing features
                         config_lines[i] = line.rstrip() + ',keyctl=1\n'
-                        logger.info(f"  ✓ Added keyctl=1 to features")
+                        logger.info("  ✓ Added keyctl=1 to features")
                         modified = True
                         break
                 else:
                     # No features line present, add a new one
                     config_lines.append('features: keyctl=1\n')
-                    logger.info(f"  ✓ Added features line with keyctl=1")
+                    logger.info("  ✓ Added features line with keyctl=1")
                     modified = True
             
             # Write back if modified
@@ -311,7 +312,7 @@ class ContainerLifecycle:
             
             if gpu_type in ['intel', 'amd']:
                 # Read current config
-                with open(config_path, 'r') as f:
+                with open(config_path) as f:
                     config_lines = f.readlines()
                 
                 # Add GPU device access and mount
@@ -324,13 +325,13 @@ class ContainerLifecycle:
                 with open(config_path, 'w') as f:
                     f.writelines(config_lines)
                 
-                logger.info(f"  ✓ Added /dev/dri device access (c 226:* rwm)")
-                logger.info(f"  ✓ Added /dev/dri mount binding")
+                logger.info("  ✓ Added /dev/dri device access (c 226:* rwm)")
+                logger.info("  ✓ Added /dev/dri mount binding")
                 logger.info(f"✓ {gpu_type.upper()} GPU passthrough configured for container {vmid}")
                 
             elif gpu_type == 'nvidia':
-                logger.warning(f"  NVIDIA GPU passthrough requires nvidia-container-runtime")
-                logger.warning(f"  Manual setup needed - see: https://github.com/NVIDIA/nvidia-container-toolkit")
+                logger.warning("  NVIDIA GPU passthrough requires nvidia-container-runtime")
+                logger.warning("  Manual setup needed - see: https://github.com/NVIDIA/nvidia-container-toolkit")
                 return False
             
             return True

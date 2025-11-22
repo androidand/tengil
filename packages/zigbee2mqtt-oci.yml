@@ -1,0 +1,87 @@
+---
+# Zigbee2MQTT OCI Container Package
+# Zigbee to MQTT bridge for smart home automation
+#
+# Usage:
+#   tg apply packages/zigbee2mqtt-oci.yml
+
+name: zigbee2mqtt
+type: oci
+version: latest
+
+oci:
+  image: koenkk/zigbee2mqtt
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: zigbee2mqtt
+cores: 1
+memory: 512
+disk: 8
+
+# Resource pool (optional)
+# pool: automation
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security (needs access to USB dongle)
+unprivileged: false
+
+# Features
+features:
+  nesting: false
+
+# Persistent storage
+mounts:
+  - source: /tank/config/zigbee2mqtt
+    target: /app/data
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /app/data (configuration, database)
+
+# Environment variables
+environment:
+  - TZ=UTC
+
+# USB device passthrough (Zigbee coordinator)
+# Add after container creation:
+# pct set <vmid> --dev0 /dev/ttyUSB0,mode=0660
+
+# Post-deployment:
+# 1. Deploy MQTT broker first:
+#    tg apply packages/mosquitto-oci.yml
+# 2. Attach Zigbee USB adapter to Proxmox host
+# 3. Add USB device to container:
+#    pct set <vmid> --dev0 /dev/ttyUSB0,mode=0660
+# 4. Edit configuration.yaml in /app/data:
+#    mqtt:
+#      server: mqtt://mosquitto:1883
+#    serial:
+#      port: /dev/ttyUSB0
+# 5. Restart container
+# 6. Access web UI: http://<container-ip>:8080
+# 7. Start pairing Zigbee devices
+
+# Verification:
+# - Check USB device: pct exec <vmid> -- ls -l /dev/ttyUSB0
+# - Check web UI accessibility
+# - Test MQTT connection
+# - Pair a test Zigbee device
+
+# Common Zigbee coordinators:
+# - ConBee II (deCONZ)
+# - CC2531 with firmware
+# - Sonoff Zigbee 3.0 USB Dongle Plus
+# - SLZB-06 (Ethernet Zigbee coordinator)
+
+# Notes:
+# - Supports 2000+ Zigbee devices
+# - Works with Home Assistant, Domoticz, openHAB
+# - Requires MQTT broker (Mosquitto recommended)
+# - Alternative to proprietary Zigbee hubs
+# - Container must be privileged for USB access

@@ -1,6 +1,6 @@
 """Apps discovery CLI commands - find running services with IPs and ports."""
 import subprocess
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import typer
 from rich.console import Console

@@ -7,7 +7,8 @@ import json
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
+
 import yaml
 
 from tengil.core.logger import get_logger

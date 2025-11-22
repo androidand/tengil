@@ -2,7 +2,8 @@
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional
+
 from tengil.core.logger import get_logger
 from tengil.core.snapshot_manager import SnapshotManager
 
@@ -81,7 +82,7 @@ class RecoveryManager:
             shutil.copy2(storage_cfg, backup_file)
             logger.info(f"Backed up storage.cfg to {backup_file}")
             return str(backup_file)
-        except (IOError, OSError) as e:
+        except OSError as e:
             logger.error(f"Failed to backup storage.cfg: {e}")
             return None
 
@@ -112,7 +113,7 @@ class RecoveryManager:
             shutil.copy2(smb_conf, backup_file)
             logger.info(f"Backed up smb.conf to {backup_file}")
             return str(backup_file)
-        except (IOError, OSError) as e:
+        except OSError as e:
             logger.error(f"Failed to backup smb.conf: {e}")
             return None
 
@@ -134,7 +135,7 @@ class RecoveryManager:
             shutil.copy2(backup_path, target_path)
             logger.info(f"Restored {target_path} from {backup_path}")
             return True
-        except (IOError, OSError) as e:
+        except OSError as e:
             logger.error(f"Failed to restore {target_path}: {e}")
             return False
 

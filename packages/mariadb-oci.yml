@@ -1,0 +1,77 @@
+---
+# MariaDB OCI Container Package
+# MariaDB/MySQL database server (required by many apps)
+#
+# Usage:
+#   tg apply packages/mariadb-oci.yml
+
+name: mariadb
+type: oci
+version: latest
+
+oci:
+  image: mariadb
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: mariadb
+cores: 2
+memory: 2048
+disk: 32
+
+# Resource pool (optional)
+# pool: databases
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Persistent storage
+mounts:
+  - source: /tank/databases/mariadb
+    target: /var/lib/mysql
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /var/lib/mysql (database files)
+
+# Environment variables
+environment:
+  - MYSQL_ROOT_PASSWORD=changeme
+  - MYSQL_DATABASE=
+  - MYSQL_USER=
+  - MYSQL_PASSWORD=
+
+# Post-deployment:
+# 1. Connect to database:
+#    pct exec <vmid> -- mysql -u root -p
+# 2. Create application databases:
+#    CREATE DATABASE myapp;
+#    CREATE USER 'myapp'@'%' IDENTIFIED BY 'password';
+#    GRANT ALL PRIVILEGES ON myapp.* TO 'myapp'@'%';
+#    FLUSH PRIVILEGES;
+# 3. Configure apps to use mariadb:<container-ip>:3306
+# 4. Optional: Set up regular backups with mysqldump
+
+# Verification:
+# - Test connection: pct exec <vmid> -- mysql -u root -p -e "SHOW DATABASES;"
+# - Check data mount: pct exec <vmid> -- ls -la /var/lib/mysql
+
+# Apps that require MariaDB/MySQL:
+# - Nextcloud, Seafile, BookStack, PhotoView, Passbolt
+
+# Notes:
+# - MariaDB is drop-in replacement for MySQL
+# - Use strong root password in production
+# - Regular backups essential (mysqldump or Percona XtraBackup)
+# - Configure max_connections for high-traffic apps
+# - Consider separate container per application for isolation

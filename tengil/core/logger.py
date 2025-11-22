@@ -1,9 +1,9 @@
 """Unified logging for Tengil with console and file output."""
 import logging
-import os
 from pathlib import Path
-from rich.logging import RichHandler
+
 from rich.console import Console
+from rich.logging import RichHandler
 
 console = Console()
 
@@ -39,7 +39,7 @@ def setup_file_logging(log_file: str = None, verbose: bool = False):
         target_log_file.parent.mkdir(parents=True, exist_ok=True)
     except PermissionError:
         # Fallback to /tmp if /var/log is not writable
-        target_log_file = Path(f"/tmp/tengil.log")
+        target_log_file = Path("/tmp/tengil.log")
         target_log_file.parent.mkdir(parents=True, exist_ok=True)
 
     # Set up file handler for root tengil logger

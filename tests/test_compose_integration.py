@@ -2,8 +2,9 @@
 Integration test: ComposeAnalyzer + OpinionMerger with real romM compose.
 """
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 from tengil.services.docker_compose.analyzer import ComposeAnalyzer
 from tengil.services.docker_compose.merger import OpinionMerger

@@ -1,5 +1,6 @@
 """Tests for post-install automation."""
 import pytest
+
 from tengil.services.post_install import PostInstallManager
 
 

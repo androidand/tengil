@@ -1,9 +1,10 @@
 """Package management for Tengil preset configurations."""
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
 import yaml
-from jinja2 import Environment, BaseLoader, TemplateError
+from jinja2 import BaseLoader, Environment, TemplateError
 
 from tengil.core.logger import get_logger
 
@@ -157,7 +158,7 @@ class PackageLoader:
         """
         
         # Read as raw text first (for Jinja2)
-        with open(package_file, 'r') as f:
+        with open(package_file) as f:
             raw_content = f.read()
         
         # Split into metadata and config sections
@@ -326,7 +327,7 @@ class PackageLoader:
             raise ValueError(f"Package {package.slug} does not have docker_compose section")
         
         # Import here to avoid circular dependency
-        from tengil.services.docker_compose import ComposeAnalyzer, OpinionMerger, ComposeResolver
+        from tengil.services.docker_compose import ComposeAnalyzer, ComposeResolver, OpinionMerger
         
         # Resolve compose using multi-strategy resolver
         logger.info(f"Resolving Docker Compose for package: {package.slug}")

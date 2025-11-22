@@ -1,6 +1,5 @@
 """Tests for homelab repository scaffolding."""
 
-import pytest
 import tempfile
 from pathlib import Path
 

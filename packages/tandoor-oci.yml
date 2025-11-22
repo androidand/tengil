@@ -1,0 +1,97 @@
+---
+# Tandoor Recipes OCI Container Package
+# Recipe manager with meal planning and shopping lists
+#
+# Usage:
+#   tg apply packages/tandoor-oci.yml
+
+name: tandoor
+type: oci
+version: latest
+
+oci:
+  image: vabene1111/recipes
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: tandoor
+cores: 2
+memory: 1024
+disk: 16
+
+# Resource pool (optional)
+# pool: apps
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Persistent storage
+mounts:
+  - source: /tank/data/tandoor/staticfiles
+    target: /opt/recipes/staticfiles
+    readonly: false
+  - source: /tank/data/tandoor/mediafiles
+    target: /opt/recipes/mediafiles
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /opt/recipes/staticfiles (static assets)
+# - /opt/recipes/mediafiles (recipe images)
+
+# Environment variables
+environment:
+  - SECRET_KEY=changeme_to_random_string
+  - DB_ENGINE=django.db.backends.postgresql
+  - POSTGRES_HOST=postgres
+  - POSTGRES_PORT=5432
+  - POSTGRES_USER=tandoor
+  - POSTGRES_PASSWORD=password
+  - POSTGRES_DB=tandoor
+  - TIMEZONE=UTC
+  - GUNICORN_MEDIA=0
+
+# Post-deployment:
+# 1. Deploy PostgreSQL container first:
+#    tg apply packages/postgres-oci.yml
+# 2. Create tandoor database
+# 3. Access web UI: http://<container-ip>:8080
+# 4. Create admin account on first login
+# 5. Configure recipe sources and import
+# 6. Set up meal planning calendar
+# 7. Install mobile apps:
+#    - iOS: Tandoor Recipes
+#    - Android: Tandoor Recipes
+
+# Verification:
+# - Check web UI accessibility
+# - Test database connection
+# - Import test recipe from URL
+# - Create shopping list
+# - Test meal planning
+
+# Features:
+# - Recipe import from websites
+# - Meal planning calendar
+# - Automatic shopping lists
+# - Nutrition calculation
+# - Recipe scaling
+# - Multi-user support
+# - Native mobile apps
+# - Recipe sharing
+
+# Notes:
+# - Requires PostgreSQL
+# - Beautiful modern interface
+# - Active development
+# - Supports recipe collections
+# - Ingredient parser for imports

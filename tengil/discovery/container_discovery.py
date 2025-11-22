@@ -5,9 +5,8 @@ Queries Proxmox to find what container templates are available
 and what containers already exist.
 """
 
-from typing import List, Dict, Optional, Tuple
 import subprocess
-import json
+from typing import Dict, List, Optional, Tuple
 
 
 class ProxmoxDiscovery:

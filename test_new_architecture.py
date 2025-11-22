@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """Test the new simplified Tengil architecture."""
 
-import tempfile
 import os
+import tempfile
 from pathlib import Path
 
 # Set mock mode
 os.environ['TG_MOCK'] = '1'
 
-from tengil.core_new import Tengil, Config
+from tengil.core_new import Config, Tengil
+
 
 def test_config_loading():
     """Test configuration loading."""
@@ -119,8 +120,9 @@ pools:
 
 def test_cli():
     """Test CLI functionality."""
-    from tengil.cli_new import app
     from typer.testing import CliRunner
+
+    from tengil.cli_new import app
     
     runner = CliRunner()
     

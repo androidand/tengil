@@ -1,0 +1,82 @@
+---
+# Audiobookshelf OCI Container Package
+# Self-hosted audiobook and podcast server
+#
+# Usage:
+#   tg apply packages/audiobookshelf-oci.yml
+
+name: audiobookshelf
+type: oci
+version: latest
+
+oci:
+  image: ghcr.io/advplyr/audiobookshelf
+  tag: latest
+  registry: ghcr.io
+
+# Container configuration
+hostname: audiobookshelf
+cores: 2
+memory: 1024
+disk: 8
+
+# Resource pool (optional)
+# pool: media-apps
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# ZFS dataset mounts
+mounts:
+  - source: /tank/media/audiobooks
+    target: /audiobooks
+    readonly: false
+  - source: /tank/media/podcasts
+    target: /podcasts
+    readonly: false
+  - source: /tank/config/audiobookshelf
+    target: /config
+    readonly: false
+  - source: /tank/data/audiobookshelf
+    target: /metadata
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /config (application settings)
+# - /metadata (cover art, metadata cache)
+
+# Environment variables
+environment:
+  - TZ=UTC
+  - AUDIOBOOKSHELF_UID=1000
+  - AUDIOBOOKSHELF_GID=1000
+
+# Post-deployment:
+# 1. Access web UI: http://<container-ip>:13378
+# 2. Create admin account on first login
+# 3. Add audiobook and podcast libraries
+# 4. Configure metadata providers
+# 5. Install mobile apps:
+#    - iOS: Audiobookshelf (official)
+#    - Android: Audiobookshelf (official)
+
+# Verification:
+# - Check web UI accessibility
+# - Verify media mounts: pct exec <vmid> -- ls /audiobooks /podcasts
+# - Test audiobook playback
+# - Test podcast downloads
+
+# Notes:
+# - Beautiful web interface and native mobile apps
+# - Supports progress sync across devices
+# - Automatic podcast episode downloads
+# - Built-in metadata providers

@@ -1,9 +1,7 @@
 """Test system discovery and recommendations."""
-import pytest
-from tengil.discovery import SystemDiscovery, PoolRecommender
+from tengil.discovery import PoolRecommender, SystemDiscovery
 from tengil.discovery.datasets import DatasetDiscovery
 from tengil.models.disk import DiskType
-from tengil.models.pool import PoolPurpose
 from tengil.services.proxmox.manager import ProxmoxManager
 
 

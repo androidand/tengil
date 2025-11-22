@@ -117,10 +117,10 @@ class GitManager:
             'pct', 'exec', str(vmid), '--',
             'bash', '-c',
             (
-                "if [ -d '{root}' ]; then "
-                "find '{root}' -maxdepth {depth} -type f -name '{pattern}' -print; "
+                f"if [ -d '{safe_root}' ]; then "
+                f"find '{safe_root}' -maxdepth {max_depth} -type f -name '{safe_pattern}' -print; "
                 "fi"
-            ).format(root=safe_root, depth=max_depth, pattern=safe_pattern)
+            )
         ]
 
         try:
@@ -252,7 +252,7 @@ class GitManager:
                 text=True,
                 check=True
             )
-            logger.info(f"✓ Successfully pulled latest changes")
+            logger.info("✓ Successfully pulled latest changes")
             if result.stdout:
                 logger.debug(f"Git output: {result.stdout}")
             return True

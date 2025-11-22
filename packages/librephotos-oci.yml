@@ -1,0 +1,92 @@
+---
+# LibrePhotos OCI Container Package
+# Self-hosted photo management with AI-powered features
+#
+# Usage:
+#   tg apply packages/librephotos-oci.yml
+
+name: librephotos
+type: oci
+version: latest
+
+oci:
+  image: reallibrephotos/librephotos
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: librephotos
+cores: 4
+memory: 4096
+disk: 32
+
+# Resource pool (optional)
+# pool: media-apps
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: true
+
+# Persistent storage
+mounts:
+  - source: /tank/photos
+    target: /data
+    readonly: true
+  - source: /tank/data/librephotos
+    target: /code/protected_media
+    readonly: false
+  - source: /tank/data/librephotos/logs
+    target: /code/logs
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /code/protected_media (thumbnails, faces, cache)
+# - /code/logs (application logs)
+
+# Environment variables
+environment:
+  - SECRET_KEY=changeme_to_random_string
+  - DB_BACKEND=postgresql
+  - DB_NAME=librephotos
+  - DB_USER=librephotos
+  - DB_PASS=password
+  - DB_HOST=postgres
+  - DB_PORT=5432
+  - REDIS_HOST=redis
+  - REDIS_PORT=6379
+  - TIME_ZONE=UTC
+  - HEAVYWEIGHT_PROCESS=1
+
+# Post-deployment:
+# 1. Deploy PostgreSQL container:
+#    tg apply packages/postgres-oci.yml
+# 2. Deploy Redis container:
+#    tg apply packages/redis-oci.yml
+# 3. Create librephotos database
+# 4. Access web UI: http://<container-ip>:3000
+# 5. Create admin account
+# 6. Configure photo directories
+# 7. Start initial scan (can take hours for large libraries)
+
+# Verification:
+# - Check web UI accessibility
+# - Verify photo mount: pct exec <vmid> -- ls /data
+# - Monitor scan progress in UI
+# - Test face recognition features
+# - Check logs: pct exec <vmid> -- tail -f /code/logs/gunicorn.log
+
+# Notes:
+# - Open source alternative to Google Photos
+# - Requires PostgreSQL and Redis
+# - AI-powered face recognition and photo clustering
+# - More resource-intensive than PhotoPrism
+# - Supports machine learning features
+# - GPU acceleration optional but recommended for face detection

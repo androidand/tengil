@@ -1,12 +1,12 @@
 """Test complex multi-pool scenarios and edge cases."""
-import pytest
 import tempfile
 from pathlib import Path
+
+import pytest
 import yaml
 
 from tengil.config.loader import ConfigLoader
 from tengil.core.diff_engine import DiffEngine
-from tengil.core.zfs_manager import ZFSManager
 
 
 @pytest.fixture
@@ -85,7 +85,7 @@ class TestDeepNesting:
         # Flatten to full paths (like CLI does)
         pools = loader.get_pools()
         for pool_name, pool_config in pools.items():
-            for dataset_name, dataset_config in pool_config.get('datasets', {}).items():
+            for dataset_name, _dataset_config in pool_config.get('datasets', {}).items():
                 full_path = f"{pool_name}/{dataset_name}"
                 
                 if full_path == "tank/media/music/mp3":
@@ -150,7 +150,7 @@ class TestPoolAddRemove:
             yaml.dump(config_v2, f)
         
         loader2 = ConfigLoader(config_path)
-        config2 = loader2.load()
+        _ = loader2.load()
         pools2 = loader2.get_pools()
         assert len(pools2) == 2
         assert 'tank' in pools2

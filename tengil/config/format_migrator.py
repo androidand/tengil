@@ -4,11 +4,11 @@ Handles backward compatibility by detecting deprecated config formats and
 auto-converting them to current standards while emitting helpful warnings.
 """
 import warnings
-from typing import Dict, Any
+from typing import Any, Dict
 
-from tengil.models.config import ConfigValidationError
 from tengil.config.container_parser import ContainerParser
 from tengil.config.share_parser import ShareParser
+from tengil.models.config import ConfigValidationError
 
 
 class FormatMigrator:

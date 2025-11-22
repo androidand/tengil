@@ -1,6 +1,6 @@
 """Configuration validation logic."""
 import re
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 from tengil.models.config import ConfigValidationError
 
@@ -103,7 +103,7 @@ class MultiPoolValidator:
         """Validate dataset names against ZFS rules."""
         errors = []
 
-        for name in datasets.keys():
+        for name in datasets:
             # Check for invalid characters
             if not re.match(r'^[a-zA-Z0-9/_.-]+$', name):
                 errors.append(f"Dataset '{name}' contains invalid characters. "
@@ -137,7 +137,7 @@ class MultiPoolValidator:
         warnings = []
         reserved_prefixes = ['ROOT', 'data', 'var-lib-vz']
 
-        for dataset_name in datasets.keys():
+        for dataset_name in datasets:
             # Check if dataset starts with reserved prefix
             first_component = dataset_name.split('/')[0]
 
@@ -154,10 +154,10 @@ class MultiPoolValidator:
                 # Only show this once per config load, not per dataset
                 if not any('💡 Consider' in w for w in warnings):
                     warnings.append(
-                        f"💡 Consider using 'rpool/tengil/*' namespace for better organization.\n"
-                        f"    Benefits: Easy backups, clear separation from Proxmox.\n"
-                        f"    Your choice: This is optional - both approaches work!\n"
-                        f"    See docs/USING_RPOOL.md for details."
+                        "💡 Consider using 'rpool/tengil/*' namespace for better organization.\n"
+                        "    Benefits: Easy backups, clear separation from Proxmox.\n"
+                        "    Your choice: This is optional - both approaches work!\n"
+                        "    See docs/USING_RPOOL.md for details."
                     )
                     break  # Only show once
 

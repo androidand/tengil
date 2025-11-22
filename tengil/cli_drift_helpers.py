@@ -1,7 +1,7 @@
 """Shared drift helper utilities for CLI modules."""
 from __future__ import annotations
 
-from typing import Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from tengil.core.drift_engine import DriftEngine, DriftReport
 from tengil.core.state_store import StateStore
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 
 def analyze_drift(
-    loader: Optional["ConfigLoader"],
+    loader: Optional[ConfigLoader],
     state_store: Optional[StateStore] = None,
 ) -> Tuple[Optional[DriftReport], Optional[str]]:
     """Return (DriftReport, status) to enable drift-aware CLI messaging."""

@@ -1,0 +1,77 @@
+---
+# PostgreSQL OCI Container Package
+# PostgreSQL database server (required by many apps)
+#
+# Usage:
+#   tg apply packages/postgres-oci.yml
+
+name: postgres
+type: oci
+version: "15"
+
+oci:
+  image: postgres
+  tag: "15-alpine"
+  registry: docker.io
+
+# Container configuration
+hostname: postgres
+cores: 2
+memory: 2048
+disk: 32
+
+# Resource pool (optional)
+# pool: databases
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Persistent storage
+mounts:
+  - source: /tank/databases/postgres
+    target: /var/lib/postgresql/data
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /var/lib/postgresql/data (database files)
+
+# Environment variables
+environment:
+  - POSTGRES_PASSWORD=changeme
+  - POSTGRES_USER=postgres
+  - POSTGRES_DB=postgres
+  - PGDATA=/var/lib/postgresql/data
+
+# Post-deployment:
+# 1. Connect to database:
+#    pct exec <vmid> -- psql -U postgres
+# 2. Create application databases:
+#    CREATE DATABASE myapp;
+#    CREATE USER myapp WITH PASSWORD 'password';
+#    GRANT ALL PRIVILEGES ON DATABASE myapp TO myapp;
+# 3. Configure apps to use postgres:<container-ip>:5432
+# 4. Optional: Set up regular backups with pg_dump
+
+# Verification:
+# - Test connection: pct exec <vmid> -- psql -U postgres -c "SELECT version();"
+# - List databases: pct exec <vmid> -- psql -U postgres -c "\l"
+# - Check data mount: pct exec <vmid> -- ls -la /var/lib/postgresql/data
+
+# Apps that require PostgreSQL:
+# - WikiJS, Miniflux, Tandoor, PhotoView, LibrePhotos, Passbolt
+
+# Notes:
+# - Alpine-based for minimal size
+# - Consider separate container per application for isolation
+# - Use strong passwords in production
+# - Regular backups essential
+# - Configure connection pooling for high-traffic apps

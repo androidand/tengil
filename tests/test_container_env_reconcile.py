@@ -1,8 +1,6 @@
 import subprocess
 from types import SimpleNamespace
 
-import pytest
-
 from tengil.services.proxmox.backends.lxc import LXCBackend
 from tengil.services.proxmox.backends.oci import OCIBackend
 from tengil.services.proxmox.containers.orchestrator import ContainerOrchestrator

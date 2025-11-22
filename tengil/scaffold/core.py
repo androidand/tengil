@@ -1,8 +1,7 @@
 """Core scaffolding functionality for homelab repositories."""
 
-import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from tengil.core.logger import get_logger
 
@@ -60,10 +59,10 @@ class ScaffoldManager:
             for app_type in apps:
                 self._scaffold_app(repo_path, app_type, f"my-{app_type}")
         
-        logger.info(f"📁 Generated directory structure")
-        logger.info(f"🔧 Created deployment scripts") 
-        logger.info(f"📝 Generated documentation")
-        logger.info(f"🔐 Configured security settings")
+        logger.info("📁 Generated directory structure")
+        logger.info("🔧 Created deployment scripts") 
+        logger.info("📝 Generated documentation")
+        logger.info("🔐 Configured security settings")
         
         return repo_path
     

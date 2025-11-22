@@ -484,8 +484,6 @@ storage_hints:
 **🚧 Planned**:
 - State import (`tg import`)
 - Backup integration
-- OCI remove command
-- OCI catalog search
 
 ---
 
@@ -511,32 +509,37 @@ storage_hints:
 
 ---
 
-## OCI Container Support (Proxmox 9.1+, Tech Preview)
+## OCI Container Support (Proxmox 9.1+)
 
-**Experimental:** OCI backend is available behind `type: oci` specs. Registry operations are limited to backend-driven pulls during `tg apply`; no `tg oci pull/list/login` commands exist.
+OCI is first-class with catalog, search, and cache management.
 
 ### Why OCI?
 - ⚡ Faster deploys vs. building inside LXC
 - 🐳 Leverage existing images (Docker Hub/GHCR)
 - ✅ GPU passthrough and ZFS mounts supported (same as LXC)
-- ⚠️ Tech preview: updates require recreate + volume reuse
 
-### Implementation Approach (experimental)
+### CLI quick reference
 
-Tengil uses **direct CLI commands** (skopeo + pct). Web UI/API capture is TODO:
+```bash
+# Browse/search catalog
+tg oci catalog              # popular apps
+tg oci catalog --all        # all 31+ apps
+tg oci search photo         # fuzzy search
+tg oci info jellyfin        # details + env/mount tips
 
-```python
-# Our approach: Direct subprocess calls
-subprocess.run(['skopeo', 'copy', 'docker://...', 'oci-archive:/path'])
-subprocess.run(['pct', 'create', '200', 'local:vztmpl/image.tar'])
+# Pull/login/list
+tg oci login ghcr.io --username myuser
+tg oci pull ghcr.io/myorg/private-app:latest
+tg oci list --format json
+
+# Cleanup cache
+tg oci remove alpine:latest     # supports wildcards
+tg oci prune --dry-run          # only unused templates
 ```
 
-**Status/limits:**
-- ⚠️ Backend pulls during apply; no standalone `tg oci pull/list/login`
-- ⚠️ Tests are mocked; manual validation only
-- ⚠️ Updates = recreate container; preserve volumes/binds
-
-### Usage
+### Limits
+- Updates still require recreate + volume reuse (Proxmox limitation)
+- OCI backend relies on skopeo + pct on Proxmox host
 
 ```yaml
 # packages/jellyfin-oci.yml

@@ -9,10 +9,11 @@ Runs commands inside containers via `pct exec`.
 """
 import subprocess
 import time
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Union
+
+from tengil.core.config import get_config
 from tengil.core.logger import get_logger
 from tengil.core.retry import retry
-from tengil.core.config import get_config
 
 logger = get_logger(__name__)
 
@@ -101,7 +102,7 @@ class PostInstallManager:
                 
             elif task_type == 'docker_compose':
                 # Docker Compose deployment
-                logger.info(f"Skipping docker_compose post-install - requires manual configuration")
+                logger.info("Skipping docker_compose post-install - requires manual configuration")
                 return True  # Non-blocking for now
                 
             elif task_type == 'shell':
@@ -228,7 +229,7 @@ class PostInstallManager:
         
         if success:
             logger.info(f"✓ Portainer installed in container {vmid}")
-            logger.info(f"  Access Portainer at: http://<container-ip>:9000")
+            logger.info("  Access Portainer at: http://<container-ip>:9000")
         else:
             logger.error(f"✗ Portainer installation failed in container {vmid}")
         
@@ -257,7 +258,7 @@ class PostInstallManager:
         if script_name not in self.TTECK_SCRIPTS:
             logger.warning(f"Unknown tteck script: {script_name}")
             logger.info(f"Known scripts: {', '.join(self.TTECK_SCRIPTS.keys())}")
-            logger.info(f"Attempting to run anyway...")
+            logger.info("Attempting to run anyway...")
 
         # Construct script filename
         script_file = self.TTECK_SCRIPTS.get(script_name, f"{script_name}-install.sh")
@@ -281,7 +282,7 @@ class PostInstallManager:
             else:
                 logger.error(f"✗ tteck/{script_name} failed in container {vmid}")
                 raise subprocess.CalledProcessError(1, f"tteck/{script_name}")
-        except Exception as e:
+        except Exception:
             # Re-raise to trigger retry
             raise subprocess.CalledProcessError(1, f"tteck/{script_name}")
 
@@ -443,22 +444,22 @@ EOF
         """
 
         if not self._exec_in_container(vmid, update_script_content):
-            logger.warning(f"Failed to create update script (non-fatal)")
+            logger.warning("Failed to create update script (non-fatal)")
 
         logger.info(f"✓ Home Assistant MCP server installed in container {vmid}")
-        logger.info(f"")
-        logger.info(f"⚠️  IMPORTANT: Configure /opt/homeassistant-mcp/.env before starting:")
-        logger.info(f"  1. Get a long-lived access token from Home Assistant")
-        logger.info(f"     (Profile → Security → Long-Lived Access Tokens)")
-        logger.info(f"  2. Edit .env file:")
+        logger.info("")
+        logger.info("⚠️  IMPORTANT: Configure /opt/homeassistant-mcp/.env before starting:")
+        logger.info("  1. Get a long-lived access token from Home Assistant")
+        logger.info("     (Profile → Security → Long-Lived Access Tokens)")
+        logger.info("  2. Edit .env file:")
         logger.info(f"     tg container exec {vmid} -- nano /opt/homeassistant-mcp/.env")
-        logger.info(f"  3. Start the service:")
+        logger.info("  3. Start the service:")
         logger.info(f"     tg container exec {vmid} -- systemctl start mcp-server")
-        logger.info(f"  4. Check status:")
+        logger.info("  4. Check status:")
         logger.info(f"     tg container exec {vmid} -- systemctl status mcp-server")
-        logger.info(f"  5. Test the server:")
-        logger.info(f"     curl http://<container-ip>:3000/health")
-        logger.info(f"")
+        logger.info("  5. Test the server:")
+        logger.info("     curl http://<container-ip>:3000/health")
+        logger.info("")
 
         return True
 
@@ -512,7 +513,7 @@ EOF
                 return False
 
         except subprocess.TimeoutExpired:
-            logger.error(f"Command timed out after 10 minutes")
+            logger.error("Command timed out after 10 minutes")
             return False
         except subprocess.CalledProcessError as e:
             logger.error(f"Command failed: {e}")

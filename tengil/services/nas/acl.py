@@ -1,7 +1,7 @@
 """ACL and permissions management."""
+import grp
 import os
 import pwd
-import grp
 import subprocess
 from pathlib import Path
 from typing import Dict

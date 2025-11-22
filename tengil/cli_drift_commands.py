@@ -1,11 +1,10 @@
 """Drift management CLI commands for handling reality vs config differences."""
-import json
 from pathlib import Path
 from typing import Optional
 
 import typer
 from rich.console import Console
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Confirm
 from rich.table import Table
 
 # Module-level console instance (will be set by register function)
@@ -92,7 +91,7 @@ def import_drift(
             for item in dangerous_items:
                 _display_drift_item(item)
                 
-                if Confirm.ask(f"Import this change into tengil.yml?", default=False):
+                if Confirm.ask("Import this change into tengil.yml?", default=False):
                     _apply_drift_item(item, config_updates)
                     console.print(f"  ✓ Will update {item.resource}.{item.field}")
                 else:
@@ -110,7 +109,7 @@ def import_drift(
                 # Ask individually
                 for item in auto_merge_items:
                     _display_drift_item(item)
-                    if Confirm.ask(f"Import this change?", default=True):
+                    if Confirm.ask("Import this change?", default=True):
                         _apply_drift_item(item, config_updates)
                         console.print(f"  ✓ Will update {item.resource}.{item.field}")
         
@@ -210,7 +209,7 @@ def _update_config_file(config_path: Path, updates: dict):
     
     # Load current config
     if config_path.exists():
-        with open(config_path, 'r') as f:
+        with open(config_path) as f:
             config = yaml.safe_load(f) or {}
     else:
         config = {}
@@ -225,8 +224,8 @@ def _update_config_file(config_path: Path, updates: dict):
     # with open(config_path, 'w') as f:
     #     yaml.dump(config, f, default_flow_style=False, sort_keys=False)
     
-    console.print(f"  [yellow]Note: Config file update not implemented in this version[/yellow]")
-    console.print(f"  [yellow]Please manually apply the changes shown above[/yellow]")
+    console.print("  [yellow]Note: Config file update not implemented in this version[/yellow]")
+    console.print("  [yellow]Please manually apply the changes shown above[/yellow]")
 
 
 def register_drift_commands(

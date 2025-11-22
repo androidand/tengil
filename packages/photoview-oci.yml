@@ -1,0 +1,79 @@
+---
+# Photoview OCI Container Package
+# Simple and fast photo gallery for personal servers
+#
+# Usage:
+#   tg apply packages/photoview-oci.yml
+
+name: photoview
+type: oci
+version: latest
+
+oci:
+  image: viktorstrate/photoview
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: photoview
+cores: 2
+memory: 2048
+disk: 16
+
+# Resource pool (optional)
+# pool: media-apps
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Persistent storage
+mounts:
+  - source: /tank/photos
+    target: /photos
+    readonly: true
+  - source: /tank/data/photoview/cache
+    target: /app/cache
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /app/cache (thumbnails and processed images)
+
+# Environment variables (MariaDB/MySQL required)
+environment:
+  - PHOTOVIEW_DATABASE_DRIVER=mysql
+  - PHOTOVIEW_MYSQL_URL=photoview:password@tcp(mysql:3306)/photoview
+  - PHOTOVIEW_LISTEN_IP=0.0.0.0
+  - PHOTOVIEW_LISTEN_PORT=80
+  - PHOTOVIEW_MEDIA_CACHE=/app/cache
+  - MAPBOX_TOKEN=
+
+# Post-deployment:
+# 1. Deploy MariaDB container first:
+#    tg apply packages/mariadb-oci.yml
+# 2. Create photoview database
+# 3. Access web UI: http://<container-ip>:80
+# 4. Create admin account on first login
+# 5. Configure photo paths in settings
+# 6. Trigger initial scan
+
+# Verification:
+# - Check web UI accessibility
+# - Verify photo mount: pct exec <vmid> -- ls /photos
+# - Test photo scanning and thumbnail generation
+# - Check cache directory growth
+
+# Notes:
+# - Simpler and faster than PhotoPrism
+# - No AI features, just fast photo browsing
+# - Supports RAW images
+# - Requires MySQL/MariaDB (SQLite not supported)
+# - Optional: Add Mapbox token for map view

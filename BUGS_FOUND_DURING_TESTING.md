@@ -116,3 +116,141 @@ containers:
 ```
 
 **Fix:** Use top-level `image: nginx:alpine` field. The code splits on `:` to extract tag.
+
+---
+
+## Bug #9: YAML Boolean Conversion for ZFS Properties
+
+**Status:** ⚠️ CRITICAL - Blocks use of valid ZFS property values
+
+**Severity:** High - Prevents setting common ZFS properties
+
+**Impact:** Cannot disable atime or compression using valid ZFS values
+
+### Problem Description
+
+YAML 1.1 spec treats `off`, `on`, `yes`, `no`, `true`, `false` as boolean keywords. When these appear unquoted in YAML, they are converted to Python `True`/`False` boolean values. ZFS command-line tools require exact string values like `"off"` and `"on"`, not boolean conversions.
+
+### Reproduction
+
+```yaml
+zfs:
+  atime: off         # Parsed as False
+  compression: off   # Parsed as False
+  atime: on          # Parsed as True
+  compression: on    # Parsed as True
+```
+
+When Tengil creates the dataset:
+```bash
+zfs create -o atime=False -o compression=False tank/test
+# Error: 'atime' must be one of 'on | off'
+# Error: 'compression' must be one of 'on | off | lzjb | ...'
+```
+
+### Root Cause
+
+1. YAML parser (`ruamel.yaml` or `PyYAML`) converts reserved keywords to booleans
+2. Config loader passes boolean values through without conversion
+3. ZFS manager uses f-string interpolation: `f"{key}={value}"` → `"atime=False"`
+4. ZFS rejects `False`/`True` as invalid property values
+
+### Attempted Workarounds
+
+**Quoting doesn't work:**
+```yaml
+zfs:
+  atime: "off"   # YAML parser STILL converts to False!
+```
+
+**Using alternate values:**
+```yaml
+zfs:
+  atime: on      # Becomes True, ZFS also rejects this!
+  compression: lz4  # Works - not a YAML keyword
+```
+
+### Proper Fix Required
+
+Need to add boolean-to-string conversion in one of these places:
+
+1. **Config Loader** (`config_loader.py`): Convert booleans to ZFS strings immediately after YAML parsing
+2. **Profile Applicator**: Handle boolean conversion when applying profiles
+3. **ZFS Manager** (`zfs_manager.py`): Convert booleans before command construction
+
+**Recommended approach:**
+```python
+# In config_loader.py or profile applicator
+ZFS_BOOLEAN_MAP = {
+    True: 'on',
+    False: 'off'
+}
+
+def normalize_zfs_property(key: str, value: Any) -> str:
+    if isinstance(value, bool):
+        return ZFS_BOOLEAN_MAP[value]
+    return str(value)
+```
+
+### Current Workaround
+
+Avoid YAML boolean keywords entirely:
+- Use `lz4` instead of `off` for compression
+- Accept `atime=on` (minor performance cost) instead of fighting YAML parser
+
+---
+
+## Bug #10: LXC Template Filename Resolution
+
+**Status:** ✅ FIXED in commit 2b460d2
+
+**Severity:** High - Blocked LXC container creation
+
+**Impact:** LXC containers couldn't be created with short template names
+
+### Problem Description
+
+Proxmox stores templates with full version suffixes:
+```
+/var/lib/vz/template/cache/debian-12-standard_12.12-1_amd64.tar.zst
+```
+
+But users want to reference them with short names in config:
+```yaml
+template: debian-12-standard
+```
+
+Old code simply appended `.tar.zst`:
+```python
+template_file = template if '.tar' in template else f'{template}.tar.zst'
+# Resulted in: debian-12-standard.tar.zst (WRONG)
+```
+
+This caused `pct create` to fail:
+```
+unable to create CT 502 - volume 'local:vztmpl/debian-12-standard.tar.zst' does not exist
+```
+
+### Solution Implemented
+
+Added `resolve_template_filename()` method to `TemplateManager` class:
+
+```python
+def resolve_template_filename(self, template: str) -> str:
+    """Resolve short template name to full filename with version."""
+    result = self.node.ssh_run("pveam list local", check=True)
+    for line in result.stdout.splitlines():
+        if template in line and '.tar' in line:
+            # Extract: local:vztmpl/debian-12-standard_12.12-1_amd64.tar.zst
+            parts = line.split()
+            if parts and ':vztmpl/' in parts[0]:
+                return parts[0].split(':vztmpl/')[1]
+    return f'{template}.tar.zst'  # Fallback
+```
+
+Updated `lifecycle.py` to use resolver:
+```python
+template_file = self.templates.resolve_template_filename(template)
+```
+
+**Result:** LXC containers now create successfully with short template names like `debian-12-standard`.

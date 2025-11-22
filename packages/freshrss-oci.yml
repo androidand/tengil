@@ -1,0 +1,71 @@
+---
+# FreshRSS OCI Container Package
+# Self-hosted RSS feed aggregator
+#
+# Usage:
+#   tg apply packages/freshrss-oci.yml
+
+name: freshrss
+type: oci
+version: latest
+
+oci:
+  image: freshrss/freshrss
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: freshrss
+cores: 1
+memory: 512
+disk: 8
+
+# Resource pool (optional)
+# pool: apps
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Persistent storage
+mounts:
+  - source: /tank/config/freshrss
+    target: /var/www/FreshRSS/data
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /var/www/FreshRSS/data (database, cache, extensions)
+
+# Environment variables
+environment:
+  - TZ=UTC
+  - CRON_MIN=*/15
+
+# Post-deployment:
+# 1. Access web UI: http://<container-ip>:80
+# 2. Complete initial setup wizard
+# 3. Create admin account
+# 4. Add RSS feed subscriptions
+# 5. Configure mobile apps:
+#    - iOS: NetNewsWire, Reeder
+#    - Android: FeedMe, News+
+
+# Verification:
+# - Check web UI accessibility
+# - Verify data mount: pct exec <vmid> -- ls /var/www/FreshRSS/data
+# - Test feed subscription and refresh
+# - Validate API access for mobile apps
+
+# Notes:
+# - Supports Fever and Google Reader API
+# - Extensions available for additional features
+# - Automatic feed updates via cron
+# - Multi-user support

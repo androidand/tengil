@@ -1,12 +1,13 @@
 """Tests for container CLI helpers."""
 
 import textwrap
+
 from typer.testing import CliRunner
 
 from tengil.cli import app
-from tengil.services.proxmox.containers.lifecycle import ContainerLifecycle
 from tengil.services.proxmox.backends.lxc import LXCBackend
 from tengil.services.proxmox.containers import ContainerOrchestrator
+from tengil.services.proxmox.containers.lifecycle import ContainerLifecycle
 
 runner = CliRunner()
 

@@ -1,0 +1,78 @@
+---
+# File Browser OCI Container Package
+# Simple web-based file manager
+#
+# Usage:
+#   tg apply packages/filebrowser-oci.yml
+
+name: filebrowser
+type: oci
+version: latest
+
+oci:
+  image: filebrowser/filebrowser
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: filebrowser
+cores: 1
+memory: 256
+disk: 4
+
+# Resource pool (optional)
+# pool: apps
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Mount files to manage
+mounts:
+  - source: /tank
+    target: /srv
+    readonly: false
+  - source: /tank/config/filebrowser
+    target: /config
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /config (database and settings)
+
+# Environment variables
+environment:
+  - FB_DATABASE=/config/filebrowser.db
+  - FB_ROOT=/srv
+  - FB_LOG=stdout
+
+# Post-deployment:
+# 1. Access web UI: http://<container-ip>:80
+# 2. Login with default credentials:
+#    Username: admin
+#    Password: admin
+# 3. Change admin password immediately
+# 4. Configure user permissions
+# 5. Set up sharing and upload settings
+
+# Verification:
+# - Check web UI accessibility
+# - Test file browsing
+# - Test file upload/download
+# - Verify mount access: pct exec <vmid> -- ls /srv
+
+# Notes:
+# - Lightweight and fast
+# - No dependencies beyond the binary
+# - Supports user management
+# - File sharing with public links
+# - Built-in text editor
+# - Command runner for custom scripts
+# - Mobile-responsive interface

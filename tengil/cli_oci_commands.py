@@ -1,15 +1,16 @@
 """OCI/LXC app discovery and config scaffolding commands."""
 from __future__ import annotations
 
-import typer
 from pathlib import Path
 from typing import List, Set
+
+import typer
 from rich.console import Console
 from rich.table import Table
 
 from tengil.cli_support import is_mock
 from tengil.services.oci_capability import detect_oci_support
-from tengil.services.oci_registry import OciRegistryCatalog, OciApp
+from tengil.services.oci_registry import OciApp, OciRegistryCatalog
 from tengil.services.proxmox.backends.oci import OCIBackend
 from tengil.services.proxmox.containers.discovery import ContainerDiscovery
 
@@ -41,7 +42,7 @@ def register_oci_commands(root: typer.Typer, console: Console) -> None:
             apps = OciRegistryCatalog.filter_by_category(category)
             if not apps:
                 console.print(f"[yellow]No apps found in category '{category}'[/yellow]")
-                console.print(f"[dim]Use --list-categories to see available categories[/dim]")
+                console.print("[dim]Use --list-categories to see available categories[/dim]")
                 return
         else:
             all_catalog_apps = OciRegistryCatalog.list_popular_apps()
@@ -106,7 +107,7 @@ def register_oci_commands(root: typer.Typer, console: Console) -> None:
         if not all_apps and not category:
             console.print(f"\n[dim]Showing popular apps. Use --all to see all {OciRegistryCatalog.count_apps()} apps.[/dim]")
         
-        console.print(f"[dim]Use 'tg oci info <app>' for details • 'tg oci search <term>' to search • ✓ = package spec available[/dim]")
+        console.print("[dim]Use 'tg oci info <app>' for details • 'tg oci search <term>' to search • ✓ = package spec available[/dim]")
 
     @OciTyper.command("status")
     def status_command(mock: bool = typer.Option(False, "--mock", help="Mock capability detection")):
@@ -126,7 +127,7 @@ def register_oci_commands(root: typer.Typer, console: Console) -> None:
         results = OciRegistryCatalog.search_apps(query)
         if not results:
             console.print(f"[yellow]No apps matching '{query}'[/yellow]")
-            console.print(f"[dim]Try 'tg oci catalog' to browse all apps[/dim]")
+            console.print("[dim]Try 'tg oci catalog' to browse all apps[/dim]")
             return
 
         console.print(f"[bold cyan]Apps matching '{query}':[/bold cyan] ({len(results)} found)\n")
@@ -143,7 +144,7 @@ def register_oci_commands(root: typer.Typer, console: Console) -> None:
                 console.print(f"  [cyan]{app.name:20}[/cyan] {app.description}")
             console.print()
         
-        console.print(f"[dim]Use 'tg oci info <app>' for detailed information[/dim]")
+        console.print("[dim]Use 'tg oci info <app>' for detailed information[/dim]")
 
     @OciTyper.command("info")
     def info_command(
@@ -173,10 +174,10 @@ def register_oci_commands(root: typer.Typer, console: Console) -> None:
             console.print(f"\n[green]✓[/green] Package spec available: [cyan]packages/{app.name}-oci.yml[/cyan]")
             console.print(f"[dim]Deploy with: tg apply packages/{app.name}-oci.yml[/dim]")
         else:
-            console.print(f"\n[yellow]⚠[/yellow] No package spec yet (contribute one!)")
+            console.print("\n[yellow]⚠[/yellow] No package spec yet (contribute one!)")
         
         # Show pull command
-        console.print(f"\n[bold]Quick Start:[/bold]")
+        console.print("\n[bold]Quick Start:[/bold]")
         console.print(f"  • Create a spec: use 'tg oci install {app.name}' to generate a snippet")
         if has_spec:
             console.print(f"  • Deploy existing: [cyan]tg apply packages/{app.name}-oci.yml[/cyan]")
@@ -375,7 +376,7 @@ def _resolve_template_matches(template_dir: Path, target: str) -> List[Path]:
         last_slash = target.rfind("/")
         if last_colon > last_slash:
             image_part = target[:last_colon]
-            tag = target[last_colon + 1 :] or "latest"
+            tag = target[last_colon + 1:] or "latest"
         else:
             image_part = target
             tag = "latest"

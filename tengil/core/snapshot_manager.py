@@ -1,7 +1,8 @@
 """ZFS snapshot management for rollback capability."""
 import subprocess
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import Dict, List
+
 from tengil.core.logger import get_logger
 
 logger = get_logger(__name__)

@@ -5,11 +5,10 @@ Discovers running containers, available images, and compose stacks
 on local or remote Docker hosts.
 """
 
-from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any
-from pathlib import Path
-import subprocess
 import json
+import subprocess
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
 
 @dataclass

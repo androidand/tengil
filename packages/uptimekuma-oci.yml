@@ -1,0 +1,80 @@
+---
+# Uptime Kuma OCI Container Package
+# Self-hosted monitoring tool (alternative to Uptime Robot)
+#
+# Usage:
+#   tg apply packages/uptimekuma-oci.yml
+
+name: uptimekuma
+type: oci
+version: latest
+
+oci:
+  image: louislam/uptime-kuma
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: uptimekuma
+cores: 1
+memory: 512
+disk: 8
+
+# Resource pool (optional)
+# pool: monitoring
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Persistent storage
+mounts:
+  - source: /tank/config/uptimekuma
+    target: /app/data
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /app/data (SQLite database, uploads)
+
+# Post-deployment:
+# 1. Access web UI: http://<container-ip>:3001
+# 2. Create admin account on first login
+# 3. Add monitoring targets:
+#    - HTTP(s) endpoints
+#    - TCP ports
+#    - Ping (ICMP)
+#    - DNS records
+#    - Docker containers
+# 4. Configure notifications:
+#    - Email, Slack, Discord, Telegram, etc.
+# 5. Create status pages for public monitoring
+
+# Verification:
+# - Check web UI accessibility
+# - Add test HTTP monitor
+# - Test notification delivery
+# - Create public status page
+
+# Features:
+# - Beautiful and responsive UI
+# - 50+ notification providers
+# - Status pages for public access
+# - Certificate monitoring
+# - Multiple languages
+# - 2FA support
+# - Docker container monitoring
+# - Keyword monitoring in HTTP responses
+
+# Notes:
+# - Uses SQLite by default (no external database)
+# - Very lightweight and easy to setup
+# - Active development and community
+# - More features than Uptime Robot free tier

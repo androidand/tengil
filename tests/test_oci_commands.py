@@ -1,9 +1,11 @@
 """Tests for OCI CLI commands."""
 import unittest
-from tempfile import TemporaryDirectory
-from unittest.mock import patch, MagicMock
 from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
+
 from typer.testing import CliRunner
+
 from tengil.cli import app
 from tengil.services.proxmox.backends.oci import OCIBackend
 from tengil.services.proxmox.containers.discovery import ContainerDiscovery
@@ -76,10 +78,10 @@ class TestOCICommands(unittest.TestCase):
                 with patch.object(ContainerDiscovery, "get_all_containers_info", return_value=[]):
                     result = runner.invoke(app, ["oci", "remove", "alpine:*", "--force"])
 
-        self.assertEqual(result.exit_code, 0)
-        self.assertFalse((tmp_path / "alpine-latest.tar").exists())
-        self.assertFalse((tmp_path / "alpine-3.19.tar").exists())
-        self.assertTrue((tmp_path / "nginx-latest.tar").exists())
+            self.assertEqual(result.exit_code, 0)
+            self.assertFalse((tmp_path / "alpine-latest.tar").exists())
+            self.assertFalse((tmp_path / "alpine-3.19.tar").exists())
+            self.assertTrue((tmp_path / "nginx-latest.tar").exists())
 
     def test_remove_blocks_in_use_templates(self):
         """Do not remove templates referenced by existing containers."""
@@ -98,9 +100,9 @@ class TestOCICommands(unittest.TestCase):
                 with patch.object(ContainerDiscovery, "get_all_containers_info", return_value=containers):
                     result = runner.invoke(app, ["oci", "remove", "alpine:latest", "--force"])
 
-        self.assertNotEqual(result.exit_code, 0)
-        self.assertTrue(target.exists())
-        self.assertIn("in use", result.stdout)
+            self.assertNotEqual(result.exit_code, 0)
+            self.assertTrue(target.exists())
+            self.assertIn("in use", result.stdout)
 
     def test_prune_dry_run_only_unused(self):
         """Prune reports unused templates and leaves in-use ones when dry-run."""
@@ -121,11 +123,11 @@ class TestOCICommands(unittest.TestCase):
                 with patch.object(ContainerDiscovery, "get_all_containers_info", return_value=containers):
                     result = runner.invoke(app, ["oci", "prune", "--dry-run"])
 
-        self.assertEqual(result.exit_code, 0)
-        self.assertTrue(keep.exists())
-        self.assertTrue(remove.exists())
-        self.assertIn("Dry run", result.stdout)
-        self.assertIn("remove.tar", result.stdout)
+            self.assertEqual(result.exit_code, 0)
+            self.assertTrue(keep.exists())
+            self.assertTrue(remove.exists())
+            self.assertIn("Dry run", result.stdout)
+            self.assertIn("remove.tar", result.stdout)
 
 
 if __name__ == '__main__':

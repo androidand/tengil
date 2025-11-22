@@ -1,11 +1,12 @@
 """Tests for unified permission management."""
 
 import pytest
+
 from tengil.core.permission_manager import (
-    PermissionManager,
     AccessLevel,
     ConsumerType,
-    PermissionConflict
+    PermissionConflict,
+    PermissionManager,
 )
 
 

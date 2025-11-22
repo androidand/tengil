@@ -1,8 +1,9 @@
 """Integration tests for OCI registry interactions (no actual pulls)."""
 import unittest
-from unittest.mock import patch, MagicMock
-from tengil.services.proxmox.backends.oci import OCIBackend
+from unittest.mock import MagicMock, patch
+
 from tengil.services.oci_registry import OciRegistryCatalog
+from tengil.services.proxmox.backends.oci import OCIBackend
 
 
 class TestOCIRegistryIntegration(unittest.TestCase):

@@ -1,9 +1,8 @@
-import os
-import re
 import json
+import re
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
 
 
 class SystemDetector:

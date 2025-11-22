@@ -1,7 +1,7 @@
 """Integration tests for smart permission defaults via ConfigLoader."""
 
-from pathlib import Path
 import textwrap
+from pathlib import Path
 
 import pytest
 

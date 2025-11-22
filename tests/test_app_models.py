@@ -2,7 +2,7 @@
 import pytest
 from pydantic import ValidationError
 
-from tengil.models.app import AppSource, AppRuntime, AppStorage, AppConfig
+from tengil.models.app import AppConfig, AppRuntime, AppSource, AppStorage
 
 
 class TestAppSource:

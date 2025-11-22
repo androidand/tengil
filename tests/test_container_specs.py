@@ -1,7 +1,7 @@
 """Tests for Phase 2+ container management features."""
+
 import pytest
 import yaml
-from pathlib import Path
 
 from tengil.config.loader import ConfigLoader
 from tengil.models.config import ConfigValidationError

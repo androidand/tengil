@@ -1,6 +1,7 @@
 """Tests for automatic backend selection in ContainerOrchestrator."""
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch
+
 from tengil.services.proxmox.containers.orchestrator import ContainerOrchestrator
 
 

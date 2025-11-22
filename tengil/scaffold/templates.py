@@ -1,7 +1,8 @@
 """Template engine for homelab scaffolding."""
 
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
+
 
 class TemplateEngine:
     """Handles template rendering for scaffolding."""

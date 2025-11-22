@@ -1,7 +1,6 @@
 """Tests for git repository management."""
-import pytest
-from unittest.mock import Mock, patch, call
 import subprocess
+from unittest.mock import Mock, patch
 
 from tengil.services.git_manager import GitManager
 

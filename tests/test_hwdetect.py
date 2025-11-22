@@ -1,7 +1,6 @@
 """Tests for hardware detection."""
 import json
-from pathlib import Path
-import pytest
+
 from tengil.discovery.hwdetect import SystemDetector
 
 

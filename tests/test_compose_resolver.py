@@ -1,10 +1,9 @@
 """Tests for ComposeResolver - multi-strategy compose acquisition."""
+
 import pytest
-from pathlib import Path
-import tempfile
 import yaml
 
-from tengil.services.docker_compose.resolver import ComposeResolver, ComposeSource
+from tengil.services.docker_compose.resolver import ComposeResolver
 
 
 class TestComposeResolver:

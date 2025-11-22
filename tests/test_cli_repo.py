@@ -9,7 +9,6 @@ from typer.testing import CliRunner  # type: ignore
 
 from tengil.cli import app
 
-
 runner = CliRunner()
 
 

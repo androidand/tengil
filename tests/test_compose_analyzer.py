@@ -2,8 +2,8 @@
 Tests for Docker Compose analyzer.
 """
 
+
 import pytest
-from pathlib import Path
 
 from tengil.services.docker_compose.analyzer import (
     ComposeAnalyzer,

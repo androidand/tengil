@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Optional, Tuple, Any
+from typing import Any, Optional, Tuple
+
 import typer
 from rich.console import Console
 
-from tengil.services.proxmox.containers import ContainerOrchestrator
 from tengil.core.logger import get_logger
+from tengil.services.proxmox.containers import ContainerOrchestrator
 
 logger = get_logger(__name__)
 
@@ -72,8 +73,8 @@ def load_config_and_orchestrate(
         Tuple of (loader, all_desired, all_current, container_mgr)
     """
     from tengil.config.loader import ConfigLoader
-    from tengil.core.zfs_manager import ZFSManager
     from tengil.core.orchestrator import PoolOrchestrator
+    from tengil.core.zfs_manager import ZFSManager
     from tengil.services.proxmox.containers import ContainerOrchestrator
 
     # Load configuration

@@ -2,7 +2,6 @@
 from tengil.core.resource_validator import (
     HostResources,
     ResourceValidator,
-    ResourceValidationResult,
 )
 
 

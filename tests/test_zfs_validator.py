@@ -1,11 +1,6 @@
 """Tests for ZFS validation and recommendations."""
 
-import pytest
-from tengil.core.zfs_validator import (
-    ZFSValidator,
-    ValidationIssue,
-    Severity
-)
+from tengil.core.zfs_validator import Severity, ValidationIssue, ZFSValidator
 
 
 def test_validate_optimal_recordsize():

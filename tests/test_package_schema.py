@@ -1,7 +1,7 @@
 """Schema sanity checks for package YAMLs."""
-import yaml
 from pathlib import Path
 
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PACKAGES_DIR = REPO_ROOT / "packages"

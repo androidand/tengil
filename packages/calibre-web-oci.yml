@@ -1,0 +1,79 @@
+---
+# Calibre-Web OCI Container Package
+# Web interface for Calibre ebook library
+#
+# Usage:
+#   tg apply packages/calibre-web-oci.yml
+
+name: calibre-web
+type: oci
+version: latest
+
+oci:
+  image: lscr.io/linuxserver/calibre-web
+  tag: latest
+  registry: lscr.io
+
+# Container configuration
+hostname: calibre-web
+cores: 1
+memory: 512
+disk: 8
+
+# Resource pool (optional)
+# pool: apps
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Persistent storage
+mounts:
+  - source: /tank/media/books
+    target: /books
+    readonly: false
+  - source: /tank/config/calibre-web
+    target: /config
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /config (application settings, user database)
+
+# Environment variables
+environment:
+  - PUID=1000
+  - PGID=1000
+  - TZ=UTC
+  - DOCKER_MODS=linuxserver/mods:universal-calibre
+
+# Post-deployment:
+# 1. Access web UI: http://<container-ip>:8083
+# 2. Login with default credentials:
+#    Username: admin
+#    Password: admin123
+# 3. Configure database location: /books
+# 4. Change admin password immediately
+# 5. Configure email server for send-to-kindle
+# 6. Optional: Enable ebook conversion with Calibre
+
+# Verification:
+# - Check web UI accessibility
+# - Verify books mount: pct exec <vmid> -- ls /books
+# - Test ebook browsing and download
+# - Test send-to-kindle feature
+
+# Notes:
+# - Requires existing Calibre library or creates new one
+# - Supports OPDS for ebook reader apps
+# - Send-to-Kindle via email
+# - User management and reading progress tracking
+# - Format conversion with Calibre tools
+# - Compatible with Kobo sync

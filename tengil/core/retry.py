@@ -1,7 +1,8 @@
 """Retry decorator for network operations with exponential backoff."""
-import time
 import functools
+import time
 from typing import Tuple, Type
+
 from tengil.core.logger import get_logger
 
 logger = get_logger(__name__)

@@ -1,7 +1,6 @@
 """Tests for snapshot and recovery functionality."""
-import pytest
-from tengil.core.snapshot_manager import SnapshotManager
 from tengil.core.recovery import RecoveryManager
+from tengil.core.snapshot_manager import SnapshotManager
 
 
 class TestSnapshotManager:

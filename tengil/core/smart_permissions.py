@@ -361,19 +361,19 @@ def summarize_smart_permission_events(
         if event.type == "fuzzy-match":
             dataset_label = event.dataset or "(unknown dataset)"
             summaries.append(
-                (
+                
                     f"Container '{event.container}' on {dataset_label} "
                     f"matched pattern '{event.pattern}' → inferred {event.access}" 
                     " (override with explicit readonly flag if inaccurate)."
-                )
+                
             )
         else:
             dataset_label = event.dataset or "(unknown dataset)"
             summaries.append(
-                (
+                
                     f"Container '{event.container}' on {dataset_label} triggered "
                     f"smart-permission event '{event.type}' (access={event.access})."
-                )
+                
             )
 
     return summaries

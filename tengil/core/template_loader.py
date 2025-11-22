@@ -1,7 +1,8 @@
 """Template and dataset loading for tengil configuration."""
-import yaml
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional
+from typing import Dict, List, Optional, Tuple
+
+import yaml
 
 
 class TemplateLoader:

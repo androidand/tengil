@@ -7,8 +7,8 @@ Validates ZFS configurations and provides recommendations for:
 - Performance tuning
 """
 
-from typing import Dict, List, Tuple, Optional
 from enum import Enum
+from typing import Dict, List, Optional
 
 from tengil.core.logger import get_logger
 

@@ -3,6 +3,7 @@ import subprocess
 from typing import Dict, Optional
 
 from tengil.core.logger import get_logger
+
 from .discovery import ContainerDiscovery
 
 logger = get_logger(__name__)
@@ -163,7 +164,7 @@ class MountManager:
 
         try:
             # Use pct to remove the mount point
-            cmd = ["pct", "set", str(vmid), f"-delete", f"mp{mount_point}"]
+            cmd = ["pct", "set", str(vmid), "-delete", f"mp{mount_point}"]
 
             logger.info(f"Removing mount point mp{mount_point} from container {vmid}")
             subprocess.run(cmd, check=True)

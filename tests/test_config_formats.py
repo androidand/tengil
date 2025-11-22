@@ -6,11 +6,12 @@ Tests ensure that:
 3. Invalid formats are rejected with clear errors
 4. Terminology matches Proxmox/ZFS/Linux standards
 """
-import pytest
 import tempfile
-import yaml
 import warnings
 from pathlib import Path
+
+import pytest
+import yaml
 
 from tengil.config.loader import ConfigLoader
 from tengil.models.config import ConfigValidationError

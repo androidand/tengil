@@ -2,9 +2,9 @@
 import subprocess
 from typing import List
 
+from tengil.core.config import get_config
 from tengil.core.logger import get_logger
 from tengil.core.retry import retry
-from tengil.core.config import get_config
 
 logger = get_logger(__name__)
 
@@ -165,7 +165,7 @@ class TemplateManager:
                 logger.error(f"Error output: {e.stderr}")
             raise  # Re-raise to trigger retry
         except subprocess.TimeoutExpired:
-            logger.error(f"✗ Template download timed out after 10 minutes")
+            logger.error("✗ Template download timed out after 10 minutes")
             raise subprocess.CalledProcessError(1, ['pveam', 'download'])
 
     def ensure_template_available(self, template: str) -> bool:

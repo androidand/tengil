@@ -1,0 +1,79 @@
+---
+# Seafile OCI Container Package
+# Professional file sync and collaboration (alternative to Nextcloud)
+#
+# Usage:
+#   tg apply packages/seafile-oci.yml
+
+name: seafile
+type: oci
+version: latest
+
+oci:
+  image: seafileltd/seafile-mc
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: seafile
+cores: 2
+memory: 2048
+disk: 16
+
+# Resource pool (optional)
+# pool: apps
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Persistent storage
+mounts:
+  - source: /tank/seafile
+    target: /shared
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /shared (all Seafile data)
+
+# Environment variables
+environment:
+  - DB_HOST=db
+  - DB_ROOT_PASSWD=db_dev
+  - TIME_ZONE=UTC
+  - SEAFILE_ADMIN_EMAIL=admin@example.com
+  - SEAFILE_ADMIN_PASSWORD=changeme
+  - SEAFILE_SERVER_LETSENCRYPT=false
+  - SEAFILE_SERVER_HOSTNAME=seafile.example.com
+
+# Post-deployment:
+# 1. Deploy MariaDB/MySQL container first (required)
+# 2. Access web UI: http://<container-ip>:80
+# 3. Login with admin credentials
+# 4. Configure libraries and sharing
+# 5. Install desktop clients:
+#    - Windows/macOS/Linux: official Seafile client
+# 6. Install mobile apps:
+#    - iOS/Android: Seafile app
+
+# Verification:
+# - Check web UI accessibility
+# - Test database connection
+# - Create test library
+# - Test file sync with desktop client
+
+# Notes:
+# - More focused on file sync than Nextcloud
+# - Better performance for large files
+# - Requires MySQL/MariaDB database
+# - Professional edition available with more features
+# - Supports version control for files
+# - Client-side encryption available

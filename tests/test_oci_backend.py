@@ -1,7 +1,8 @@
 """Unit tests for OCIBackend."""
 import unittest
-from unittest.mock import patch, MagicMock
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
 from tengil.services.proxmox.backends.oci import OCIBackend
 
 
@@ -149,7 +150,7 @@ class TestOCIBackend(unittest.TestCase):
         backend = OCIBackend(mock=False)
         mock_run.return_value = MagicMock(returncode=0, stdout='', stderr='')
         
-        result = backend.pull_image('alpine', 'latest')
+        _ = backend.pull_image('alpine', 'latest')
         
         # Verify skopeo was called correctly
         mock_run.assert_called_once()
@@ -178,7 +179,7 @@ class TestOCIBackend(unittest.TestCase):
                 'disk': 8
             }
             
-            vmid = backend.create_container(spec, storage='tank')
+            _ = backend.create_container(spec, storage='tank')
             
             # Verify pct create was called
             args = mock_run.call_args[0][0]

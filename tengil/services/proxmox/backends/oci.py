@@ -1,10 +1,10 @@
 """OCI container backend using skopeo + Proxmox OCI support."""
 import subprocess
-import shlex
 from pathlib import Path
 from typing import Dict, Optional
+
 from rich.console import Console
-from rich.status import Status
+
 from .base import ContainerBackend
 
 console = Console()
@@ -156,7 +156,7 @@ class OCIBackend(ContainerBackend):
         network = spec.get('network', {})
         bridge = network.get('bridge', 'vmbr0')
         ip = network.get('ip', 'dhcp')
-        net_parts = [f'name=eth0', f'bridge={bridge}']
+        net_parts = ['name=eth0', f'bridge={bridge}']
         # firewall flag if provided
         if network.get('firewall') is not None:
             net_parts.append(f'firewall={int(bool(network.get("firewall")))}')

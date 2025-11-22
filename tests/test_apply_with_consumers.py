@@ -1,19 +1,17 @@
 """End-to-end test for apply workflow with consumers model."""
+from unittest.mock import Mock
+
 import pytest
-from pathlib import Path
-import tempfile
 import yaml
-from unittest.mock import Mock, patch, MagicMock
 
 from tengil.config.loader import ConfigLoader
-from tengil.core.zfs_manager import ZFSManager
-from tengil.core.orchestrator import PoolOrchestrator
 from tengil.core.diff_engine import DiffEngine
-from tengil.core.applicator import ChangeApplicator
-from tengil.core.permission_manager import PermissionManager, ConsumerType, AccessLevel
+from tengil.core.orchestrator import PoolOrchestrator
+from tengil.core.permission_manager import AccessLevel, ConsumerType, PermissionManager
 from tengil.core.state_store import StateStore
-from tengil.services.proxmox import ProxmoxManager
+from tengil.core.zfs_manager import ZFSManager
 from tengil.services.nas import NASManager
+from tengil.services.proxmox import ProxmoxManager
 
 
 class TestApplyWithConsumers:
@@ -215,10 +213,10 @@ class TestApplyWithConsumers:
         permission_mgr = PermissionManager(mock=True)
         
         # Create managers with permission_manager
-        from tengil.core.zfs_manager import ZFSManager
-        from tengil.services.proxmox.manager import ProxmoxManager
-        from tengil.services.nas.manager import NASManager
         from tengil.core.state_store import StateStore
+        from tengil.core.zfs_manager import ZFSManager
+        from tengil.services.nas.manager import NASManager
+        from tengil.services.proxmox.manager import ProxmoxManager
         
         state = StateStore()
         zfs = ZFSManager(mock=True, state_store=state, permission_manager=permission_mgr)

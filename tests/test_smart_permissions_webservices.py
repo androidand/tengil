@@ -3,12 +3,10 @@
 This is where we test the rainbow magic! 🌈🦄
 """
 
-import pytest
 from tengil.core.smart_permissions import (
     apply_smart_defaults,
     infer_container_access,
     validate_permissions,
-    SmartPermissionEvent,
 )
 
 
@@ -52,7 +50,7 @@ class TestNodeJSWebservices:
         processed = apply_smart_defaults(config, 'static_sites')
         
         # Container should get readonly (media profile default)
-        assert processed['containers'][0]['readonly'] == True
+        assert processed['containers'][0]['readonly'] is True
         
         # SMB should inherit readonly permissions
         assert processed['shares']['smb']['writable'] == 'no'
@@ -90,7 +88,7 @@ class TestNodeJSWebservices:
         processed = apply_smart_defaults(config, 'services')
         
         # Explicit setting should be preserved
-        assert processed['containers'][0]['readonly'] == True
+        assert processed['containers'][0]['readonly'] is True
 
     def test_known_container_overrides_profile(self):
         """Known container patterns override profile defaults."""
@@ -106,7 +104,7 @@ class TestNodeJSWebservices:
         processed = apply_smart_defaults(config, 'mixed_apps')
         
         # Known patterns should override profile
-        assert processed['containers'][0]['readonly'] == True   # jellyfin
+        assert processed['containers'][0]['readonly'] is True   # jellyfin
         # radarr and unknown-app should be readwrite (no readonly key or False)
         for i in [1, 2]:
             container = processed['containers'][i]
@@ -119,32 +117,32 @@ class TestProfileDefaults:
     def test_media_profile_readonly_default(self):
         """Media profile defaults unknown apps to readonly."""
         readonly = infer_container_access('unknown-app', 'media')
-        assert readonly == True
+        assert readonly is True
 
     def test_appdata_profile_readwrite_default(self):
         """Appdata profile defaults unknown apps to readwrite."""
         readonly = infer_container_access('unknown-app', 'appdata')
-        assert readonly == False
+        assert readonly is False
 
     def test_dev_profile_readwrite_default(self):
         """Dev profile defaults unknown apps to readwrite."""
         readonly = infer_container_access('unknown-app', 'dev')
-        assert readonly == False
+        assert readonly is False
 
     def test_downloads_profile_readwrite_default(self):
         """Downloads profile defaults unknown apps to readwrite."""
         readonly = infer_container_access('unknown-app', 'downloads')
-        assert readonly == False
+        assert readonly is False
 
     def test_photos_profile_readonly_default(self):
         """Photos profile defaults unknown apps to readonly."""
         readonly = infer_container_access('unknown-app', 'photos')
-        assert readonly == True
+        assert readonly is True
 
     def test_unknown_profile_conservative_default(self):
         """Unknown profile defaults to conservative readonly."""
         readonly = infer_container_access('unknown-app', 'weird-profile')
-        assert readonly == True
+        assert readonly is True
 
 
 class TestFuzzyMatching:
@@ -161,7 +159,7 @@ class TestFuzzyMatching:
         
         for variant in variants:
             readonly = infer_container_access(variant, 'appdata')
-            assert readonly == True, f"{variant} should be readonly"
+            assert readonly is True, f"{variant} should be readonly"
 
     def test_radarr_variants_readwrite(self):
         """Radarr variants should be detected as readwrite."""
@@ -174,7 +172,7 @@ class TestFuzzyMatching:
         
         for variant in variants:
             readonly = infer_container_access(variant, 'media')
-            assert readonly == False, f"{variant} should be readwrite"
+            assert readonly is False, f"{variant} should be readwrite"
 
 
 class TestMixedAccessValidation:
@@ -294,10 +292,10 @@ class TestRealWorldScenarios:
         
         # Check individual container permissions
         containers = {c['name']: c.get('readonly', False) for c in processed['containers']}
-        assert containers['jellyfin'] == True      # Known readonly
-        assert containers['radarr'] == False      # Known readwrite
-        assert containers['sonarr'] == False      # Known readwrite  
-        assert containers['custom-indexer'] == True  # Unknown + media profile
+        assert containers['jellyfin'] is True      # Known readonly
+        assert containers['radarr'] is False      # Known readwrite
+        assert containers['sonarr'] is False      # Known readwrite  
+        assert containers['custom-indexer'] is True  # Unknown + media profile
         
         # SMB should be writable (has readwrite containers)
         assert processed['shares']['smb']['writable'] == 'yes'
@@ -334,4 +332,4 @@ class TestRealWorldScenarios:
         
         # Backup profile should default to readonly
         for container in processed['containers']:
-            assert container['readonly'] == True
+            assert container['readonly'] is True

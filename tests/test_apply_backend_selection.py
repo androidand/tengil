@@ -1,5 +1,6 @@
 """Ensure apply pipeline routes OCI specs to OCI backend (mocked)."""
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
 from tengil.services.proxmox.containers.orchestrator import ContainerOrchestrator
 
 

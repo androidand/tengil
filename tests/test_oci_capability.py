@@ -1,5 +1,5 @@
 """Tests for OCI capability detection helper."""
-from tengil.services.oci_capability import detect_oci_support, OciCapability
+from tengil.services.oci_capability import OciCapability, detect_oci_support
 
 
 def test_detect_oci_support_mock():

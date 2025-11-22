@@ -1,0 +1,73 @@
+---
+# Emby OCI Container Package
+# Media server with premium features (alternative to Jellyfin)
+#
+# Usage:
+#   tg apply packages/emby-oci.yml
+
+name: emby
+type: oci
+version: latest
+
+oci:
+  image: emby/embyserver
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: emby
+cores: 4
+memory: 4096
+disk: 16
+
+# Resource pool (optional)
+# pool: media-apps
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: true
+
+# GPU passthrough for hardware transcoding
+gpu:
+  passthrough: true
+  type: intel  # intel, nvidia, amd
+
+# ZFS dataset mounts
+mounts:
+  - source: /tank/media
+    target: /media
+    readonly: true
+
+# Auto-created volumes (by OCI):
+# - /config (persistent settings)
+
+# Environment variables
+environment:
+  - UID=1000
+  - GID=1000
+  - GIDLIST=1000
+
+# Post-deployment:
+# 1. Access web UI: http://<container-ip>:8096
+# 2. Complete initial setup wizard
+# 3. Add media libraries pointing to /media
+# 4. Configure transcoding to use hardware acceleration
+# 5. Optional: Purchase Emby Premiere for premium features
+
+# Verification:
+# - Check GPU access: pct exec <vmid> -- ls -l /dev/dri
+# - Check media mount: pct exec <vmid> -- ls /media
+# - Test transcoding in Settings > Transcoding
+
+# Notes:
+# - Emby Premiere required for mobile apps and some features
+# - More polished UI than Jellyfin but less open source
+# - Better hardware transcoding performance than Plex

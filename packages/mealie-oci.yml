@@ -1,0 +1,88 @@
+---
+# Mealie OCI Container Package
+# Recipe manager with meal planner and shopping lists
+#
+# Usage:
+#   tg apply packages/mealie-oci.yml
+
+name: mealie
+type: oci
+version: latest
+
+oci:
+  image: ghcr.io/mealie-recipes/mealie
+  tag: latest
+  registry: ghcr.io
+
+# Container configuration
+hostname: mealie
+cores: 2
+memory: 1024
+disk: 16
+
+# Resource pool (optional)
+# pool: apps
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Persistent storage
+mounts:
+  - source: /tank/data/mealie
+    target: /app/data
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /app/data (database, images, backups)
+
+# Environment variables
+environment:
+  - ALLOW_SIGNUP=true
+  - PUID=1000
+  - PGID=1000
+  - TZ=UTC
+  - MAX_WORKERS=1
+  - WEB_CONCURRENCY=1
+  - BASE_URL=https://mealie.example.com
+
+# Post-deployment:
+# 1. Access web UI: http://<container-ip>:9000
+# 2. Create admin account (if ALLOW_SIGNUP=true)
+# 3. Disable signups after creating accounts
+# 4. Import recipes from URLs or files
+# 5. Set up meal planning
+# 6. Configure shopping lists
+# 7. Optional: Enable integrations (Home Assistant, etc.)
+
+# Verification:
+# - Check web UI accessibility
+# - Import test recipe from URL
+# - Create meal plan
+# - Generate shopping list
+# - Test recipe search
+
+# Features:
+# - Recipe scraper for websites
+# - Meal planning calendar
+# - Automatic shopping lists by store
+# - Recipe tagging and categories
+# - Multi-user support with groups
+# - API for integrations
+# - Cookbook import/export
+# - Ingredient parsing
+
+# Notes:
+# - Uses SQLite by default (no external database)
+# - Simpler setup than Tandoor
+# - RESTful API for automation
+# - Home Assistant integration available
+# - Active community development

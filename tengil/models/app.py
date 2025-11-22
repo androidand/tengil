@@ -1,7 +1,8 @@
 """App configuration models for git-based app deployment."""
 import re
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
-from typing import List, Optional, Dict, Literal, Any
+from typing import Any, Dict, List, Literal, Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class AppSource(BaseModel):

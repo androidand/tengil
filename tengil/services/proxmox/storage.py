@@ -36,7 +36,7 @@ class StorageManager:
         current_storage = None
 
         try:
-            with open(self.storage_cfg_path, 'r') as f:
+            with open(self.storage_cfg_path) as f:
                 for raw_line in f:
                     line = raw_line.strip()
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Tengil CLI - Declarative infrastructure for Proxmox homelabs."""
+
 import typer
 from rich.console import Console
-from typing import Optional
 
 from tengil.cli_app_commands import register_app_commands
 from tengil.cli_apps_discovery_commands import register_apps_commands

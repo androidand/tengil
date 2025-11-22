@@ -1,7 +1,6 @@
 """Integration tests for ZFSManager with PermissionManager."""
-import pytest
+from tengil.core.permission_manager import AccessLevel, ConsumerType, PermissionManager
 from tengil.core.zfs_manager import ZFSManager
-from tengil.core.permission_manager import PermissionManager, ConsumerType, AccessLevel
 
 
 def test_zfs_creates_dataset_with_permissions():

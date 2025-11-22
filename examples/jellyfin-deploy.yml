@@ -12,9 +12,9 @@ pools:
       media-test:
         profile: media
         zfs:
-          compression: "off"  # Quoted to avoid YAML boolean parsing
+          compression: lz4  # Avoid YAML boolean keywords (off/on)
           recordsize: 1M
-          atime: "off"
+          # Omit atime - let pool default handle it
           sync: standard
       
       # Jellyfin container dataset
@@ -23,7 +23,7 @@ pools:
         zfs:
           compression: lz4
           recordsize: 128K
-          atime: "off"
+          # Omit atime - let pool default handle it
         containers:
           - name: jellyfin-test
             vmid: 502

@@ -1,6 +1,6 @@
 """Integration-style tests for OCIBackend command generation (mocked subprocess)."""
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from tengil.services.proxmox.backends.oci import OCIBackend
 

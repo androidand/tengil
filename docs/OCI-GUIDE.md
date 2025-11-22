@@ -151,15 +151,24 @@ network:
 
 ## App Catalog
 
-Tengil includes 31+ pre-configured applications. View them:
+Tengil includes 31+ pre-configured applications. Browse and search:
 
 ```bash
-# List all apps (future feature)
+# List popular apps (per category)
 tg oci catalog
 
-# Search for apps (future feature)
+# List all apps
+tg oci catalog --all
+
+# List apps in a category
+tg oci catalog --category media
+
+# Search for apps
 tg oci search media
 tg oci search photo
+
+# Show details for an app
+tg oci info jellyfin
 ```
 
 ### Popular Apps
@@ -219,14 +228,31 @@ tg apply -c my-jellyfin.yml
 ```
 
 Available specs:
-- `jellyfin-oci.yml` - Media server with GPU
-- `plex-oci.yml` - Plex media server
-- `photoprism-oci.yml` - AI photo management
-- `vaultwarden-oci.yml` - Password manager
-- `paperless-ngx-oci.yml` - Document management
-- `immich-oci.yml` - Photo backup (multi-container)
-- `nextcloud-oci.yml` - File sync and sharing
-- `homeassistant-oci.yml` - Home automation
+- Media/Photos: `jellyfin-oci.yml`, `plex-oci.yml`, `emby-oci.yml`, `photoprism-oci.yml`, `photoview-oci.yml`, `navidrome-oci.yml`, `audiobookshelf-oci.yml`, `immich-oci.yml`, `librephotos-oci.yml`
+- Files/Docs: `nextcloud-oci.yml`, `seafile-oci.yml`, `filebrowser-oci.yml`, `paperless-ngx-oci.yml`, `calibre-web-oci.yml`, `bookstack-oci.yml`, `wikijs-oci.yml`
+- Automation/Network: `homeassistant-oci.yml`, `mosquitto-oci.yml`, `zigbee2mqtt-oci.yml`, `nginx-oci.yml`, `traefik-oci.yml`, `adguardhome-oci.yml`
+- Monitoring/Ops: `portainer-oci.yml`, `prometheus-oci.yml`, `grafana-oci.yml`, `uptimekuma-oci.yml`
+- Security/RSS/Recipes: `vaultwarden-oci.yml`, `passbolt-oci.yml`, `freshrss-oci.yml`, `miniflux-oci.yml`, `tandoor-oci.yml`, `mealie-oci.yml`
+
+## Cache Cleanup
+
+Remove cached OCI templates when you need space:
+
+```bash
+# Remove a specific image/tag
+tg oci remove alpine:latest
+
+# Remove a pattern (wildcards supported)
+tg oci remove alpine:*
+
+# Prune all unused templates (keeps templates referenced by containers)
+tg oci prune --dry-run   # show what would be removed
+tg oci prune             # delete after confirmation
+```
+
+Safety checks:
+- Refuses to delete templates referenced by existing containers
+- Shows total size to be freed and prompts unless `--force` is set
 
 ## Registry Authentication
 

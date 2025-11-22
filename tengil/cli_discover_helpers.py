@@ -148,9 +148,9 @@ notes: |
         version_file.write_text(version_content)
 
         console.print(f"\n[green]✓ Saved to: {cache_dir}/[/green]")
-        console.print(f"[dim]  - docker-compose.yml[/dim]")
-        console.print(f"[dim]  - version.txt[/dim]")
-        console.print(f"\n[yellow]⚠ Review the generated compose and add README.md with notes[/yellow]")
+        console.print("[dim]  - docker-compose.yml[/dim]")
+        console.print("[dim]  - version.txt[/dim]")
+        console.print("\n[yellow]⚠ Review the generated compose and add README.md with notes[/yellow]")
 
 
 def show_docker_overview(discovery: Any, console: Console) -> None:

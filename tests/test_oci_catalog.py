@@ -1,5 +1,5 @@
 """Tests for static OCI catalog helpers."""
-from tengil.services.oci_registry import OciRegistryCatalog, OciApp
+from tengil.services.oci_registry import OciApp, OciRegistryCatalog
 
 
 def test_list_registries():

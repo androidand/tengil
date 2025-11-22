@@ -56,6 +56,8 @@ skip-string-normalization = false
 # Match Black's formatting philosophy, handle lint and style.
 line-length = 100
 fix = true
+
+[tool.ruff.lint]
 select = [
   "E",   # pycodestyle errors
   "F",   # pyflakes

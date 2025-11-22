@@ -7,11 +7,12 @@ DEPRECATED: Import from tengil.services.proxmox.containers instead:
     from tengil.services.proxmox.containers import ContainerManager
 """
 import warnings
+
 from .containers import (
+    ContainerDiscovery,
+    ContainerLifecycle,
     ContainerManager,
     ContainerOrchestrator,
-    ContainerLifecycle,
-    ContainerDiscovery,
     MountManager,
     TemplateManager,
 )

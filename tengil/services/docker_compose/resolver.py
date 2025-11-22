@@ -7,11 +7,12 @@ This module implements the pragmatic resolution chain:
 Each strategy tries to provide a working docker-compose.yml, with fallback
 to the next strategy on failure. Tengil always gets something runnable.
 """
-from pathlib import Path
-from typing import Dict, Any, Optional
-import yaml
-import requests
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+import requests
+import yaml
 
 from tengil.core.logger import get_logger
 

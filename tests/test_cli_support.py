@@ -1,20 +1,19 @@
 """Tests for CLI support utilities."""
-import os
+from unittest.mock import Mock, patch
+
 import pytest
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
 from rich.console import Console
 
 from tengil.cli_support import (
-    find_config,
-    is_mock,
     confirm_action,
-    resolve_container,
+    find_config,
     get_container_orchestrator,
-    print_success,
+    is_mock,
     print_error,
-    print_warning,
     print_info,
+    print_success,
+    print_warning,
+    resolve_container,
 )
 
 

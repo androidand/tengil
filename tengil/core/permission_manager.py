@@ -26,8 +26,7 @@ Tengil generates all the necessary permissions automatically.
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Dict, Optional, Tuple, Any
-from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 from tengil.core.logger import get_logger
 

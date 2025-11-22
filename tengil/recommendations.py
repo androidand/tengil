@@ -5,9 +5,7 @@ Provides suggestions for LXC containers that work well with specific
 storage profiles and use cases.
 """
 
-from typing import Dict, List, Tuple, Optional
 from rich.console import Console
-
 
 # Container recommendations by dataset type
 RECOMMENDATIONS = {
@@ -128,12 +126,12 @@ def show_dataset_recommendations(dataset_type: str, console: Console) -> bool:
         console.print(f"  [bold]{name:20s}[/bold] {desc}")
     
     if 'supporting' in rec:
-        console.print(f"\n[cyan]Supporting tools:[/cyan]")
+        console.print("\n[cyan]Supporting tools:[/cyan]")
         for name, desc in rec['supporting']:
             console.print(f"  [bold]{name:20s}[/bold] {desc}")
     
-    console.print(f"\n[dim]Install with Proxmox:[/dim]")
+    console.print("\n[dim]Install with Proxmox:[/dim]")
     console.print(f"  pct create <vmid> <template> --hostname {rec['containers'][0][0]}")
-    console.print(f"\n[dim]Or use Proxmox web UI: Create CT → Select template[/dim]")
+    console.print("\n[dim]Or use Proxmox web UI: Create CT → Select template[/dim]")
     
     return True

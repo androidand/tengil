@@ -29,7 +29,7 @@ class SMBManager:
         current_share = None
 
         try:
-            with open(self.smb_conf_path, 'r') as f:
+            with open(self.smb_conf_path) as f:
                 for line in f:
                     line = line.strip()
 
@@ -69,7 +69,7 @@ class SMBManager:
 
             # Read existing configuration
             if self.smb_conf_path.exists():
-                with open(self.smb_conf_path, 'r') as f:
+                with open(self.smb_conf_path) as f:
                     lines = f.readlines()
             else:
                 lines = self._get_default_smb_global()
@@ -182,7 +182,7 @@ class SMBManager:
             if not self.smb_conf_path.exists():
                 return True
 
-            with open(self.smb_conf_path, 'r') as f:
+            with open(self.smb_conf_path) as f:
                 lines = f.readlines()
 
             # Find and remove share

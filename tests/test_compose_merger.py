@@ -4,7 +4,7 @@ Tests for Docker Compose opinion merger.
 
 import pytest
 
-from tengil.services.docker_compose.analyzer import ComposeRequirements, VolumeMount
+from tengil.services.docker_compose.analyzer import ComposeRequirements
 from tengil.services.docker_compose.merger import OpinionMerger
 
 

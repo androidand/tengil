@@ -1,5 +1,4 @@
 """Tests for Phase 1 Task 3: Mount existing containers."""
-import pytest
 from tengil.services.proxmox.manager import ProxmoxManager
 
 

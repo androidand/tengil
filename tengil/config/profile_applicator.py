@@ -3,7 +3,7 @@
 Applies predefined ZFS property profiles to datasets and handles nested
 dataset expansion for hierarchical paths.
 """
-from typing import Dict, Any
+from typing import Any, Dict
 
 from tengil.config.profiles import PROFILES
 

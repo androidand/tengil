@@ -8,8 +8,8 @@ from rich.console import Console
 
 from tengil.cli_container_resolution import ContainerResolutionError, resolve_container_target
 from tengil.cli_support import is_mock
-from tengil.services.proxmox.containers import ContainerOrchestrator
 from tengil.services.proxmox.backends.lxc import LXCBackend
+from tengil.services.proxmox.containers import ContainerOrchestrator
 from tengil.services.proxmox.containers.lifecycle import ContainerLifecycle
 
 ContainerTyper = typer.Typer(help="Interact with Proxmox containers")
@@ -81,7 +81,7 @@ def register_container_commands(root: typer.Typer, console: Console) -> None:
         config: Optional[str] = typer.Option(None, "--config", "-c", help="Explicit Tengil config for dataset resolution."),
     ) -> None:
         """Start a stopped container."""
-        from tengil.cli_support import print_success, print_error
+        from tengil.cli_support import print_error, print_success
 
         try:
             resolved = resolve_container_target(target, config_path=config)
@@ -106,7 +106,7 @@ def register_container_commands(root: typer.Typer, console: Console) -> None:
         config: Optional[str] = typer.Option(None, "--config", "-c", help="Explicit Tengil config for dataset resolution."),
     ) -> None:
         """Stop a running container."""
-        from tengil.cli_support import print_success, print_error
+        from tengil.cli_support import print_error, print_success
 
         try:
             resolved = resolve_container_target(target, config_path=config)
@@ -131,7 +131,7 @@ def register_container_commands(root: typer.Typer, console: Console) -> None:
         config: Optional[str] = typer.Option(None, "--config", "-c", help="Explicit Tengil config for dataset resolution."),
     ) -> None:
         """Restart a container."""
-        from tengil.cli_support import print_success, print_error
+        from tengil.cli_support import print_error, print_success
 
         try:
             resolved = resolve_container_target(target, config_path=config)
@@ -161,7 +161,7 @@ def register_container_commands(root: typer.Typer, console: Console) -> None:
         By default, runs both apt update and apt upgrade.
         Use --no-upgrade to only update package lists without upgrading.
         """
-        from tengil.cli_support import print_success, print_error
+        from tengil.cli_support import print_error, print_success
 
         try:
             resolved = resolve_container_target(target, config_path=config)
@@ -195,7 +195,7 @@ def register_container_commands(root: typer.Typer, console: Console) -> None:
         env: List[str] = typer.Option(None, "--env", "-e", help="Environment variable (KEY=VALUE).", metavar="KEY=VALUE"),
     ) -> None:
         """Launch a simple container with optional env vars (one-shot create)."""
-        from tengil.cli_support import print_success, print_error
+        from tengil.cli_support import print_error, print_success
 
         env_dict: Dict[str, str] = {}
         for item in env or []:
@@ -245,7 +245,7 @@ def register_container_commands(root: typer.Typer, console: Console) -> None:
         config: Optional[str] = typer.Option(None, "--config", "-c", help="Explicit Tengil config for dataset resolution."),
     ) -> None:
         """Set persistent environment variables on a container (uses pct set --env)."""
-        from tengil.cli_support import print_success, print_error
+        from tengil.cli_support import print_error, print_success
 
         try:
             resolved = resolve_container_target(target, config_path=config)

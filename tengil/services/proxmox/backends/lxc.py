@@ -1,8 +1,9 @@
 """LXC container backend (traditional templates)."""
 import subprocess
 from typing import Dict, Optional
+
 from rich.console import Console
-from rich.status import Status
+
 from .base import ContainerBackend
 
 console = Console()
@@ -122,7 +123,7 @@ class LXCBackend(ContainerBackend):
             
         except subprocess.CalledProcessError as e:
             # pct create sometimes emits non-zero even when the container exists (e.g. ZFS mount race)
-            console.print(f"[yellow]![/yellow] pct create returned error, verifying result...")
+            console.print("[yellow]![/yellow] pct create returned error, verifying result...")
             if self._container_exists(vmid):
                 console.print(f"[yellow]✓[/yellow] Container {vmid} appears created despite error")
                 return vmid

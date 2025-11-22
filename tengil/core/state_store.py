@@ -1,10 +1,11 @@
 """State persistence for tracking changes."""
-import os
-import json
 import hashlib
-from pathlib import Path
+import json
+import os
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
+
 from tengil.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -53,10 +54,10 @@ class StateStore:
             return state
         
         try:
-            with open(self.state_file, 'r') as f:
+            with open(self.state_file) as f:
                 state = json.load(f)
                 logger.debug(f"Loaded state from {self.state_file}")
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             logger.warning(f"Failed to load state file: {e}, using empty state")
             state = self._empty_state()
             state["config_fingerprint"] = self._config_fingerprint()
@@ -126,7 +127,7 @@ class StateStore:
             logger.debug(f"Saved state to {self.state_file}")
             return True
             
-        except (IOError, OSError) as e:
+        except OSError as e:
             logger.error(f"Failed to save state: {e}")
             return False
     
@@ -491,7 +492,7 @@ class StateStore:
         path = latest.get("path")
         if path and Path(path).exists():
             try:
-                with open(path, "r") as handle:
+                with open(path) as handle:
                     return json.load(handle)
             except (OSError, json.JSONDecodeError) as exc:  # pragma: no cover - defensive
                 logger.warning("Failed to load reality snapshot from %s: %s", path, exc)
@@ -511,5 +512,5 @@ class StateStore:
                 return ""
             data = Path(self.config_path).read_bytes()
             return hashlib.sha256(data).hexdigest()
-        except (OSError, IOError):  # pragma: no cover - defensive
+        except OSError:  # pragma: no cover - defensive
             return ""

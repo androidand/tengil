@@ -5,7 +5,7 @@ Takes extracted compose requirements and merges them with Tengil's
 storage optimization opinions to generate tengil.yml configuration.
 """
 
-from typing import Dict, List, Optional
+from typing import Optional
 
 from .analyzer import ComposeRequirements
 

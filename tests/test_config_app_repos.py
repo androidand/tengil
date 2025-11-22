@@ -1,7 +1,7 @@
 """Tests for parsing app repository specs from Tengil config."""
 
-from pathlib import Path
 import textwrap
+from pathlib import Path
 
 import pytest
 

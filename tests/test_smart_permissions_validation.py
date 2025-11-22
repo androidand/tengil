@@ -1,10 +1,8 @@
 """Tests for smart permission validation and warnings system."""
 
-import pytest
 from tengil.core.smart_permissions import (
-    validate_permissions,
     detect_permission_issues,
-    SmartPermissionEvent,
+    validate_permissions,
 )
 
 

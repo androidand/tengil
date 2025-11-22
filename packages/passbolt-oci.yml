@@ -1,0 +1,90 @@
+---
+# Passbolt OCI Container Package
+# Open source password manager for teams
+#
+# Usage:
+#   tg apply packages/passbolt-oci.yml
+
+name: passbolt
+type: oci
+version: latest
+
+oci:
+  image: passbolt/passbolt
+  tag: latest-ce
+  registry: docker.io
+
+# Container configuration
+hostname: passbolt
+cores: 2
+memory: 1024
+disk: 16
+
+# Resource pool (optional)
+# pool: apps
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Persistent storage
+mounts:
+  - source: /tank/config/passbolt/gpg
+    target: /etc/passbolt/gpg
+    readonly: false
+  - source: /tank/config/passbolt/jwt
+    target: /etc/passbolt/jwt
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /etc/passbolt (configuration and keys)
+
+# Environment variables
+environment:
+  - DATASOURCES_DEFAULT_HOST=mariadb
+  - DATASOURCES_DEFAULT_USERNAME=passbolt
+  - DATASOURCES_DEFAULT_PASSWORD=password
+  - DATASOURCES_DEFAULT_DATABASE=passbolt
+  - APP_FULL_BASE_URL=https://passbolt.example.com
+  - EMAIL_TRANSPORT_DEFAULT_HOST=smtp.example.com
+  - EMAIL_TRANSPORT_DEFAULT_PORT=587
+  - EMAIL_TRANSPORT_DEFAULT_USERNAME=
+  - EMAIL_TRANSPORT_DEFAULT_PASSWORD=
+  - EMAIL_DEFAULT_FROM=passbolt@example.com
+
+# Post-deployment:
+# 1. Deploy MariaDB container first:
+#    tg apply packages/mariadb-oci.yml
+# 2. Create passbolt database
+# 3. Access web UI: https://<container-ip>:443
+# 4. Complete initial setup
+# 5. Create first admin user
+# 6. Install browser extension:
+#    - Chrome/Edge: Passbolt extension
+#    - Firefox: Passbolt extension
+# 7. Configure email server for notifications
+# 8. Set up HTTPS with reverse proxy (required for production)
+
+# Verification:
+# - Check web UI accessibility
+# - Test database connection
+# - Install browser extension
+# - Create test password
+# - Test sharing with team member
+
+# Notes:
+# - Requires MariaDB/MySQL
+# - End-to-end encryption with PGP
+# - Browser extension required for full functionality
+# - Email server required for user invitations
+# - HTTPS required for production use
+# - Supports LDAP/AD integration (Pro version)
+# - Mobile apps available (Pro version)

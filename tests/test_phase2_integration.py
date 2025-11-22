@@ -1,22 +1,21 @@
 """Phase 2 Integration Tests - Container Creation in Apply Workflow."""
-import os
-import json
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
+
 import pytest
 import yaml
+from rich.console import Console
 
 from tengil.config.loader import ConfigLoader
-from tengil.core.zfs_manager import ZFSManager
-from tengil.core.state_store import StateStore
+from tengil.core.applicator import ChangeApplicator
 from tengil.core.diff_engine import DiffEngine
 from tengil.core.orchestrator import PoolOrchestrator
-from tengil.services.proxmox.containers import ContainerOrchestrator
-from tengil.core.applicator import ChangeApplicator
-from tengil.services.proxmox import ProxmoxManager
+from tengil.core.state_store import StateStore
+from tengil.core.zfs_manager import ZFSManager
 from tengil.services.nas import NASManager
-from rich.console import Console
+from tengil.services.proxmox import ProxmoxManager
+from tengil.services.proxmox.containers import ContainerOrchestrator
 
 
 @pytest.fixture
@@ -143,7 +142,7 @@ def mock_mixed_container_config(temp_dir):
 def test_diff_detects_new_containers(mock_container_config):
     """Diff engine should detect containers that need creation."""
     loader = ConfigLoader(str(mock_container_config))
-    config = loader.load()
+    _ = loader.load()
     
     orchestrator = PoolOrchestrator(loader, ZFSManager(mock=True))
     all_desired, all_current = orchestrator.flatten_pools()
@@ -171,7 +170,7 @@ def test_diff_detects_new_containers(mock_container_config):
 def test_diff_detects_existing_containers(mock_existing_container_config):
     """Diff engine should detect existing containers (mount only)."""
     loader = ConfigLoader(str(mock_existing_container_config))
-    config = loader.load()
+    _ = loader.load()
     
     orchestrator = PoolOrchestrator(loader, ZFSManager(mock=True))
     all_desired, all_current = orchestrator.flatten_pools()
@@ -191,7 +190,7 @@ def test_diff_detects_existing_containers(mock_existing_container_config):
 def test_diff_mixed_containers(mock_mixed_container_config):
     """Diff engine should handle mix of new and existing containers."""
     loader = ConfigLoader(str(mock_mixed_container_config))
-    config = loader.load()
+    _ = loader.load()
     
     orchestrator = PoolOrchestrator(loader, ZFSManager(mock=True))
     all_desired, all_current = orchestrator.flatten_pools()
@@ -212,7 +211,7 @@ def test_diff_mixed_containers(mock_mixed_container_config):
 def test_diff_format_includes_containers(mock_container_config):
     """Diff plan output should include container section."""
     loader = ConfigLoader(str(mock_container_config))
-    config = loader.load()
+    _ = loader.load()
     
     orchestrator = PoolOrchestrator(loader, ZFSManager(mock=True))
     all_desired, all_current = orchestrator.flatten_pools()
@@ -291,7 +290,7 @@ def test_diff_skips_mount_when_already_configured():
 def test_apply_creates_containers(mock_container_config, state_store):
     """Apply should create containers when auto_create=true."""
     loader = ConfigLoader(str(mock_container_config))
-    config = loader.load()
+    _ = loader.load()
     
     orchestrator = PoolOrchestrator(loader, ZFSManager(mock=True, state_store=state_store))
     all_desired, all_current = orchestrator.flatten_pools()
@@ -321,7 +320,7 @@ def test_apply_creates_containers(mock_container_config, state_store):
 def test_apply_mounts_existing_containers(mock_existing_container_config, state_store):
     """Apply should only mount to existing containers (not create)."""
     loader = ConfigLoader(str(mock_existing_container_config))
-    config = loader.load()
+    _ = loader.load()
     
     orchestrator = PoolOrchestrator(loader, ZFSManager(mock=True, state_store=state_store))
     all_desired, all_current = orchestrator.flatten_pools()
@@ -349,7 +348,7 @@ def test_apply_mounts_existing_containers(mock_existing_container_config, state_
 def test_apply_mixed_containers(mock_mixed_container_config, state_store):
     """Apply should handle mix of creation and mounting."""
     loader = ConfigLoader(str(mock_mixed_container_config))
-    config = loader.load()
+    _ = loader.load()
     
     orchestrator = PoolOrchestrator(loader, ZFSManager(mock=True, state_store=state_store))
     all_desired, all_current = orchestrator.flatten_pools()
@@ -497,7 +496,7 @@ def test_apply_continues_on_container_failure(temp_dir, state_store):
         yaml.dump(config, f)
     
     loader = ConfigLoader(str(config_path))
-    config = loader.load()
+    _ = loader.load()
     
     orchestrator = PoolOrchestrator(loader, ZFSManager(mock=True, state_store=state_store))
     all_desired, all_current = orchestrator.flatten_pools()

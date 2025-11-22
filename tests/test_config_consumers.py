@@ -1,7 +1,9 @@
 """Tests for consumers config parsing."""
-import pytest
 import tempfile
 from pathlib import Path
+
+import pytest
+
 from tengil.config.loader import ConfigLoader
 from tengil.models.config import ConfigValidationError
 

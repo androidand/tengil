@@ -1,7 +1,6 @@
 """Integration tests for NASManager with PermissionManager."""
-import pytest
+from tengil.core.permission_manager import AccessLevel, ConsumerType, PermissionManager
 from tengil.services.nas.manager import NASManager
-from tengil.core.permission_manager import PermissionManager, ConsumerType, AccessLevel
 
 
 def test_nas_manager_uses_permission_config():

@@ -1,9 +1,10 @@
 """Tests for concurrent access locking."""
 import os
-import pytest
 import time
 
-from tengil.core.lock import TengilLock, LockError, apply_lock, check_lock_status
+import pytest
+
+from tengil.core.lock import LockError, TengilLock, apply_lock, check_lock_status
 
 
 class TestTengilLock:
@@ -177,9 +178,9 @@ class TestCheckLockStatus:
         lock_file = tmp_path / "apply.lock"
 
         # Create lock file without holding lock
-        lock_file.write_text(f"12345\n2025-01-01 00:00:00\n")
+        lock_file.write_text("12345\n2025-01-01 00:00:00\n")
 
         # Should recognize as stale since we can acquire lock
-        status = check_lock_status(lock_file=lock_file)
+        _ = check_lock_status(lock_file=lock_file)
         # On some systems, the lock might not be held
         # This test may be flaky, focusing on the main use case

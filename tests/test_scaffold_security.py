@@ -1,9 +1,9 @@
 """Security-focused tests for scaffold functionality."""
 
-import pytest
 import tempfile
-import os
 from pathlib import Path
+
+import pytest
 
 from tengil.scaffold.core import ScaffoldManager
 

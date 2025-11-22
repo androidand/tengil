@@ -1,0 +1,79 @@
+---
+# Redis OCI Container Package
+# In-memory data structure store (cache, sessions, queues)
+#
+# Usage:
+#   tg apply packages/redis-oci.yml
+
+name: redis
+type: oci
+version: alpine
+
+oci:
+  image: redis
+  tag: alpine
+  registry: docker.io
+
+# Container configuration
+hostname: redis
+cores: 1
+memory: 512
+disk: 8
+
+# Resource pool (optional)
+# pool: databases
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Persistent storage (optional - Redis is in-memory)
+mounts:
+  - source: /tank/databases/redis
+    target: /data
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /data (optional persistence with AOF or RDB)
+
+# Environment variables
+environment:
+  - REDIS_ARGS=--appendonly yes
+
+# Post-deployment:
+# 1. Test connection:
+#    pct exec <vmid> -- redis-cli ping
+# 2. Configure apps to use redis:<container-ip>:6379
+# 3. Optional: Enable persistence in redis.conf
+# 4. Optional: Set password with requirepass
+
+# Verification:
+# - Test connection: pct exec <vmid> -- redis-cli ping
+# - Check info: pct exec <vmid> -- redis-cli info
+# - Test set/get: pct exec <vmid> -- redis-cli SET test "hello"
+# - Verify mount: pct exec <vmid> -- ls -la /data
+
+# Apps that use Redis:
+# - Nextcloud (caching), LibrePhotos (queue), many web apps
+
+# Common use cases:
+# - Session storage
+# - Application caching
+# - Message queues
+# - Rate limiting
+# - Leaderboards
+
+# Notes:
+# - Alpine-based for minimal size
+# - In-memory by default (data lost on restart)
+# - Enable AOF or RDB for persistence
+# - Consider password protection for production
+# - Very lightweight and fast

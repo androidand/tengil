@@ -1,15 +1,16 @@
 """High-level container orchestration (combines lifecycle, mounts, discovery)."""
 import subprocess
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional, Tuple
 
 from tengil.core.logger import get_logger
+from tengil.services.post_install import PostInstallManager
+from tengil.services.proxmox.backends.lxc import LXCBackend
+from tengil.services.proxmox.backends.oci import OCIBackend
+
+from .discovery import ContainerDiscovery
 from .lifecycle import ContainerLifecycle
 from .mounts import MountManager
-from .discovery import ContainerDiscovery
 from .templates import TemplateManager
-from tengil.services.post_install import PostInstallManager
-from tengil.services.proxmox.backends.oci import OCIBackend
-from tengil.services.proxmox.backends.lxc import LXCBackend
 
 logger = get_logger(__name__)
 
@@ -361,7 +362,7 @@ class ContainerOrchestrator:
                 if not self.discovery.container_exists(vmid):
                     msg = f"Container {vmid} not found"
                     logger.warning(f"{msg} - skipping mount")
-                    logger.info(f"  Create the container first, then re-run 'tg apply'")
+                    logger.info("  Create the container first, then re-run 'tg apply'")
                     results.append((vmid, False, msg))
                     continue
                 # Get name for logging
@@ -383,7 +384,7 @@ class ContainerOrchestrator:
                 if not vmid:
                     msg = f"Container '{container_name}' not found"
                     logger.warning(f"{msg} - skipping mount")
-                    logger.info(f"  Create the container first, then re-run 'tg apply'")
+                    logger.info("  Create the container first, then re-run 'tg apply'")
                     results.append((0, False, msg))
                     continue
 

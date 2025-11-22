@@ -1,7 +1,8 @@
 """Test rpool safety checks."""
-import pytest
 import tempfile
 from pathlib import Path
+
+import pytest
 import yaml
 
 from tengil.config.loader import ConfigLoader

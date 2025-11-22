@@ -4,7 +4,7 @@ Handles SMB (Samba) and NFS share configurations, including
 format migrations and validation.
 """
 import warnings
-from typing import Any, List, Dict
+from typing import Any
 
 from tengil.models.config import ConfigValidationError
 

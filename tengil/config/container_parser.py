@@ -4,7 +4,7 @@ Handles container mount specifications, format migrations, and validation
 for container definitions in dataset configurations.
 """
 import warnings
-from typing import Dict, Any, List, Set, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from tengil.core.smart_permissions import _match_known_container
 from tengil.models.config import ConfigValidationError

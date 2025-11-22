@@ -3,9 +3,9 @@
 This module provides safeguards against destructive operations and ensures
 Tengil never accidentally destroys user data.
 """
-from typing import List
-from pathlib import Path
 import subprocess
+from typing import List
+
 from rich.console import Console
 
 from tengil.core.logger import get_logger
@@ -65,10 +65,10 @@ class SafetyGuard:
         Returns:
             True if user confirms, False otherwise
         """
-        console.print(f"\n[yellow]⚠️  SAFETY CHECK[/yellow]")
+        console.print("\n[yellow]⚠️  SAFETY CHECK[/yellow]")
         console.print(f"[cyan]Operation:[/cyan] {operation}")
         console.print(f"[cyan]Resource:[/cyan] {resource}")
-        console.print(f"\n[yellow]This will make changes to your system.[/yellow]")
+        console.print("\n[yellow]This will make changes to your system.[/yellow]")
         response = input("Continue? [y/N]: ").lower().strip()
         
         return response == 'y'

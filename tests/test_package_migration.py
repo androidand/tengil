@@ -1,6 +1,7 @@
 """Tests for modernized packages using docker_compose integration."""
-import pytest
 from pathlib import Path
+
+import pytest
 
 from tengil.core.package_loader import PackageLoader
 

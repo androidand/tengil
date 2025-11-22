@@ -9,10 +9,11 @@ This module handles the final step of the apply workflow:
 
 Works with Proxmox LXC containers that have Docker installed.
 """
-from pathlib import Path
-from typing import Dict, Any, Optional
-import yaml
 import tempfile
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+import yaml
 
 from tengil.core.logger import get_logger
 

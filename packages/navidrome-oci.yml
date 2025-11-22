@@ -1,0 +1,74 @@
+---
+# Navidrome OCI Container Package
+# Modern music server and streamer compatible with Subsonic/Airsonic
+#
+# Usage:
+#   tg apply packages/navidrome-oci.yml
+
+name: navidrome
+type: oci
+version: latest
+
+oci:
+  image: deluan/navidrome
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: navidrome
+cores: 2
+memory: 1024
+disk: 8
+
+# Resource pool (optional)
+# pool: media-apps
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# ZFS dataset mounts
+mounts:
+  - source: /tank/media/music
+    target: /music
+    readonly: true
+  - source: /tank/config/navidrome
+    target: /data
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /data (database and cache)
+
+# Environment variables
+environment:
+  - ND_SCANSCHEDULE=1h
+  - ND_LOGLEVEL=info
+  - ND_BASEURL=
+
+# Post-deployment:
+# 1. Access web UI: http://<container-ip>:4533
+# 2. Create admin account on first login
+# 3. Wait for initial music library scan
+# 4. Configure Subsonic-compatible mobile apps:
+#    - iOS: play:Sub, Amperfy
+#    - Android: Symfonium, Subtracks, DSub
+
+# Verification:
+# - Check web UI accessibility
+# - Verify music mount: pct exec <vmid> -- ls /music
+# - Monitor scan progress in UI
+# - Test playback and mobile app connectivity
+
+# Notes:
+# - Lightweight and fast (written in Go)
+# - Compatible with Subsonic API clients
+# - Supports transcoding, playlists, smart playlists
+# - No hardware transcoding needed for music

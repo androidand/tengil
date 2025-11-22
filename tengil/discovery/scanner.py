@@ -1,6 +1,6 @@
 """System hardware and ZFS pool scanner."""
-import subprocess
 import json
+import subprocess
 from typing import List, Tuple
 
 from tengil.models.disk import DiskType, PhysicalDisk

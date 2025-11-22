@@ -1,8 +1,7 @@
 """Integration tests for scaffold functionality."""
 
-import pytest
-import tempfile
 import json
+import tempfile
 from pathlib import Path
 
 from tengil.scaffold.core import ScaffoldManager

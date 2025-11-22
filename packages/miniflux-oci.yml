@@ -1,0 +1,73 @@
+---
+# Miniflux OCI Container Package
+# Minimalist RSS reader with focus on simplicity
+#
+# Usage:
+#   tg apply packages/miniflux-oci.yml
+
+name: miniflux
+type: oci
+version: latest
+
+oci:
+  image: miniflux/miniflux
+  tag: latest
+  registry: docker.io
+
+# Container configuration
+hostname: miniflux
+cores: 1
+memory: 512
+disk: 8
+
+# Resource pool (optional)
+# pool: apps
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Environment variables (PostgreSQL required)
+environment:
+  - DATABASE_URL=postgres://miniflux:secret@postgres:5432/miniflux?sslmode=disable
+  - RUN_MIGRATIONS=1
+  - CREATE_ADMIN=1
+  - ADMIN_USERNAME=admin
+  - ADMIN_PASSWORD=changeme
+
+# Auto-created volumes (by OCI):
+# None - uses PostgreSQL database
+
+# Post-deployment:
+# 1. Deploy PostgreSQL container first:
+#    tg apply packages/postgres-oci.yml
+# 2. Create miniflux database:
+#    pct exec <postgres-vmid> -- psql -U postgres -c "CREATE DATABASE miniflux;"
+#    pct exec <postgres-vmid> -- psql -U postgres -c "CREATE USER miniflux WITH PASSWORD 'secret';"
+#    pct exec <postgres-vmid> -- psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE miniflux TO miniflux;"
+# 3. Update DATABASE_URL above with correct credentials
+# 4. Access web UI: http://<container-ip>:8080
+# 5. Login with admin credentials
+# 6. Change admin password immediately
+
+# Verification:
+# - Check web UI accessibility
+# - Test database connection
+# - Add RSS feed subscriptions
+# - Test feed updates
+
+# Notes:
+# - Written in Go - extremely fast and lightweight
+# - Requires PostgreSQL (cannot use SQLite)
+# - Minimalist UI focused on reading experience
+# - API compatible with Fever protocol
+# - Supports keyboard shortcuts
+# - Built-in reader mode for articles

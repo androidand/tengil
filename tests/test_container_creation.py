@@ -1,5 +1,4 @@
 """Tests for Phase 2 Task 4: Container creation."""
-import pytest
 from types import SimpleNamespace
 
 from tengil.services.proxmox.containers.lifecycle import ContainerLifecycle

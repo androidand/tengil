@@ -1,7 +1,7 @@
 """Diff engine for comparing desired vs actual state."""
-from typing import Dict, List, Tuple, Optional, Any
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
 
 from tengil.core.logger import get_logger
 

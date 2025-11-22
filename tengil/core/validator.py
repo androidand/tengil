@@ -1,5 +1,6 @@
 """Configuration validation."""
-from typing import Dict, List, Any
+from typing import Any, Dict, List
+
 from tengil.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -85,7 +86,7 @@ class ConfigValidator:
             return
         
         valid_protocols = ['smb', 'nfs']
-        for protocol in shares.keys():
+        for protocol in shares:
             if protocol not in valid_protocols:
                 self.warnings.append(
                     f"Dataset '{dataset}': unknown share protocol '{protocol}'"

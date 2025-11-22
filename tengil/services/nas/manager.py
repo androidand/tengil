@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import Dict
 
 from tengil.core.logger import get_logger
-from tengil.services.nas.smb import SMBManager
-from tengil.services.nas.nfs import NFSManager
 from tengil.services.nas.acl import ACLManager
+from tengil.services.nas.nfs import NFSManager
+from tengil.services.nas.smb import SMBManager
 
 logger = get_logger(__name__)
 

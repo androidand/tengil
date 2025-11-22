@@ -40,7 +40,7 @@ class NFSManager:
         exports = {}
 
         try:
-            with open(path, 'r') as f:
+            with open(path) as f:
                 for line in f:
                     line = line.strip()
 
@@ -103,7 +103,7 @@ class NFSManager:
                 # Read existing tengil exports
                 existing_exports = []
                 if export_file.exists():
-                    with open(export_file, 'r') as f:
+                    with open(export_file) as f:
                         for line in f:
                             # Skip if it's the same path
                             if not line.strip().startswith(path + ' '):
@@ -121,7 +121,7 @@ class NFSManager:
                 # Fall back to main exports file
                 existing_exports = []
                 if self.nfs_exports_path.exists():
-                    with open(self.nfs_exports_path, 'r') as f:
+                    with open(self.nfs_exports_path) as f:
                         for line in f:
                             # Skip if it's the same path
                             if not line.strip().startswith(path + ' '):
@@ -158,7 +158,7 @@ class NFSManager:
                 export_file = self.exports_d_path / 'tengil.exports'
                 if export_file.exists():
                     lines = []
-                    with open(export_file, 'r') as f:
+                    with open(export_file) as f:
                         for line in f:
                             if not line.strip().startswith(path + ' '):
                                 lines.append(line)
@@ -172,7 +172,7 @@ class NFSManager:
             # Check main exports file
             if self.nfs_exports_path.exists():
                 lines = []
-                with open(self.nfs_exports_path, 'r') as f:
+                with open(self.nfs_exports_path) as f:
                     for line in f:
                         if not line.strip().startswith(path + ' '):
                             lines.append(line)

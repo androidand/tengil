@@ -1,0 +1,84 @@
+---
+# BookStack OCI Container Package
+# Simple, self-hosted wiki platform
+#
+# Usage:
+#   tg apply packages/bookstack-oci.yml
+
+name: bookstack
+type: oci
+version: latest
+
+oci:
+  image: lscr.io/linuxserver/bookstack
+  tag: latest
+  registry: lscr.io
+
+# Container configuration
+hostname: bookstack
+cores: 2
+memory: 1024
+disk: 16
+
+# Resource pool (optional)
+# pool: apps
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Persistent storage
+mounts:
+  - source: /tank/config/bookstack
+    target: /config
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /config (application data, uploads, database)
+
+# Environment variables
+environment:
+  - PUID=1000
+  - PGID=1000
+  - TZ=UTC
+  - APP_URL=http://bookstack.local
+  - DB_HOST=mariadb
+  - DB_PORT=3306
+  - DB_USER=bookstack
+  - DB_PASS=password
+  - DB_DATABASE=bookstack
+
+# Post-deployment:
+# 1. Deploy MariaDB container first:
+#    tg apply packages/mariadb-oci.yml
+# 2. Create bookstack database
+# 3. Access web UI: http://<container-ip>:80
+# 4. Login with default credentials:
+#    Email: admin@admin.com
+#    Password: password
+# 5. Change admin credentials immediately
+# 6. Configure authentication (LDAP, SAML, etc.)
+# 7. Start creating books, chapters, and pages
+
+# Verification:
+# - Check web UI accessibility
+# - Test database connection
+# - Create test book and page
+# - Test search functionality
+# - Verify file uploads work
+
+# Notes:
+# - Organized hierarchically: Books > Chapters > Pages
+# - WYSIWYG and Markdown editors
+# - Supports diagrams with draw.io integration
+# - Multi-language support
+# - Role-based permissions
+# - Revision history for all pages

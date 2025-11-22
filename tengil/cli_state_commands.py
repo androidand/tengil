@@ -9,15 +9,15 @@ from rich.table import Table
 
 from tengil.cli_drift_helpers import analyze_drift
 from tengil.cli_support import is_mock
+from tengil.config.loader import ConfigLoader
 from tengil.core.applicator import ChangeApplicator
 from tengil.core.diff_engine import DiffEngine
-from tengil.core.drift_engine import DriftEngine, DriftSeverity, summarize_drift_report
+from tengil.core.drift_engine import DriftSeverity, summarize_drift_report
 from tengil.core.permission_manager import PermissionManager
 from tengil.core.recovery import RecoveryManager
-from tengil.core.state_store import StateStore
 from tengil.core.resource_validator import ResourceValidator, detect_host_resources
+from tengil.core.state_store import StateStore
 from tengil.core.zfs_manager import ZFSManager
-from tengil.config.loader import ConfigLoader
 from tengil.services.nas import NASManager
 from tengil.services.proxmox import ProxmoxManager
 from tengil.services.proxmox.state_collector import RealityStateCollector
@@ -208,7 +208,7 @@ def _validate_storage_exists(processed_config: Dict[str, Any]) -> List[str]:
             if storage_name not in result.stdout:
                 errors.append(f"Proxmox storage '{storage_name}' does not exist. Add it in Datacenter > Storage or use existing storage.")
         except (subprocess.CalledProcessError, FileNotFoundError):
-            errors.append(f"Failed to validate Proxmox storage (pvesm command not available)")
+            errors.append("Failed to validate Proxmox storage (pvesm command not available)")
     
     return errors
 

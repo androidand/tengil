@@ -18,11 +18,11 @@ from typing import Optional
 import typer
 from rich.console import Console
 
-from tengil.cli_state_commands import register_state_commands
-from tengil.cli_setup_commands import register_setup_commands
-from tengil.cli_recovery_commands import register_recovery_commands
-from tengil.cli_utility_commands import register_utility_commands
 from tengil.cli_package_commands import register_package_commands
+from tengil.cli_recovery_commands import register_recovery_commands
+from tengil.cli_setup_commands import register_setup_commands
+from tengil.cli_state_commands import register_state_commands
+from tengil.cli_utility_commands import register_utility_commands
 from tengil.core.template_loader import TemplateLoader
 
 

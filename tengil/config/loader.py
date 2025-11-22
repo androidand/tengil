@@ -1,23 +1,24 @@
 """YAML configuration loader with profile inheritance."""
-import yaml
 import warnings
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
-from tengil.core.app_repo_spec import AppRepoSpec, AppRepoSpecError, iter_app_repo_specs
+import yaml
+
+from tengil.config.container_parser import ContainerParser
 from tengil.config.desired_state import build_desired_state
+from tengil.config.format_migrator import FormatMigrator
+from tengil.config.profile_applicator import ProfileApplicator
+from tengil.config.profiles import PROFILES
+from tengil.config.share_parser import ShareParser
+from tengil.config.validator import MultiPoolValidator
+from tengil.core.app_repo_spec import AppRepoSpec, AppRepoSpecError, iter_app_repo_specs
 from tengil.core.smart_permissions import (
     SmartPermissionEvent,
     apply_smart_defaults,
     validate_permissions,
 )
 from tengil.models.config import ConfigValidationError
-from tengil.config.profiles import PROFILES
-from tengil.config.validator import MultiPoolValidator
-from tengil.config.format_migrator import FormatMigrator
-from tengil.config.profile_applicator import ProfileApplicator
-from tengil.config.container_parser import ContainerParser
-from tengil.config.share_parser import ShareParser
 
 
 class ConfigLoader:
@@ -49,7 +50,7 @@ class ConfigLoader:
         if not self.config_path.exists():
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
 
-        with open(self.config_path, 'r') as f:
+        with open(self.config_path) as f:
             self.raw_config = yaml.safe_load(f)
 
         # Handle empty config file

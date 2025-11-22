@@ -1,9 +1,10 @@
 """Import existing infrastructure into Tengil configuration."""
-import subprocess
-import yaml
-from pathlib import Path
-from typing import Dict, List, Optional
 import re
+import subprocess
+from pathlib import Path
+from typing import Dict, List
+
+import yaml
 
 from tengil.core.logger import get_logger
 
@@ -235,6 +236,6 @@ class InfrastructureImporter:
             logger.info(f"Wrote configuration to: {output_path}")
             return True
             
-        except IOError as e:
+        except OSError as e:
             logger.error(f"Failed to write config: {e}")
             return False

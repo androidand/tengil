@@ -1,16 +1,16 @@
 """Integration tests for Tengil using mock mode."""
 import os
-import json
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
+
 import pytest
 import yaml
 
 from tengil.config.loader import ConfigLoader
-from tengil.core.zfs_manager import ZFSManager
-from tengil.core.state_store import StateStore
 from tengil.core.diff_engine import DiffEngine
+from tengil.core.state_store import StateStore
+from tengil.core.zfs_manager import ZFSManager
 
 
 @pytest.fixture

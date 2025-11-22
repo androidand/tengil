@@ -1,8 +1,7 @@
 """ZFS dataset management."""
-import subprocess
-from typing import Dict, List, Optional
-from pathlib import Path
 import os
+import subprocess
+from typing import Dict, Optional
 
 from tengil.core.logger import get_logger
 

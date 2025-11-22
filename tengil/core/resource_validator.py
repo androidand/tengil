@@ -166,7 +166,7 @@ def _detect_swap_from_psutil() -> Optional[int]:
 def _detect_memory_from_proc() -> tuple[Optional[int], Optional[int]]:
     meminfo = {}
     try:
-        with open("/proc/meminfo", "r", encoding="utf-8") as handle:
+        with open("/proc/meminfo", encoding="utf-8") as handle:
             for line in handle:
                 if ":" not in line:
                     continue

@@ -2,11 +2,11 @@
 
 Prevents multiple tg apply operations from running simultaneously.
 """
+import fcntl
 import os
 import time
-import fcntl
-from pathlib import Path
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Optional
 
 from tengil.core.logger import get_logger
@@ -79,7 +79,7 @@ class TengilLock:
                 logger.debug(f"Acquired lock: {self.lock_file}")
                 return True
 
-            except (IOError, OSError) as e:
+            except OSError:
                 # Lock is held by another process
                 if self.timeout == 0:
                     # Read lock file to see who has it
@@ -124,7 +124,7 @@ class TengilLock:
     def _read_lock_info(self) -> dict:
         """Read info from lock file about who holds it."""
         try:
-            with open(self.lock_file, 'r') as f:
+            with open(self.lock_file) as f:
                 lines = f.readlines()
                 if len(lines) >= 2:
                     return {
@@ -186,14 +186,14 @@ def check_lock_status(lock_file: Optional[Path] = None) -> Optional[dict]:
 
     # Try to open and check if locked
     try:
-        with open(lock_path, 'r') as f:
+        with open(lock_path) as f:
             # Try to acquire non-blocking lock
             try:
                 fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
                 fcntl.flock(f.fileno(), fcntl.LOCK_UN)
                 # Lock is free (stale lock file)
                 return None
-            except (IOError, OSError):
+            except OSError:
                 # Lock is held
                 f.seek(0)
                 lines = f.readlines()

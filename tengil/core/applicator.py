@@ -9,12 +9,14 @@ Handles applying calculated changes to the system by:
 """
 
 from typing import Dict, List, Optional, Set, Tuple
+
 from rich.console import Console
+
 from tengil.core.diff_engine import Change, ContainerChange
-from tengil.core.zfs_manager import ZFSManager
-from tengil.services.proxmox import ProxmoxManager
-from tengil.services.nas import NASManager
 from tengil.core.state_store import StateStore
+from tengil.core.zfs_manager import ZFSManager
+from tengil.services.nas import NASManager
+from tengil.services.proxmox import ProxmoxManager
 
 
 class ChangeApplicator:
@@ -150,7 +152,7 @@ class ChangeApplicator:
         if 'containers' not in dataset_config:
             return False
         
-        self.console.print(f"  [cyan]→[/cyan] Configuring containers...")
+        self.console.print("  [cyan]→[/cyan] Configuring containers...")
         results = self.proxmox.setup_container_mounts(dataset_name, dataset_config, pool_name)
         
         # Process results (vmid, success, message)
@@ -213,7 +215,7 @@ class ChangeApplicator:
             self.console.print(f"  [green]✓[/green] {summary}")
             return True
 
-        self.console.print(f"  [yellow]⚠[/yellow] No containers configured successfully")
+        self.console.print("  [yellow]⚠[/yellow] No containers configured successfully")
         return False
     
     def _setup_nas_shares(self, dataset_full_name: str, dataset_name: str,
@@ -222,9 +224,9 @@ class ChangeApplicator:
         if 'shares' not in dataset_config:
             return
         
-        self.console.print(f"  [cyan]→[/cyan] Configuring NAS shares...")
+        self.console.print("  [cyan]→[/cyan] Configuring NAS shares...")
         if self.nas.apply_dataset_nas_config(dataset_name, dataset_config, pool_name):
-            self.console.print(f"  [green]✓[/green] NAS shares configured")
+            self.console.print("  [green]✓[/green] NAS shares configured")
             
             # Track shares in state
             if 'smb' in dataset_config['shares']:
@@ -245,7 +247,7 @@ class ChangeApplicator:
                 else:
                     self.state.mark_share_managed('nfs', dataset_name, dataset_full_name, created=True)
         else:
-            self.console.print(f"  [yellow]⚠[/yellow] Some shares failed")
+            self.console.print("  [yellow]⚠[/yellow] Some shares failed")
 
     @staticmethod
     def _split_dataset(dataset_full_name: str) -> Tuple[str, Optional[str]]:

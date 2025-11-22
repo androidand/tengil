@@ -1,0 +1,89 @@
+---
+# Wiki.js OCI Container Package
+# Modern and powerful wiki platform built on Node.js
+#
+# Usage:
+#   tg apply packages/wikijs-oci.yml
+
+name: wikijs
+type: oci
+version: latest
+
+oci:
+  image: ghcr.io/requarks/wiki
+  tag: latest
+  registry: ghcr.io
+
+# Container configuration
+hostname: wikijs
+cores: 2
+memory: 1024
+disk: 16
+
+# Resource pool (optional)
+# pool: apps
+
+# Network configuration
+network:
+  bridge: vmbr0
+  ip: dhcp
+
+# Security
+unprivileged: true
+
+# Features
+features:
+  nesting: false
+
+# Persistent storage
+mounts:
+  - source: /tank/config/wikijs
+    target: /wiki/data
+    readonly: false
+
+# Auto-created volumes (by OCI):
+# - /wiki/data (uploads and local data)
+
+# Environment variables
+environment:
+  - DB_TYPE=postgres
+  - DB_HOST=postgres
+  - DB_PORT=5432
+  - DB_USER=wikijs
+  - DB_PASS=password
+  - DB_NAME=wikijs
+
+# Post-deployment:
+# 1. Deploy PostgreSQL container first:
+#    tg apply packages/postgres-oci.yml
+# 2. Create wikijs database
+# 3. Access web UI: http://<container-ip>:3000
+# 4. Complete initial setup wizard:
+#    - Configure admin account
+#    - Set site URL
+#    - Choose authentication method
+# 5. Configure storage and authentication providers
+# 6. Start creating content
+
+# Verification:
+# - Check web UI accessibility
+# - Test database connection
+# - Create test page
+# - Test search functionality
+# - Verify Git sync if configured
+
+# Features:
+# - Markdown, Visual, and AsciDoc editors
+# - Git integration for version control
+# - Multiple authentication providers (OAuth, LDAP, SAML)
+# - Full-text search
+# - Multi-language support
+# - Beautiful modern UI
+# - Role-based access control
+# - API access
+
+# Notes:
+# - Requires PostgreSQL (MySQL also supported)
+# - More feature-rich than BookStack
+# - Git-based backup and versioning
+# - Extensive integration options

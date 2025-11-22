@@ -1,5 +1,4 @@
 """Tests for Phase 2 Task 5: Template download automation."""
-import pytest
 
 
 class TestTemplateDiscovery:

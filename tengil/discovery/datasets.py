@@ -5,8 +5,8 @@ from typing import Dict, List, Optional
 
 from tengil.core.logger import get_logger
 from tengil.core.zfs_manager import ZFSManager
-from tengil.services.nas.smb import SMBManager
 from tengil.services.nas.nfs import NFSManager
+from tengil.services.nas.smb import SMBManager
 
 logger = get_logger(__name__)
 

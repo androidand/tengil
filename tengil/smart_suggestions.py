@@ -4,11 +4,12 @@ Smart container matching - map app recommendations to actual available templates
 Combines our curated recommendations with what's actually available on Proxmox.
 """
 
-from typing import Dict, List, Tuple, Optional
-from rich.console import Console
-from tengil.recommendations import RECOMMENDATIONS
-from tengil.discovery import ProxmoxDiscovery
+from typing import Dict, List, Optional
 
+from rich.console import Console
+
+from tengil.discovery import ProxmoxDiscovery
+from tengil.recommendations import RECOMMENDATIONS
 
 # Map recommended apps to template search patterns
 APP_TO_TEMPLATE = {
@@ -164,10 +165,10 @@ class SmartContainerMatcher:
                 self.console.print(f"  [green]✓ Template available:[/green] {sug['template']}")
                 self.console.print(f"    [dim]pct create <vmid> local:vztmpl/{sug['template']} --hostname {sug['app']}[/dim]")
             else:
-                self.console.print(f"  [yellow]⚠ No pre-built template. Use debian-12-standard and install manually[/yellow]")
+                self.console.print("  [yellow]⚠ No pre-built template. Use debian-12-standard and install manually[/yellow]")
             
             if sug['install_commands']:
-                self.console.print(f"  [dim]Post-install commands:[/dim]")
+                self.console.print("  [dim]Post-install commands:[/dim]")
                 for cmd in sug['install_commands'][:2]:  # Show first 2
                     self.console.print(f"    [dim]{cmd}[/dim]")
                 if len(sug['install_commands']) > 2:
@@ -212,10 +213,10 @@ class SmartContainerMatcher:
                 f"echo 'Creating container for {sug['app']}...'",
                 f"pct create {vmid} local:vztmpl/{template} \\",
                 f"  --hostname {sug['app']} \\",
-                f"  --memory 2048 \\",
-                f"  --cores 2 \\",
-                f"  --net0 name=eth0,bridge=vmbr0,ip=dhcp \\",
-                f"  --storage local-lvm",
+                "  --memory 2048 \\",
+                "  --cores 2 \\",
+                "  --net0 name=eth0,bridge=vmbr0,ip=dhcp \\",
+                "  --storage local-lvm",
                 f"pct start {vmid}",
                 "",
             ])

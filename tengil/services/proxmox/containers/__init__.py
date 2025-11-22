@@ -9,11 +9,11 @@ This package provides a clean separation of concerns for container operations:
 
 For backward compatibility, ContainerManager is aliased to ContainerOrchestrator.
 """
-from .templates import TemplateManager
 from .discovery import ContainerDiscovery
 from .lifecycle import ContainerLifecycle
 from .mounts import MountManager
 from .orchestrator import ContainerOrchestrator
+from .templates import TemplateManager
 
 # Backward compatibility: ContainerManager = ContainerOrchestrator
 ContainerManager = ContainerOrchestrator

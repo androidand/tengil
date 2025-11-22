@@ -7,10 +7,9 @@ Parses Docker Compose files to extract infrastructure requirements:
 - Exposed ports
 """
 
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import List, Set
 from urllib.request import urlopen
 
 import yaml

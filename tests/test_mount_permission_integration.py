@@ -1,7 +1,6 @@
 """Integration tests for MountManager with PermissionManager."""
-import pytest
+from tengil.core.permission_manager import AccessLevel, ConsumerType, PermissionManager
 from tengil.services.proxmox.containers.mounts import MountManager
-from tengil.core.permission_manager import PermissionManager, ConsumerType, AccessLevel
 
 
 def test_mount_manager_uses_permission_readonly():
