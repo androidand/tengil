@@ -1,0 +1,138 @@
+# Nextcloud OCI - File Sync and Collaboration
+#
+# Self-hosted Dropbox/Google Drive alternative with office suite.
+# Complete collaboration platform with calendar, contacts, and more.
+
+name: nextcloud-oci
+description: File sync and collaboration platform
+category: files
+difficulty: intermediate
+
+# OCI container configuration
+pools:
+  tank:
+    datasets:
+      nextcloud:
+        profile: dev  # Compression for files and database
+        containers:
+          - name: nextcloud
+            image: nextcloud:latest
+            cores: 2
+            memory: 2048
+            disk: 16
+            env:
+              NEXTCLOUD_ADMIN_USER: "admin"
+              NEXTCLOUD_ADMIN_PASSWORD: "changeme"
+              NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud.local cloud.yourdomain.com"
+              MYSQL_DATABASE: "nextcloud"
+              MYSQL_USER: "nextcloud"
+              MYSQL_PASSWORD: "nextcloud"
+              MYSQL_HOST: "localhost"
+            mounts:
+              - source: /tank/nextcloud/data
+                target: /var/www/html/data
+              - source: /tank/nextcloud/config
+                target: /var/www/html/config
+              - source: /tank/nextcloud/apps
+                target: /var/www/html/custom_apps
+            startup_order: 150
+
+# Setup instructions
+notes: |
+  **Quick Start:**
+  1. Run: tg apply packages/nextcloud-oci.yml
+  2. Open: http://container-ip:80
+  3. Login: admin / changeme (CHANGE THIS!)
+  4. Complete setup wizard
+  5. Install desktop/mobile sync clients
+  6. Configure trusted domains for access
+
+  **IMPORTANT - Change Defaults:**
+  - NEXTCLOUD_ADMIN_PASSWORD: Change from "changeme"
+  - NEXTCLOUD_TRUSTED_DOMAINS: Add your domain/IP
+  - MYSQL_PASSWORD: Change for production
+
+  **Features:**
+  - File sync and share
+  - Collaborative editing (OnlyOffice/Collabora)
+  - Calendar and contacts
+  - Photo gallery
+  - Video calls (Talk app)
+  - Tasks and notes
+  - Bookmarks
+  - News/RSS reader
+  - Extensive app ecosystem
+
+  **Desktop Sync Clients:**
+  - Windows: Download from nextcloud.com/install
+  - macOS: Download from nextcloud.com/install
+  - Linux: Available in package managers
+  - Configure server URL during setup
+
+  **Mobile Apps:**
+  - iOS: Nextcloud from App Store
+  - Android: Nextcloud from Play Store
+  - Features: Auto-upload photos, offline access
+
+  **Recommended Apps (Install from App Store):**
+  - Nextcloud Office: Document editing
+  - Calendar: Full calendar with sync
+  - Contacts: Contact management
+  - Tasks: Todo lists
+  - Notes: Simple note-taking
+  - Deck: Kanban boards
+  - Talk: Video calls and chat
+  - Photos: AI-powered photo management
+
+  **Database Options:**
+  This config uses SQLite (built-in).
+  For production, consider:
+  - MariaDB (better performance)
+  - PostgreSQL (best performance)
+  - External database container
+
+  **Performance Tuning:**
+  - Enable Redis for file locking (add redis container)
+  - Use MariaDB instead of SQLite
+  - Enable PHP opcache (default in container)
+  - Adjust memory_limit and upload_max_filesize
+
+  **Trusted Domains:**
+  Add all domains/IPs you'll access from:
+  - NEXTCLOUD_TRUSTED_DOMAINS: "localhost 192.168.1.x cloud.example.com"
+  - Or edit config/config.php after first run
+
+  **HTTPS Setup (Production):**
+  - Use reverse proxy (Traefik/Nginx Proxy Manager)
+  - Or add Let's Encrypt to Nextcloud
+  - Update NEXTCLOUD_TRUSTED_DOMAINS with https://
+  - Disable HTTP access
+
+  **Storage:**
+  - User files: /tank/nextcloud/data
+  - Config: /tank/nextcloud/config
+  - Custom apps: /tank/nextcloud/apps
+  - Database: Built-in SQLite or external
+
+  **Backup Important:**
+  - Data: /tank/nextcloud/data (user files)
+  - Config: /tank/nextcloud/config
+  - Database: Backup if using external DB
+  - Apps: /tank/nextcloud/apps (custom installations)
+
+  **Cron Jobs:**
+  - Nextcloud needs cron for background tasks
+  - Configure in Settings > Basic settings
+  - Or add cron to container
+
+  **External Storage (Optional):**
+  - Mount existing shares (SMB/NFS)
+  - Add external storage in admin settings
+  - Access files without copying
+
+  **Security:**
+  - Enable 2FA for all users
+  - Use strong passwords
+  - HTTPS required for remote access
+  - Regular updates (pull new container)
+  - Review security warnings in admin overview

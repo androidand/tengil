@@ -1,0 +1,76 @@
+# Plex OCI - Media Server with Hardware Transcoding
+#
+# Official Plex Media Server container with GPU acceleration.
+# Alternative to Jellyfin with more streaming device support.
+
+name: plex-oci
+description: Plex Media Server using official OCI container
+category: media
+difficulty: beginner
+
+# OCI container configuration
+pools:
+  tank:
+    datasets:
+      media:
+        profile: media  # No compression for video
+        containers:
+          - name: plex
+            image: linuxserver/plex:latest
+            cores: 4
+            memory: 4096
+            disk: 16
+            gpu: true  # Hardware transcoding (Plex Pass required)
+            env:
+              VERSION: "docker"
+              PUID: "1000"
+              PGID: "1000"
+              TZ: "America/New_York"
+            mounts:
+              - source: /tank/media
+                target: /media
+                readonly: true
+              - source: /tank/plex/config
+                target: /config
+            startup_order: 200
+
+# Setup instructions
+notes: |
+  **Quick Start:**
+  1. Run: tg apply packages/plex-oci.yml
+  2. Open: http://container-ip:32400/web
+  3. Sign in with Plex account
+  4. Claim server and add libraries
+
+  **GPU Transcoding (Plex Pass Required):**
+  - Automatically configured for Intel/AMD GPUs
+  - Enable in: Settings > Transcoder > Use hardware acceleration
+  - Requires active Plex Pass subscription
+
+  **Important Settings:**
+  - TZ: Set your timezone in env vars
+  - PUID/PGID: Match your user IDs for file permissions
+
+  **Media Organization:**
+  - Movies: /tank/media/movies/Movie Name (Year)/movie.mkv
+  - TV Shows: /tank/media/tv/Show Name/Season 01/episode.mkv
+  - Music: /tank/media/music/Artist/Album/track.mp3
+
+  **Plex Pass Benefits:**
+  - Hardware transcoding (GPU)
+  - Mobile sync
+  - Live TV & DVR
+  - Premium music features
+  - Offline media
+
+  **Access:**
+  - Local: http://container-ip:32400/web
+  - Remote: https://app.plex.tv (automatic)
+  - Apps: Available on 100+ devices
+
+  **First-Time Setup:**
+  1. Sign in with Plex account
+  2. Claim server (automatically detects on local network)
+  3. Add libraries pointing to /media subdirectories
+  4. Enable Remote Access in Settings
+  5. Install Plex apps on your devices

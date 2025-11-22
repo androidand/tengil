@@ -1,0 +1,143 @@
+# Immich OCI - Self-Hosted Google Photos Alternative
+#
+# Modern photo and video backup with AI features and mobile apps.
+# Multi-container stack with ML, database, and Redis.
+
+name: immich-oci
+description: Self-hosted photo backup with ML and mobile apps
+category: photos
+difficulty: advanced
+
+# OCI container configuration - Multi-container setup
+pools:
+  tank:
+    datasets:
+      immich:
+        profile: dev  # Compression for photos/database
+        containers:
+          # Immich Server
+          - name: immich-server
+            image: ghcr.io/immich-app/immich-server:latest
+            cores: 4
+            memory: 4096
+            disk: 32
+            gpu: true  # ML acceleration
+            env:
+              DB_HOSTNAME: "192.168.1.211"
+              DB_USERNAME: "immich"
+              DB_PASSWORD: "immich"
+              DB_DATABASE_NAME: "immich"
+              REDIS_HOSTNAME: "192.168.1.212"
+              UPLOAD_LOCATION: "/usr/src/app/upload"
+            mounts:
+              - source: /tank/immich/upload
+                target: /usr/src/app/upload
+            startup_order: 150
+
+          # PostgreSQL Database
+          - name: immich-postgres
+            image: postgres:14-alpine
+            cores: 2
+            memory: 2048
+            disk: 16
+            env:
+              POSTGRES_USER: "immich"
+              POSTGRES_PASSWORD: "immich"
+              POSTGRES_DB: "immich"
+            mounts:
+              - source: /tank/immich/postgres
+                target: /var/lib/postgresql/data
+            network:
+              ip: "192.168.1.211"
+            startup_order: 140
+
+          # Redis Cache
+          - name: immich-redis
+            image: redis:7-alpine
+            cores: 1
+            memory: 512
+            disk: 4
+            network:
+              ip: "192.168.1.212"
+            startup_order: 140
+
+# Setup instructions
+notes: |
+  **Multi-Container Setup:**
+  This package creates 3 containers:
+  1. immich-server (main app) - http://server-ip:2283
+  2. immich-postgres (database) - 192.168.1.211
+  3. immich-redis (cache) - 192.168.1.212
+
+  **Quick Start:**
+  1. Run: tg apply packages/immich-oci.yml
+  2. Wait 5 minutes for all containers to start
+  3. Open: http://immich-server-ip:2283
+  4. Create admin account (first user)
+  5. Download Immich mobile app
+  6. Configure server URL and login
+  7. Enable automatic photo backup
+
+  **Important - Static IPs:**
+  - Adjust network.ip values to match your network
+  - Or use hostnames if DNS is configured
+  - Database and Redis need stable addresses
+
+  **Features:**
+  - Automatic mobile backup (iOS/Android)
+  - Face recognition (GPU accelerated)
+  - Object detection and search
+  - Smart albums
+  - Shared links
+  - Partner sharing
+  - Live photos support
+  - RAW format support
+
+  **Mobile Apps:**
+  - iOS: Download from App Store
+  - Android: Download from Play Store
+  - Configure server: http://server-ip:2283
+  - Enable background upload
+  - Select backup quality (Original recommended)
+
+  **ML Features (GPU Accelerated):**
+  - Face detection and recognition
+  - Object detection (search: "dog", "beach", "car")
+  - Smart search
+  - CLIP-based semantic search
+  - Duplicate detection
+
+  **Storage Requirements:**
+  - Start with 500GB, scale as needed
+  - Photos: /tank/immich/upload/library
+  - Thumbs: /tank/immich/upload/thumbs
+  - Database: /tank/immich/postgres
+
+  **Performance:**
+  - Server: 4GB RAM, 4 cores for ML
+  - Database: 2GB RAM sufficient for 100k photos
+  - Redis: 512MB for job queue
+  - GPU: 10x faster face recognition
+
+  **Container Startup Order:**
+  1. postgres and redis start first (order 140)
+  2. immich-server starts last (order 150)
+  3. Waits for database connection
+
+  **Backup Strategy:**
+  - Photos: /tank/immich/upload (most important!)
+  - Database: /tank/immich/postgres
+  - Export database: pg_dump from postgres container
+  - Test restore regularly
+
+  **Troubleshooting:**
+  - Check all 3 containers are running
+  - Verify database connection from immich-server
+  - Check logs in each container
+  - Ensure network IPs are accessible
+
+  **Security:**
+  - Change POSTGRES_PASSWORD before deploying
+  - Use HTTPS for remote access
+  - Regular backups essential
+  - Consider Tailscale for secure remote access

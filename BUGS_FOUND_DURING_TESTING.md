@@ -54,3 +54,36 @@ INFO     ✓ Mounted /tank/syncthing → jellyfin-oci:/var/lib/syncthing
 **Root Cause:** Config file discovery didn't prioritize CWD `tengil.yml`  
 **Fix:** Config search order is now `./tengil.yml` → `~/tengil-configs/tengil.yml` → `/etc/tengil/tengil.yml`.  
 **TODO:** Add debug logging showing which config file was loaded and warn when multiple `tengil.yml` files exist.
+
+### Bug #6: Env vars not applied to existing containers
+**Severity:** High  
+**Status:** ✅ Fixed  
+**Found:** Updating `env:` in config didn’t push changes to running containers  
+**Fix:** Apply workflow now issues `pct set --env` for both OCI and LXC containers and restarts running containers to pick up changes. CLI added `tg container env` for manual updates.
+
+### Bug #6: scan command doesn't load desired config
+**Severity:** Critical  
+**Symptom:** `tg scan` only captures reality snapshot but doesn't load the desired config from tengil.yml into state.json. This means diff/apply run after scan will think there's no desired state and report "infrastructure up to date" even when new containers should be created.
+
+**Workaround:** Don't use scan standalone - run diff or apply which load both reality AND desired config.
+
+**Root Cause:** scan command doesn't accept --config flag and doesn't load desired state, only captures reality. This breaks the workflow of "scan then diff then apply".
+
+**Expected:** scan should load desired config alongside reality snapshot so state.json has both.
+
+### Bug #7: Config format confusion - `backend:` vs `type:` for OCI containers
+**Severity:** Medium (Documentation)  
+**Symptom:** Created configs using `backend: oci` which doesn't work. The correct syntax is `type: oci` with an `oci:` section containing `image:`, `tag:`, `registry:` fields.
+
+**Root Cause:** Inconsistent terminology - some parts of code use "backend" but the config schema uses "type".
+
+**Expected:** Documentation should clearly show that OCI containers require:
+```yaml
+type: oci
+oci:
+  image: nginx
+  tag: alpine
+  registry: docker.io
+```
+
+Not `backend: oci`.

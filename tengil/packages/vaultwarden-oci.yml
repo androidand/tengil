@@ -1,0 +1,98 @@
+# Vaultwarden OCI - Self-Hosted Password Manager
+#
+# Bitwarden-compatible password manager with all premium features unlocked.
+# Lightweight and secure alternative to Bitwarden cloud.
+
+name: vaultwarden-oci
+description: Self-hosted Bitwarden-compatible password manager
+category: passwords
+difficulty: beginner
+
+# OCI container configuration
+pools:
+  tank:
+    datasets:
+      vaultwarden:
+        profile: dev  # Fast I/O for database
+        containers:
+          - name: vaultwarden
+            image: vaultwarden/server:latest
+            cores: 2
+            memory: 1024
+            disk: 8
+            env:
+              DOMAIN: "https://vault.yourdomain.com"
+              SIGNUPS_ALLOWED: "true"
+              INVITATIONS_ALLOWED: "true"
+              SHOW_PASSWORD_HINT: "false"
+              WEBSOCKET_ENABLED: "true"
+            mounts:
+              - source: /tank/vaultwarden/data
+                target: /data
+            startup_order: 100
+
+# Setup instructions
+notes: |
+  **Quick Start:**
+  1. Run: tg apply packages/vaultwarden-oci.yml
+  2. Open: http://container-ip:80
+  3. Create your first account (becomes admin)
+  4. Install Bitwarden browser extension
+  5. Configure extension to use your server URL
+  6. Import existing passwords (optional)
+
+  **IMPORTANT Security:**
+  - Disable signups after creating accounts (set SIGNUPS_ALLOWED=false)
+  - Use HTTPS in production (required for browser extension)
+  - Set strong master password
+  - Enable 2FA for all accounts
+  - Regular backups of /tank/vaultwarden/data
+
+  **Production Deployment:**
+  - Set SIGNUPS_ALLOWED to "false" after creating users
+  - Use reverse proxy (Traefik/Nginx) for HTTPS
+  - Update DOMAIN to your actual domain with https://
+  - Consider enabling admin panel (add ADMIN_TOKEN env)
+
+  **Features (All Unlocked):**
+  - Unlimited passwords, notes, identities
+  - Unlimited devices
+  - Password generator
+  - Secure notes
+  - File attachments (1GB total, 500MB per file)
+  - Two-factor authentication (TOTP, U2F)
+  - Emergency access
+  - Organization sharing
+  - Collections
+
+  **Browser Extensions:**
+  - Chrome/Edge: chrome.google.com/webstore
+  - Firefox: addons.mozilla.org
+  - Safari: apps.apple.com
+  - Configure: Settings > Server URL: http://your-ip:80
+
+  **Mobile Apps:**
+  - iOS: Bitwarden app from App Store
+  - Android: Bitwarden app from Play Store
+  - Configure custom server URL during setup
+
+  **Admin Panel (Optional):**
+  - Add to env: ADMIN_TOKEN="random-secret-token"
+  - Access: http://container-ip/admin
+  - Features: User management, diagnostics, config
+
+  **Backup Strategy:**
+  - Database: /tank/vaultwarden/data/db.sqlite3
+  - Attachments: /tank/vaultwarden/data/attachments
+  - Backup frequency: Daily recommended
+  - Test restores regularly
+
+  **After First User:**
+  - Update tengil.yml: Set SIGNUPS_ALLOWED to "false"
+  - Run: tg apply
+  - This prevents unauthorized account creation
+
+  **Inviting Users:**
+  - Admin panel > Users > Invite User
+  - Or set INVITATIONS_ALLOWED=true
+  - Send invite link to user

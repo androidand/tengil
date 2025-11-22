@@ -1,0 +1,70 @@
+# Jellyfin OCI - Media Server with GPU Transcoding
+#
+# Official Jellyfin container with hardware-accelerated transcoding.
+# Simpler and faster than LXC-based deployment.
+
+name: jellyfin-oci
+description: Jellyfin media server using official OCI container
+category: media
+difficulty: beginner
+
+# OCI container configuration
+pools:
+  tank:
+    datasets:
+      media:
+        profile: media  # No compression for video files
+        containers:
+          - name: jellyfin
+            image: jellyfin/jellyfin:latest
+            cores: 4
+            memory: 4096
+            disk: 16
+            gpu: true  # Intel Quick Sync / AMD AMF transcoding
+            env:
+              JELLYFIN_PublishedServerUrl: "http://jellyfin.local"
+            mounts:
+              - source: /tank/media
+                target: /media
+                readonly: true
+              - source: /tank/jellyfin/config
+                target: /config
+            startup_order: 200
+
+# Setup instructions
+notes: |
+  **Quick Start:**
+  1. Run: tg apply packages/jellyfin-oci.yml
+  2. Open: http://container-ip:8096
+  3. Complete setup wizard
+  4. Add media libraries pointing to /media
+
+  **GPU Transcoding:**
+  - Automatically configured for Intel/AMD GPUs
+  - Enable in: Dashboard > Playback > Hardware Acceleration
+  - Select "Intel QuickSync" or "AMD AMF"
+
+  **Media Organization:**
+  - Movies: /tank/media/movies/
+  - TV Shows: /tank/media/tv/
+  - Music: /tank/media/music/
+
+  **Storage:**
+  - Config/metadata: /tank/jellyfin/config
+  - Media library: /tank/media (mounted read-only)
+  - No compression for video files (media profile)
+
+  **First-Time Setup:**
+  - Create admin user in setup wizard
+  - Add libraries: Movies, TV Shows, Music
+  - Point each library to /media subdirectories
+  - Test transcoding with Dashboard > Playback
+
+  **Performance:**
+  - 4GB RAM for multiple transcoding streams
+  - 4 cores recommended for CPU transcoding fallback
+  - GPU reduces CPU load by 80-90%
+
+  **Access:**
+  - Web UI: http://container-ip:8096
+  - Apps available for: Android, iOS, Roku, Fire TV, etc.

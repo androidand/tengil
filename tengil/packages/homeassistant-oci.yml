@@ -1,0 +1,157 @@
+# Home Assistant OCI - Home Automation Platform
+#
+# Complete smart home platform with 2000+ integrations.
+# Supports Zigbee, Z-Wave, WiFi devices, and more.
+
+name: homeassistant-oci
+description: Open source home automation platform
+category: automation
+difficulty: intermediate
+
+# OCI container configuration
+pools:
+  tank:
+    datasets:
+      homeassistant:
+        profile: dev  # Fast I/O for database
+        containers:
+          - name: homeassistant
+            image: ghcr.io/home-assistant/home-assistant:stable
+            cores: 2
+            memory: 2048
+            disk: 16
+            privileged: true  # Required for USB device access
+            env:
+              TZ: "America/New_York"
+            mounts:
+              - source: /tank/homeassistant/config
+                target: /config
+            startup_order: 100
+
+# Setup instructions
+notes: |
+  **Quick Start:**
+  1. Run: tg apply packages/homeassistant-oci.yml
+  2. Wait 2-3 minutes for first-time setup
+  3. Open: http://container-ip:8123
+  4. Create admin account
+  5. Follow onboarding wizard
+  6. Discover and add devices
+
+  **IMPORTANT - USB Devices:**
+  This container needs privileged mode for USB access (Zigbee/Z-Wave).
+  After creation, add USB devices:
+
+  ```bash
+  # Find your USB device
+  ls -la /dev/ttyUSB* /dev/ttyACM*
+
+  # Add to container config
+  pct set <vmid> --dev0 /dev/ttyUSB0,mode=0660
+  ```
+
+  **Supported Devices:**
+  - Zigbee: ConBee II, SONOFF, SkyConnect
+  - Z-Wave: Aeotec Z-Stick, Zooz
+  - WiFi: Smart plugs, bulbs, switches
+  - Bluetooth: Sensors, trackers
+  - 2000+ integrations available
+
+  **Popular Integrations:**
+  - Philips Hue (lights)
+  - TP-Link Kasa (plugs, switches)
+  - Tuya/Smart Life (various)
+  - Shelly (relays, sensors)
+  - ESPHome (DIY sensors)
+  - MQTT (custom devices)
+  - Google Home / Alexa
+
+  **First-Time Setup:**
+  1. Create user account (becomes admin)
+  2. Set location and timezone
+  3. Discover devices on network
+  4. Add integrations for your devices
+  5. Create first automation
+  6. Set up mobile app
+
+  **Mobile App:**
+  - iOS: Home Assistant Companion (App Store)
+  - Android: Home Assistant (Play Store)
+  - Features: Remote access, notifications, location tracking
+  - Configure: Settings > Companion App
+
+  **Automations Examples:**
+  - Turn on lights at sunset
+  - Send notification when door opens
+  - Adjust thermostat based on occupancy
+  - Morning routine (lights, coffee, music)
+  - Security alerts
+
+  **Addons (Install via Supervisor):**
+  Note: Official addons require Home Assistant OS.
+  With OCI container, use companion containers:
+  - Mosquitto: MQTT broker
+  - Zigbee2MQTT: Zigbee support
+  - Node-RED: Visual automation
+  - ESPHome: DIY device firmware
+  - AppDaemon: Python automation
+
+  **Configuration:**
+  - Main config: /tank/homeassistant/config/configuration.yaml
+  - Automations: /config/automations.yaml
+  - Scripts: /config/scripts.yaml
+  - Secrets: /config/secrets.yaml (for API keys)
+
+  **Remote Access Options:**
+  1. Nabu Casa Cloud ($6.50/month):
+     - Easy setup, supports Google/Alexa
+     - Settings > Home Assistant Cloud
+  2. Tailscale VPN (free):
+     - Secure, no port forwarding
+     - Install Tailscale on Proxmox host
+  3. Reverse Proxy:
+     - Use Nginx/Traefik with Let's Encrypt
+     - Requires domain and HTTPS
+
+  **USB Device Setup:**
+  After container is running:
+
+  ```bash
+  # Zigbee stick (ConBee II example)
+  pct set <vmid> --dev0 /dev/ttyUSB0,mode=0660
+
+  # Z-Wave stick
+  pct set <vmid> --dev1 /dev/ttyACM0,mode=0660
+  ```
+
+  Then restart container and configure integration.
+
+  **Backup:**
+  - Automatic: Settings > System > Backups
+  - Manual: Backup /tank/homeassistant/config
+  - Frequency: Weekly recommended
+  - Store: Off-site copy important
+
+  **Performance:**
+  - 2GB RAM sufficient for 100+ devices
+  - 2 cores handles most homes
+  - Add more resources for:
+    - 500+ devices
+    - Heavy automation
+    - Video processing
+
+  **Security:**
+  - Strong password required
+  - Enable 2FA in user profile
+  - HTTPS for remote access
+  - Regular updates (Settings > System > Updates)
+  - Review trusted networks
+
+  **Common Use Cases:**
+  - Lighting automation
+  - Climate control
+  - Security monitoring
+  - Energy tracking
+  - Presence detection
+  - Voice control
+  - Dashboard for family

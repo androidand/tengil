@@ -1,0 +1,91 @@
+# PhotoPrism OCI - AI-Powered Photo Management
+#
+# Self-hosted photo management with AI features and face recognition.
+# GPU-accelerated for fast indexing and search.
+
+name: photoprism-oci
+description: AI-powered photo library with face recognition
+category: photos
+difficulty: intermediate
+
+# OCI container configuration
+pools:
+  tank:
+    datasets:
+      photos:
+        profile: dev  # Compression enabled for photos
+        containers:
+          - name: photoprism
+            image: photoprism/photoprism:latest
+            cores: 4
+            memory: 4096
+            disk: 32
+            gpu: true  # TensorFlow AI acceleration
+            env:
+              PHOTOPRISM_ADMIN_USER: "admin"
+              PHOTOPRISM_ADMIN_PASSWORD: "changeme"
+              PHOTOPRISM_AUTH_MODE: "password"
+              PHOTOPRISM_SITE_URL: "http://photoprism.local:2342"
+              PHOTOPRISM_DISABLE_TLS: "false"
+              PHOTOPRISM_DEFAULT_TLS: "true"
+              PHOTOPRISM_ORIGINALS_LIMIT: "5000"
+              PHOTOPRISM_HTTP_COMPRESSION: "gzip"
+              PHOTOPRISM_WORKERS: "2"
+              PHOTOPRISM_READONLY: "false"
+            mounts:
+              - source: /tank/photos/originals
+                target: /photoprism/originals
+              - source: /tank/photos/storage
+                target: /photoprism/storage
+            startup_order: 150
+
+# Setup instructions
+notes: |
+  **Quick Start:**
+  1. Run: tg apply packages/photoprism-oci.yml
+  2. Open: http://container-ip:2342
+  3. Login: admin / changeme (CHANGE THIS!)
+  4. Settings > General > Update password
+  5. Upload photos to /tank/photos/originals
+  6. Click "Index" to process new photos
+
+  **IMPORTANT - Change Default Password:**
+  - Default: admin / changeme
+  - Change immediately after first login!
+  - Or edit env.PHOTOPRISM_ADMIN_PASSWORD before applying
+
+  **AI Features (GPU Accelerated):**
+  - Face recognition and clustering
+  - Object detection (car, dog, beach, sunset, etc.)
+  - Smart search by content
+  - Automatic categorization
+  - Duplicate detection
+
+  **Photo Organization:**
+  - Originals: /tank/photos/originals (your photos)
+  - Storage: /tank/photos/storage (thumbnails, sidecar files)
+  - Import: Upload via web UI or copy to originals folder
+  - Structure: Organized by date automatically
+
+  **Performance Tips:**
+  - 4GB RAM minimum for indexing
+  - GPU speeds up face detection by 10x
+  - Initial indexing: ~100-200 photos/minute with GPU
+  - More workers = faster indexing (increase PHOTOPRISM_WORKERS)
+
+  **Indexing:**
+  - Manual: Click "Index" button in UI
+  - Automatic: Enable in Settings > Library
+  - Interval: Can be set to hourly, daily, etc.
+  - Watch folders for new imports
+
+  **Mobile Access:**
+  - Progressive Web App (PWA)
+  - Add to home screen on iOS/Android
+  - No official native app (yet)
+  - Access via browser: http://ip:2342
+
+  **Backup Important:**
+  - Originals: /tank/photos/originals (your actual photos)
+  - Database: /tank/photos/storage/database
+  - Sidecar files: /tank/photos/storage/sidecar (ratings, tags)

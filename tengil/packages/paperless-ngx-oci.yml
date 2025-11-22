@@ -1,0 +1,113 @@
+# Paperless-ngx OCI - Document Management System
+#
+# Scan, index, and archive all your paper documents with OCR and AI.
+# The paperless office solution with powerful search and organization.
+
+name: paperless-ngx-oci
+description: Document management with OCR and AI tagging
+category: documents
+difficulty: intermediate
+
+# OCI container configuration
+pools:
+  tank:
+    datasets:
+      paperless:
+        profile: dev  # Compression for PDFs and database
+        containers:
+          - name: paperless
+            image: ghcr.io/paperless-ngx/paperless-ngx:latest
+            cores: 4
+            memory: 4096
+            disk: 32
+            env:
+              PAPERLESS_REDIS: "redis://localhost:6379"
+              PAPERLESS_DBENGINE: "sqlite"
+              PAPERLESS_TIME_ZONE: "America/New_York"
+              PAPERLESS_OCR_LANGUAGE: "eng"
+              PAPERLESS_SECRET_KEY: "change-me-to-random-string"
+              PAPERLESS_ADMIN_USER: "admin"
+              PAPERLESS_ADMIN_PASSWORD: "changeme"
+              PAPERLESS_URL: "http://paperless.local"
+              USERMAP_UID: "1000"
+              USERMAP_GID: "1000"
+            mounts:
+              - source: /tank/paperless/data
+                target: /usr/src/paperless/data
+              - source: /tank/paperless/media
+                target: /usr/src/paperless/media
+              - source: /tank/paperless/consume
+                target: /usr/src/paperless/consume
+            startup_order: 150
+
+# Setup instructions
+notes: |
+  **Quick Start:**
+  1. Run: tg apply packages/paperless-ngx-oci.yml
+  2. Open: http://container-ip:8000
+  3. Login: admin / changeme (CHANGE THIS!)
+  4. Upload first document to test OCR
+  5. Create tags and document types
+  6. Set up consumption workflow
+
+  **IMPORTANT - Change Defaults:**
+  - PAPERLESS_ADMIN_PASSWORD: Change from "changeme"
+  - PAPERLESS_SECRET_KEY: Generate random string
+  - PAPERLESS_TIME_ZONE: Set your timezone
+  - PAPERLESS_OCR_LANGUAGE: Add languages (e.g., "eng+fra+deu")
+
+  **Document Workflow:**
+  1. Scan/photo documents
+  2. Drop files in /tank/paperless/consume
+  3. Paperless auto-imports and OCRs
+  4. Add tags, correspondents, document types
+  5. Search by content, date, tags
+
+  **OCR Features:**
+  - Automatic text recognition
+  - Multi-language support (add via PAPERLESS_OCR_LANGUAGE)
+  - Searchable PDFs created
+  - Original files preserved
+  - Metadata extraction (dates, amounts)
+
+  **Organization:**
+  - Tags: For categorization (bills, receipts, contracts)
+  - Correspondents: People/companies (bank, employer, etc.)
+  - Document Types: Categories (invoice, letter, form)
+  - Custom fields: Add your own metadata
+
+  **Consumption Methods:**
+  1. Web Upload: Drag & drop in UI
+  2. Watch Folder: /tank/paperless/consume
+  3. Email: Forward to paperless (requires mail setup)
+  4. Mobile App: Scan with phone, upload
+  5. Scanner: Save directly to consume folder
+
+  **Mobile Scanning:**
+  - Use any scanner app
+  - Save to /tank/paperless/consume (via SMB)
+  - Or use web upload from mobile browser
+  - Paperless Mobile app available
+
+  **Search Capabilities:**
+  - Full-text search across all documents
+  - Filter by date, tags, correspondent
+  - Saved searches
+  - Advanced queries
+  - Similar documents
+
+  **Storage:**
+  - Originals: /tank/paperless/media/documents/originals
+  - Archives: /tank/paperless/media/documents/archive
+  - Thumbnails: /tank/paperless/media/thumbnails
+  - Database: /tank/paperless/data/db.sqlite3
+
+  **Backup Important:**
+  - Export documents regularly (Settings > Export)
+  - Backup /tank/paperless/data and /tank/paperless/media
+  - Test restore procedure
+
+  **Performance:**
+  - 4GB RAM for OCR processing
+  - 4 cores for parallel document processing
+  - SSD storage recommended for fast search
