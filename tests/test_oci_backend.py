@@ -189,6 +189,9 @@ class TestOCIBackend(unittest.TestCase):
             self.assertIn('test-alpine', args)
             self.assertIn('--rootfs', args)
             self.assertIn('tank:8', args)
+            # Critical for OCI: ensure unmanaged ostype so entrypoint runs
+            self.assertIn('--ostype', args)
+            self.assertIn('unmanaged', args)
 
 
 if __name__ == '__main__':

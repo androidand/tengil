@@ -1,0 +1,47 @@
+# Test OCI Container - Jellyfin Only
+# Verify --ostype unmanaged fix
+
+pools:
+  tank:
+    type: zfs
+    datasets:
+      jellyfin-config:
+        profile: appdata
+        zfs:
+          compression: lz4
+          atime: "off"
+        containers:
+          - name: jellyfin
+            vmid: 200
+            type: oci
+            image: jellyfin/jellyfin:latest
+            cores: 4
+            memory: 4096
+            disk: 16
+            auto_create: true
+            auto_start: true
+            mount: /config
+            mounts:
+              - source: /tank/media
+                target: /media
+                readonly: true
+            env:
+              JELLYFIN_PublishedServerUrl: http://192.168.1.42:8096
+            gpu: true
+
+      media:
+        profile: media
+        zfs:
+          compression: lz4
+          atime: "off"
+
+profiles:
+  appdata:
+    zfs:
+      compression: lz4
+      atime: "off"
+  media:
+    zfs:
+      compression: lz4
+      atime: "off"
+      recordsize: 1M
