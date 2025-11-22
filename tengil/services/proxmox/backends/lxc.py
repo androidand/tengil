@@ -77,7 +77,12 @@ class LXCBackend(ContainerBackend):
         if spec.get('unprivileged', True):
             cmd.append('--unprivileged')
             cmd.append('1')
-        
+
+        # Environment variables
+        env = spec.get('env', {})
+        for key, value in env.items():
+            cmd.extend(['--env', f'{key}={value}'])
+
         # Features
         features = spec.get('features', {})
         feature_str = ','.join(f'{k}={int(v)}' for k, v in features.items())
