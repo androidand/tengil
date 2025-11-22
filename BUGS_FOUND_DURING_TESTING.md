@@ -194,17 +194,17 @@ template_file = self.templates.resolve_template_filename(template)
 
 ## Bug #11: Additional Mounts Not Applied to Containers
 
-**Status:** 🔍 INVESTIGATING
+**Status:** ✅ FIXED (commit 6a86aad)
 
-**Severity:** Medium - Feature partially working
+**Severity:** Medium (Was blocking additional mount functionality)
 
-**Impact:** Additional mounts from `mounts:` field in container spec not being applied
+**Impact:** Additional mounts from `mounts:` field in container spec were not being applied
 
 ### Problem Description
 
-When a container spec includes a `mounts:` section with additional mount points, only the primary dataset mount is applied. Additional mounts are parsed but never actually mounted to the container.
+When a container spec included a `mounts:` section with additional mount points, only the primary dataset mount was applied. Additional mounts were parsed but never actually mounted to the container.
 
-### Reproduction
+### Reproduction (Before Fix)
 
 ```yaml
 containers:
@@ -220,28 +220,119 @@ containers:
 **Expected behavior:**
 - Container should have two mount points: `mp0` (primary) and `mp1` (additional)
 
-**Actual behavior:**
-- Only `mp0` exists
-- `mounts:` field is ignored during container creation
+**Actual behavior (before fix):**
+```bash
+pct config 502 | grep mp
+# mp0: /tank/jellyfin-test,mp=/config,ro=1
+# (missing mp1)
+```
 
-### Investigation
+### Root Cause
 
-**Config parsing:** The `mounts:` field is correctly parsed in config files.
+Additional mounts needed to be applied AFTER container creation and primary mount setup, but there was no code path that:
+1. Extracted `mounts:` from container spec
+2. Called `add_container_mount()` for each additional mount
+3. Applied them post-creation
 
-**Container creation:** `lifecycle.py` `create_container()` method does NOT process the `mounts:` field.
+### Fix Implementation
 
-**Root cause:** Additional mounts need to be applied AFTER container creation, but there's no code path that:
-1. Extracts `mounts:` from container spec
-2. Calls `add_container_mount()` for each additional mount
-3. Applies them post-creation
+**Location:** [orchestrator.py:462-524](tengil/services/proxmox/containers/orchestrator.py#L462-L524)
 
-### Proposed Fix
+Added `_apply_additional_mounts()` method that:
+1. Extracts `mounts:` array from container spec
+2. Validates source/target for each mount
+3. Checks if mount already exists (idempotent operation)
+4. Finds next available mount point (mp1, mp2, etc.)
+5. Applies via `add_container_mount()` with proper readonly flag
+6. Logs success/failure for each mount
 
-Add mount processing after container creation in `setup_container_mounts()` or create a new method `_apply_additional_mounts()` that:
+**Caller:** `setup_container_mounts()` at [orchestrator.py:428-429](tengil/services/proxmox/containers/orchestrator.py#L428-L429)
+- Called AFTER primary mount succeeds
+- Only triggered if container spec is a dict and has `mounts:` field
 
-1. Checks if container spec has `mounts:` field
-2. Iterates through additional mounts
-3. Calls `mounts.add_container_mount()` for each
-4. Handles errors gracefully
+### Code Changes
 
-**Location:** `tengil/services/proxmox/containers/orchestrator.py` or `lifecycle.py`
+```python
+def _apply_additional_mounts(self, vmid: int, container_spec: Dict, container_name: Optional[str] = None) -> bool:
+    """Apply additional mounts from container spec's mounts: field."""
+    additional_mounts = container_spec.get('mounts', [])
+    if not additional_mounts:
+        return True
+
+    logger.info(f"Applying {len(additional_mounts)} additional mount(s) to container {vmid}")
+
+    success_count = 0
+    for mount in additional_mounts:
+        source = mount.get('source')
+        target = mount.get('target')
+        readonly = mount.get('readonly', False)
+
+        # Check if already exists (idempotent)
+        if self.mounts.container_has_mount(vmid, source):
+            logger.info(f"  ✓ Additional mount already exists: {source} → {target}")
+            success_count += 1
+            continue
+
+        # Find next free mount point
+        mp_num = self.mounts.get_next_free_mountpoint(vmid)
+
+        # Add the mount
+        if self.mounts.add_container_mount(vmid, mp_num, source, target, readonly, container_name):
+            logger.info(f"  ✓ Added additional mount: {source} → {target} (readonly={readonly})")
+            success_count += 1
+        else:
+            logger.error(f"  ✗ Failed to add mount: {source} → {target}")
+
+    return success_count == len(additional_mounts)
+```
+
+### Testing & Verification
+
+**Test Case:** Container 502 (jellyfin-test)
+```yaml
+containers:
+  - name: jellyfin-test
+    vmid: 502
+    mount: /config
+    mounts:
+      - source: /tank/media-test
+        target: /media
+        readonly: true
+```
+
+**Deploy Logs:**
+```
+INFO     Applying 1 additional mount(s) to container 502
+INFO     Permission manager determined readonly=True for jellyfin-test -> /tank/media-test
+INFO     Adding mount point to container 502: mp1=/tank/media-test,mp=/media,ro=1
+INFO       ✓ Added additional mount: /tank/media-test → /media (readonly=True)
+INFO     Applied 1/1 additional mount(s)
+```
+
+**Verification Commands:**
+```bash
+# Check mount points exist
+pct config 502 | grep mp
+mp0: /tank/jellyfin-test,mp=/config,ro=1
+mp1: /tank/media-test,mp=/media,ro=1        # ✅ ADDITIONAL MOUNT PRESENT
+
+# Check mount is accessible inside container
+pct exec 502 -- ls -la /media
+total 9
+drwxr-xr-x  2 nobody nogroup  2 Nov 22 00:54 .  # ✅ MOUNTED AND ACCESSIBLE
+drwxr-xr-x 18 root   root    22 Nov 22 01:10 ..
+```
+
+**Result:**
+- ✅ `mp0` created for `/tank/jellyfin-test` → `/config` (primary mount)
+- ✅ `mp1` created for `/tank/media-test` → `/media` (additional mount, readonly)
+- ✅ Both mounts accessible inside container
+- ✅ Permission system correctly applied readonly flag
+- ✅ Idempotent operation (logs show "already exists" on re-apply)
+
+### Production Status
+
+**Fixed in:** Commit 6a86aad  
+**Deployed:** 2025-11-22 02:10 UTC  
+**Tested on:** Proxmox 9.1.1, container 502 (jellyfin-test)  
+**Status:** ✅ Working in production
