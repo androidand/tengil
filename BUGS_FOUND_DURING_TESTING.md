@@ -7,10 +7,12 @@
 **Fix:** StateStore now fingerprints `tengil.yml` and auto-invalidates cached state when the config changes. Default config path follows the state location to avoid cwd issues.
 
 ### Bug #2: MOCK mode appearing in diff output
-**Severity:** Medium  
-**Found:** Running `tg diff` shows "MOCK: Would list datasets"  
-**Symptom:** Logs show MOCK operations even on real server  
-**Investigation Needed:** Why is mock mode enabled by default?
+**Severity:** Medium
+**Status:** ✅ Fixed
+**Found:** Running `tg diff` shows "MOCK: Would list datasets"
+**Symptom:** Logs show MOCK operations even on real server
+**Root Cause:** ZFSManager, ProxmoxManager, and NASManager checked `TG_MOCK` environment variable directly without safety valve logic
+**Fix:** Updated all three manager classes to use the same safety valve as `is_mock()` helper - automatically disables mock mode on real Proxmox (when /etc/pve exists) unless `TG_MOCK_FORCE=1` is set
 
 ### Bug #3: Container creation fails - "filesystem successfully created, but not mounted"
 **Severity:** Critical  
@@ -63,69 +65,24 @@ INFO     ✓ Mounted /tank/syncthing → jellyfin-oci:/var/lib/syncthing
 
 ### Bug #6: scan command doesn't load desired config
 **Severity:** Critical  
-**Symptom:** `tg scan` only captures reality snapshot but doesn't load the desired config from tengil.yml into state.json. This means diff/apply run after scan will think there's no desired state and report "infrastructure up to date" even when new containers should be created.
-
-**Workaround:** Don't use scan standalone - run diff or apply which load both reality AND desired config.
-
-**Root Cause:** scan command doesn't accept --config flag and doesn't load desired state, only captures reality. This breaks the workflow of "scan then diff then apply".
-
-**Expected:** scan should load desired config alongside reality snapshot so state.json has both.
+**Status:** ✅ Fixed  
+**Fix:** `tg scan` now accepts `--config` and records a desired snapshot (from that config) alongside reality in the state store. Fingerprints the config path to keep desired/reality aligned for follow-up diff/apply runs.
 
 ### Bug #7: Config format confusion - `backend:` vs `type:` for OCI containers
 **Severity:** Medium (Documentation)  
-**Symptom:** Created configs using `backend: oci` which doesn't work. The correct syntax is `type: oci` with an `oci:` section containing `image:`, `tag:`, `registry:` fields.
-
-**Root Cause:** Inconsistent terminology - some parts of code use "backend" but the config schema uses "type".
-
-**Expected:** Documentation should clearly show that OCI containers require:
-```yaml
-type: oci
-oci:
-  image: nginx
-  tag: alpine
-  registry: docker.io
-```
-
-Not `backend: oci`.
+**Status:** ✅ Fixed (parser + validation)  
+**Fix:** Parser now normalizes OCI specs and accepts either `type: oci` with `oci.image` or top-level `image: nginx:alpine`. Validation errors point to the correct fields; docs updated to prefer `type: oci` + `oci.image/tag`.
 
 ### Bug #8: Config schema mismatch - OCI containers need top-level `image` field
 **Severity:** High (Config Format)  
-**Status:** ✅ Documented  
-**Found:** Trying to use `type: oci` with nested `oci: image: nginx`  
-**Symptom:** Error: "auto_create requires 'template' field (LXC) or 'image' field (OCI)"  
-**Root Cause:** The container orchestrator expects OCI image as a top-level `image` field, not nested under `oci:`. Example file `test-oci-auto.yml` shows nested format but code doesn't support it.
-
-**Working Format:**
-```yaml
-containers:
-  - name: nginx-test
-    type: oci
-    image: nginx:alpine  # Top-level field
-    auto_create: true
-```
-
-**Non-Working Format:**
-```yaml
-containers:
-  - name: nginx-test
-    type: oci
-    auto_create: true
-    oci:  # Nested - NOT supported by code
-      image: nginx
-      tag: alpine
-```
-
-**Fix:** Use top-level `image: nginx:alpine` field. The code splits on `:` to extract tag.
+**Status:** ✅ Fixed (schema)  
+**Fix:** OCI containers now accept both forms: top-level `image: nginx:alpine` or nested `oci.image/tag`. Parser normalizes and validator enforces presence of an OCI image when `type: oci` and `auto_create=true`.
 
 ---
 
 ## Bug #9: YAML Boolean Conversion for ZFS Properties
 
-**Status:** ⚠️ CRITICAL - Blocks use of valid ZFS property values
-
-**Severity:** High - Prevents setting common ZFS properties
-
-**Impact:** Cannot disable atime or compression using valid ZFS values
+**Status:** ✅ Fixed
 
 ### Problem Description
 
@@ -170,33 +127,9 @@ zfs:
   compression: lz4  # Works - not a YAML keyword
 ```
 
-### Proper Fix Required
+### Fix
 
-Need to add boolean-to-string conversion in one of these places:
-
-1. **Config Loader** (`config_loader.py`): Convert booleans to ZFS strings immediately after YAML parsing
-2. **Profile Applicator**: Handle boolean conversion when applying profiles
-3. **ZFS Manager** (`zfs_manager.py`): Convert booleans before command construction
-
-**Recommended approach:**
-```python
-# In config_loader.py or profile applicator
-ZFS_BOOLEAN_MAP = {
-    True: 'on',
-    False: 'off'
-}
-
-def normalize_zfs_property(key: str, value: Any) -> str:
-    if isinstance(value, bool):
-        return ZFS_BOOLEAN_MAP[value]
-    return str(value)
-```
-
-### Current Workaround
-
-Avoid YAML boolean keywords entirely:
-- Use `lz4` instead of `off` for compression
-- Accept `atime=on` (minor performance cost) instead of fighting YAML parser
+ZFS manager now normalizes boolean properties to `on`/`off` for `create`, `set`, and property sync. YAML boolean coercion no longer breaks atime/compression settings.
 
 ---
 

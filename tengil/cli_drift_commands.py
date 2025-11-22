@@ -210,9 +210,9 @@ def _update_config_file(config_path: Path, updates: dict):
     # Load current config
     if config_path.exists():
         with open(config_path) as f:
-            config = yaml.safe_load(f) or {}
+            _ = yaml.safe_load(f) or {}
     else:
-        config = {}
+        _ = {}
     
     # Apply updates (simplified implementation)
     # In practice, you'd need to properly handle nested dictionary updates

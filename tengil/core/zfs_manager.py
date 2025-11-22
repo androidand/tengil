@@ -1,6 +1,7 @@
 """ZFS dataset management."""
 import os
 import subprocess
+from pathlib import Path
 from typing import Dict, Optional
 
 from tengil.core.logger import get_logger
@@ -9,9 +10,27 @@ logger = get_logger(__name__)
 
 class ZFSManager:
     """Manages ZFS datasets and properties."""
-    
+
+    # Map Python booleans to ZFS-compatible string values
+    # YAML parsers convert 'on', 'off', 'yes', 'no' to booleans
+    ZFS_BOOLEAN_MAP = {
+        True: 'on',
+        False: 'off'
+    }
+
     def __init__(self, mock: bool = False, state_store=None, permission_manager=None):
-        self.mock = mock or os.environ.get('TG_MOCK', '').lower() in ('1', 'true')
+        # Check mock mode with safety valve: don't enable mock on real Proxmox
+        # unless explicitly forced (prevents accidental mock mode on production)
+        mock_env = os.environ.get('TG_MOCK', '').lower() in ('1', 'true')
+        force_mock = os.environ.get('TG_MOCK_FORCE', '').lower() in ('1', 'true')
+        is_proxmox = Path('/etc/pve').exists()
+
+        if mock_env and is_proxmox and not force_mock:
+            # Safety: disable mock mode on real Proxmox unless forced
+            self.mock = False
+        else:
+            self.mock = mock or mock_env
+
         self._mock_datasets = set()  # Track datasets in mock mode
         self._state_store = state_store  # For checking persistent state
         self.permission_manager = permission_manager  # For managing ACLs and permissions
@@ -74,8 +93,8 @@ class ZFSManager:
                 parts = line.split('\t')
                 if len(parts) < 3:
                     continue
-                name, prop, value = parts[0], parts[1], parts[2]
-                dataset = datasets.get(name)
+                dataset_name, prop, value = parts[0], parts[1], parts[2]
+                dataset = datasets.get(dataset_name)
                 if dataset is None:
                     # Dataset may exist but wasn't in list output (e.g., snapshot) - skip
                     continue
@@ -84,7 +103,7 @@ class ZFSManager:
                 dataset[prop] = value
 
             # Ensure recordsize/compression keys exist even if zfs get skipped them
-            for name, info in datasets.items():
+            for _name, info in datasets.items():
                 if 'recordsize' not in info:
                     info['recordsize'] = None
                 if 'compression' not in info:
@@ -123,7 +142,30 @@ class ZFSManager:
         if unit_index == 0:
             return str(size)
         return f"{size}{units[unit_index]}"
-    
+
+    @classmethod
+    def _normalize_zfs_value(cls, value) -> str:
+        """Normalize ZFS property value to string.
+
+        Converts Python booleans (from YAML parsing) to ZFS-compatible strings.
+        YAML parsers treat 'on', 'off', 'yes', 'no' as boolean keywords.
+
+        Args:
+            value: Property value (bool, int, str, etc.)
+
+        Returns:
+            String value safe for ZFS commands
+
+        Examples:
+            True -> 'on'
+            False -> 'off'
+            'lz4' -> 'lz4'
+            128 -> '128'
+        """
+        if isinstance(value, bool):
+            return cls.ZFS_BOOLEAN_MAP[value]
+        return str(value)
+
     def create_dataset(self, name: str, properties: Dict[str, str]) -> bool:
         """Create a ZFS dataset with specified properties.
         
@@ -140,7 +182,8 @@ class ZFSManager:
         # Check if dataset already exists
         if self.dataset_exists(name):
             logger.info(f"Dataset {name} already exists, syncing properties...")
-            success = self.sync_properties(name, properties)
+            normalized = {k: self._normalize_zfs_value(v) for k, v in properties.items()}
+            success = self.sync_properties(name, normalized)
             # Apply permissions even if dataset already existed
             if success and self.permission_manager:
                 self._apply_dataset_permissions(name)
@@ -156,11 +199,12 @@ class ZFSManager:
             return True
             
         cmd = ["zfs", "create"]
-        
-        # Add properties as -o flags
+
+        # Add properties as -o flags, normalizing boolean values
         for key, value in properties.items():
-            cmd.extend(["-o", f"{key}={value}"])
-            
+            normalized_value = self._normalize_zfs_value(value)
+            cmd.extend(["-o", f"{key}={normalized_value}"])
+
         cmd.append(name)
         
         try:
@@ -176,16 +220,24 @@ class ZFSManager:
             logger.error(f"Failed to create dataset {name}: {e}")
             return False
     
-    def set_property(self, dataset: str, key: str, value: str) -> bool:
-        """Set a property on an existing dataset."""
+    def set_property(self, dataset: str, key: str, value) -> bool:
+        """Set a property on an existing dataset.
+
+        Args:
+            dataset: Dataset name
+            key: Property name
+            value: Property value (will be normalized to string)
+        """
+        normalized_value = self._normalize_zfs_value(value)
+
         if self.mock:
-            logger.info(f"MOCK: Would set {dataset} property {key}={value}")
+            logger.info(f"MOCK: Would set {dataset} property {key}={normalized_value}")
             return True
-            
+
         try:
-            cmd = ["zfs", "set", f"{key}={value}", dataset]
+            cmd = ["zfs", "set", f"{key}={normalized_value}", dataset]
             subprocess.run(cmd, check=True)
-            logger.info(f"Set {dataset} property {key}={value}")
+            logger.info(f"Set {dataset} property {key}={normalized_value}")
             return True
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to set property: {e}")
@@ -261,6 +313,7 @@ class ZFSManager:
         changed = False
         
         for key, desired_value in desired_properties.items():
+            desired_value = self._normalize_zfs_value(desired_value)
             current_value = current_properties.get(key)
             
             if current_value != desired_value:

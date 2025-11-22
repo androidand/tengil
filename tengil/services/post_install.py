@@ -542,7 +542,7 @@ EOF
                 timeout=config.command_check_timeout
             )
             return result.returncode == 0
-        except:
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
             return False
 
     def wait_for_container_boot(self, vmid: int, timeout: int = None) -> bool:
@@ -574,7 +574,7 @@ EOF
                 if result.returncode == 0:
                     logger.debug(f"Container {vmid} ready after {i}s")
                     return True
-            except:
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):
                 pass
 
             time.sleep(1)

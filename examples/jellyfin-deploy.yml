@@ -8,13 +8,13 @@ pools:
   tank:
     type: zfs
     datasets:
-      # Media storage
+      # Media storage - TESTING Bug #9 fix
       media-test:
         profile: media
         zfs:
-          compression: lz4  # Avoid YAML boolean keywords (off/on)
+          compression: off  # Test: YAML will parse as False, should convert to 'off'
           recordsize: 1M
-          # Omit atime - let pool default handle it
+          atime: off        # Test: YAML will parse as False, should convert to 'off'
           sync: standard
       
       # Jellyfin container dataset

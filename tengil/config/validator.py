@@ -214,12 +214,20 @@ class MultiPoolValidator:
             # Phase 2+ validation: auto_create requires template (or OCI image)
             if container.get('auto_create'):
                 has_template = container.get('template')
-                has_oci = container.get('type') == 'oci' or 'oci' in container
-                
-                if not has_template and not has_oci:
+                is_oci = container.get('type') == 'oci'
+                has_oci_section = 'oci' in container
+                has_oci_image = bool(container.get('image')) if is_oci else False
+
+                if not has_template and not is_oci and not has_oci_section:
                     errors.append(
                         f"Container {idx} in '{dataset_path}': auto_create=true requires 'template' field "
-                        f"(for LXC) or 'type: oci' with 'oci' section (for OCI containers)"
+                        f"(for LXC) or 'type: oci' with OCI image"
+                    )
+
+                if is_oci and not (has_oci_section or has_oci_image):
+                    errors.append(
+                        f"Container {idx} in '{dataset_path}': OCI containers must specify "
+                        f"'oci.image' or top-level 'image' when auto_create=true"
                     )
                 
                 # Validate resources if provided

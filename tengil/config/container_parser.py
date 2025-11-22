@@ -4,7 +4,7 @@ Handles container mount specifications, format migrations, and validation
 for container definitions in dataset configurations.
 """
 import warnings
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from tengil.core.smart_permissions import _match_known_container
 from tengil.models.config import ConfigValidationError
@@ -240,6 +240,7 @@ class ContainerParser:
                 container_data['startup'] = container_data['startup'].strip()
 
             container_data = self._merge_container_defaults(container_data)
+            container_data = self._normalize_oci_spec(container_data, dataset_path)
 
             parsed.append(container_data)
 
@@ -302,6 +303,48 @@ class ContainerParser:
                 merged['auto_create'] = True
 
         return merged
+
+    def _normalize_oci_spec(self, container: Dict[str, Any], dataset_path: str) -> Dict[str, Any]:
+        """Ensure OCI containers have an 'oci' section, supporting top-level image field."""
+        if container.get('type') != 'oci':
+            return container
+
+        # If already structured, just ensure image exists
+        if 'oci' in container:
+            oci_spec = container.get('oci') or {}
+            if not isinstance(oci_spec, dict):
+                raise ConfigValidationError(
+                    f"Container in '{dataset_path}' has invalid 'oci' section (must be a mapping)."
+                )
+            if not oci_spec.get('image') and container.get('image'):
+                image, tag = self._split_image_and_tag(container['image'])
+                oci_spec['image'] = image
+                oci_spec.setdefault('tag', tag)
+                container['oci'] = oci_spec
+            elif not oci_spec.get('image'):
+                raise ConfigValidationError(
+                    f"Container in '{dataset_path}' type 'oci' requires 'oci.image' or top-level 'image'."
+                )
+            return container
+
+        image_value = container.get('image')
+        if not image_value:
+            raise ConfigValidationError(
+                f"Container in '{dataset_path}' type 'oci' requires 'image' (or oci.image) field."
+            )
+
+        image, tag = self._split_image_and_tag(image_value)
+        container['oci'] = {'image': image, 'tag': tag}
+        return container
+
+    @staticmethod
+    def _split_image_and_tag(image_value: str) -> Tuple[str, str]:
+        """Split image into image + tag, handling registry prefixes."""
+        if ":" in image_value and image_value.rfind(":") > image_value.rfind("/"):
+            image, tag = image_value.rsplit(":", 1)
+        else:
+            image, tag = image_value, "latest"
+        return image, tag
 
     @staticmethod
     def capture_explicit_readonly(containers: List[Any]) -> Set[int]:

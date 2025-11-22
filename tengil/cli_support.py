@@ -48,8 +48,22 @@ def find_config(config_path: Optional[str] = None) -> str:
 
 
 def is_mock() -> bool:
-    """Return True when CLI runs in mock mode."""
-    return os.environ.get("TG_MOCK") == "1"
+    """Return True when CLI runs in mock mode.
+
+    Mock is enabled when TG_MOCK=1 *and* not explicitly disabled on a real
+    Proxmox host. If TG_MOCK=1 is set but /etc/pve exists, we automatically
+    turn mock off unless TG_MOCK_FORCE=1 is also present. This prevents
+    accidental mock mode on production hosts.
+    """
+    mock_env = os.environ.get("TG_MOCK", "").lower()
+    force_mock = os.environ.get("TG_MOCK_FORCE", "").lower() in ("1", "true")
+    is_pve = Path("/etc/pve").exists()
+
+    if mock_env in ("1", "true") and is_pve and not force_mock:
+        # Safety valve: avoid silent mock mode on real Proxmox
+        return False
+
+    return mock_env in ("1", "true")
 
 
 def setup_file_logging(log_file: Optional[str] = None, verbose: bool = False) -> None:
@@ -80,7 +94,7 @@ def load_config_and_orchestrate(
     # Load configuration
     config_file = find_config(config_path)
     loader = ConfigLoader(config_file)
-    config = loader.load()
+    _ = loader.load()
 
     # Flatten all pools into full dataset paths
     orchestrator = PoolOrchestrator(loader, ZFSManager(mock=dry_run))

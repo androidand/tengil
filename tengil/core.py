@@ -208,7 +208,7 @@ class Config:
                     "category": data.get("category", "general"),
                     "difficulty": data.get("difficulty", "intermediate")
                 })
-            except:
+            except (yaml.YAMLError, OSError):
                 pass
 
         return sorted(packages, key=lambda p: p["name"])
@@ -603,7 +603,7 @@ class ProxmoxAPI:
                 # Return first IP
                 ips = result.stdout.strip().split()
                 return ips[0] if ips else None
-        except:
+        except (subprocess.CalledProcessError, OSError):
             pass
         return None
     

@@ -172,7 +172,7 @@ def _validate_storage_exists(processed_config: Dict[str, Any]) -> List[str]:
     for pool_name in pools.keys():
         try:
             import subprocess
-            result = subprocess.run(
+            _ = subprocess.run(
                 ['zfs', 'list', pool_name],
                 capture_output=True,
                 text=True,
@@ -183,9 +183,9 @@ def _validate_storage_exists(processed_config: Dict[str, Any]) -> List[str]:
     
     # Check Proxmox storage exists for containers
     storage_names = set()
-    for pool_name, pool_cfg in pools.items():
+    for _pool_name, pool_cfg in pools.items():
         datasets = pool_cfg.get("datasets", {})
-        for dataset_name, dataset_cfg in datasets.items():
+        for _dataset_name, dataset_cfg in datasets.items():
             containers = dataset_cfg.get("containers", [])
             for container in containers:
                 if isinstance(container, dict) and container.get("auto_create"):
@@ -371,6 +371,7 @@ def scan(
     output: Optional[Path] = typer.Option(None, "--output", "-o", help="Write reality snapshot to JSON"),
     pretty: bool = typer.Option(False, "--pretty", help="Pretty-print JSON output"),
     save_state: bool = typer.Option(True, "--save-state/--no-save-state", help="Persist snapshot to Tengil state store"),
+    config: Optional[str] = typer.Option(None, "--config", "-c", help="Load desired config alongside reality snapshot"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
     log_file: Optional[str] = typer.Option(None, "--log-file", help="Path to log file"),
 ):
@@ -381,7 +382,10 @@ def scan(
         print_success,
         print_warning,
         setup_file_logging,
+        find_config,
     )
+    from tengil.config.loader import ConfigLoader
+    from tengil.core.state_store import StateStore
 
     setup_file_logging(log_file=log_file, verbose=verbose)
 
@@ -445,10 +449,24 @@ def scan(
         output.write_text(payload)
         print_success(console, f"Reality snapshot saved to {output}")
 
+    desired_state = None
+    config_file: Optional[Path] = None
+    if config:
+        try:
+            config_file = Path(find_config(config))
+            loader = ConfigLoader(config_file)
+            desired_state = loader.build_desired_state()
+        except FileNotFoundError as exc:
+            print_warning(console, f"Config not found ({exc}); saving reality only")
+        except Exception as exc:  # pragma: no cover - defensive
+            print_warning(console, f"Failed to parse desired config: {exc}")
+
     if save_state:
-        store = StateStore()
+        store = StateStore(config_path=config_file)
         try:
             if store.should_track():
+                if desired_state is not None:
+                    store.record_desired_snapshot(desired_state)
                 snapshot_file = store.record_reality_snapshot(state)
                 if snapshot_file is not None:
                     print_success(

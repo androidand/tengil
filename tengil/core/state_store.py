@@ -85,6 +85,9 @@ class StateStore:
                 "smb": {},
                 "nfs": {}
             },
+            "desired": {
+                "snapshots": []
+            },
             "reality": {
                 "last_snapshot": None,
                 "history": []
@@ -474,6 +477,43 @@ class StateStore:
 
         if keep_last and len(snapshots) > keep_last:
             reality["snapshots"] = snapshots[-keep_last:]
+
+        self.save()
+        return snapshot_path
+
+    def record_desired_snapshot(
+        self,
+        desired_state: Dict[str, Any],
+        keep_last: int = 5,
+    ) -> Optional[Path]:
+        """Persist desired config snapshot so scan can be followed by diff/apply."""
+        if not self.enabled:
+            logger.debug("State tracking disabled, skipping desired snapshot")
+            return None
+
+        base_dir = self.state_file.parent / "desired"
+        base_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        snapshot_path = base_dir / f"desired-{timestamp}.json"
+        with snapshot_path.open("w") as handle:
+            json.dump(desired_state, handle, indent=2)
+
+        desired = self.state.setdefault("desired", {})
+        snapshots = desired.setdefault("snapshots", [])
+        snapshots.append(
+            {
+                "captured_at": timestamp,
+                "summary": {
+                    "pools": list(desired_state.get("pools", {}).keys())
+                    if isinstance(desired_state, dict)
+                    else [],
+                },
+                "path": str(snapshot_path),
+            }
+        )
+
+        if keep_last and len(snapshots) > keep_last:
+            desired["snapshots"] = snapshots[-keep_last:]
 
         self.save()
         return snapshot_path

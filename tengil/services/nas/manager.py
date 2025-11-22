@@ -18,7 +18,19 @@ class NASManager:
     """
 
     def __init__(self, mock: bool = False, permission_manager=None):
-        self.mock = mock or os.environ.get('TG_MOCK', '').lower() in ('1', 'true')
+        # Check mock mode with safety valve: don't enable mock on real Proxmox
+        # unless explicitly forced (prevents accidental mock mode on production)
+        from pathlib import Path
+        mock_env = os.environ.get('TG_MOCK', '').lower() in ('1', 'true')
+        force_mock = os.environ.get('TG_MOCK_FORCE', '').lower() in ('1', 'true')
+        is_proxmox = Path('/etc/pve').exists()
+
+        if mock_env and is_proxmox and not force_mock:
+            # Safety: disable mock mode on real Proxmox unless forced
+            self.mock = False
+        else:
+            self.mock = mock or mock_env
+
         self.permission_manager = permission_manager
         self.smb = SMBManager(mock=self.mock)
         self.nfs = NFSManager(mock=self.mock)
