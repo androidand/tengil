@@ -82,7 +82,9 @@ INFO     ✓ Mounted /tank/syncthing → jellyfin-oci:/var/lib/syncthing
 
 ## Bug #9: YAML Boolean Conversion for ZFS Properties
 
-**Status:** ✅ Fixed
+**Status:** ✅ FIXED in commit d59ccbe
+
+**Tested:** Successfully created tank/media-test with `atime: off` and `compression: off`
 
 ### Problem Description
 
