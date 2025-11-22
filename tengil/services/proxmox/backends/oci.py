@@ -175,6 +175,8 @@ class OCIBackend(ContainerBackend):
 
         # Features
         features = spec.get('features', {})
+        if not isinstance(features, dict):
+            features = {}
         if features:
             feature_str = ','.join(f'{k}={int(v)}' for k, v in features.items() if v is not None)
             if feature_str:
@@ -204,9 +206,18 @@ class OCIBackend(ContainerBackend):
                 )
             
             # Configure GPU if specified
-            if spec.get('gpu', {}).get('passthrough') or features.get('gpu'):
+            gpu_cfg = spec.get('gpu')
+            gpu_enabled = False
+            gpu_type = None
+            if isinstance(gpu_cfg, dict):
+                gpu_enabled = bool(gpu_cfg.get('passthrough') or gpu_cfg.get('enabled') or gpu_cfg.get('enable'))
+                gpu_type = gpu_cfg.get('type')
+            elif isinstance(gpu_cfg, bool):
+                gpu_enabled = gpu_cfg
+
+            if gpu_enabled or features.get('gpu'):
                 with console.status(f"[cyan]Configuring GPU for {vmid}...[/cyan]", spinner="dots"):
-                    self.configure_gpu(vmid)
+                    self.configure_gpu(vmid, gpu_type)
             
             # Add mounts
             mounts = spec.get('mounts', [])
