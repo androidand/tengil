@@ -9,11 +9,11 @@ from rich.console import Console
 
 from tengil.services.proxmox.containers import ContainerOrchestrator
 
-# Default config search paths
+# Default config search paths (ordered by proximity to current run)
 CONFIG_PATHS = [
+    "./tengil.yml",
     str(Path.home() / "tengil-configs" / "tengil.yml"),
     "/etc/tengil/tengil.yml",
-    "./tengil.yml",
 ]
 
 

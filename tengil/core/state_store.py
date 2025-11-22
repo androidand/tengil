@@ -1,6 +1,7 @@
 """State persistence for tracking changes."""
 import os
 import json
+import hashlib
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -18,15 +19,24 @@ class StateStore:
     - Change tracking and auditing
     """
     
-    def __init__(self, state_file: Optional[Path] = None):
+    def __init__(self, state_file: Optional[Path] = None, config_path: Optional[Path] = None):
         """Initialize state store.
         
         Args:
             state_file: Path to state file. Defaults to .tengil/state.json
+            config_path: Path to config file for fingerprinting (default: ./tengil.yml)
         """
         if state_file is None:
-            state_file = Path.cwd() / ".tengil" / "state.json"
-        
+            state_file = Path(".tengil") / "state.json"
+
+        # Default config path should align with the state file location instead of cwd
+        if config_path:
+            self.config_path = Path(config_path)
+        else:
+            # If state lives in /path/.tengil/state.json, prefer /path/tengil.yml
+            state_parent = Path(state_file).parent
+            self.config_path = state_parent.parent / "tengil.yml"
+
         self.state_file = Path(state_file)
         self.enabled = not os.environ.get('TG_STATELESS')
         self.state = self._load()
@@ -38,16 +48,27 @@ class StateStore:
             State dict with datasets, mounts, shares, and external resources
         """
         if not self.state_file.exists():
-            return self._empty_state()
+            state = self._empty_state()
+            state["config_fingerprint"] = self._config_fingerprint()
+            return state
         
         try:
             with open(self.state_file, 'r') as f:
                 state = json.load(f)
                 logger.debug(f"Loaded state from {self.state_file}")
-                return state
         except (json.JSONDecodeError, IOError) as e:
             logger.warning(f"Failed to load state file: {e}, using empty state")
-            return self._empty_state()
+            state = self._empty_state()
+            state["config_fingerprint"] = self._config_fingerprint()
+
+        # Invalidate if config has changed
+        current_fp = self._config_fingerprint()
+        if state.get("config_fingerprint") != current_fp:
+            logger.info("Config fingerprint changed; invalidating cached state")
+            state = self._empty_state()
+            state["config_fingerprint"] = current_fp
+
+        return state
     
     def _empty_state(self) -> dict:
         """Create empty state structure."""
@@ -55,6 +76,7 @@ class StateStore:
             "version": "1.0",
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
+            "config_fingerprint": "",
             "datasets": {},
             "containers": {},  # NEW: Track containers created by Tengil
             "mounts": {},
@@ -93,6 +115,7 @@ class StateStore:
             
             # Update timestamp
             self.state["updated_at"] = datetime.now().isoformat()
+            self.state["config_fingerprint"] = self._config_fingerprint()
             
             # Write atomically (write to temp, then rename)
             temp_file = self.state_file.with_suffix('.tmp')
@@ -480,3 +503,13 @@ class StateStore:
         if self.state_file.exists():
             self.state_file.unlink()
         logger.info("Cleared state")
+
+    def _config_fingerprint(self) -> str:
+        """Return SHA256 fingerprint of the config file, or empty string if missing."""
+        try:
+            if not self.config_path or not Path(self.config_path).exists():
+                return ""
+            data = Path(self.config_path).read_bytes()
+            return hashlib.sha256(data).hexdigest()
+        except (OSError, IOError):  # pragma: no cover - defensive
+            return ""

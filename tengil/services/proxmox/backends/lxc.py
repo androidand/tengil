@@ -116,8 +116,28 @@ class LXCBackend(ContainerBackend):
             return vmid
             
         except subprocess.CalledProcessError as e:
+            # pct create sometimes emits non-zero even when the container exists (e.g. ZFS mount race)
+            console.print(f"[yellow]![/yellow] pct create returned error, verifying result...")
+            if self._container_exists(vmid):
+                console.print(f"[yellow]✓[/yellow] Container {vmid} appears created despite error")
+                return vmid
+
             console.print(f"[red]✗[/red] Error creating container: {e.stderr}")
             return None
+
+    def _container_exists(self, vmid: int) -> bool:
+        """Best-effort check if a container now exists."""
+        if self.mock:
+            return True
+        try:
+            result = subprocess.run(
+                ["pct", "status", str(vmid)],
+                capture_output=True,
+                text=True,
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
 
     def start_container(self, vmid: int) -> bool:
         """Start LXC container."""

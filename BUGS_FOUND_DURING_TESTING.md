@@ -3,15 +3,8 @@
 
 ### Bug #1: State file not invalidated when config changes
 **Severity:** High  
-**Found:** When uploading new tengil.yml config  
-**Symptom:** `tg diff` shows old/stale state even after fresh install  
-**Workaround:** Manual `rm -rf .tengil/` required  
-**Root Cause:** State store doesn't detect config file changes  
-**Fix Needed:** 
-- Add config file hash/timestamp to state.json
-- Auto-invalidate state when config changes
-- Add `--force-rescan` flag to diff/apply commands
-- Show warning when state is older than config file
+**Status:** ✅ Fixed  
+**Fix:** StateStore now fingerprints `tengil.yml` and auto-invalidates cached state when the config changes. Default config path follows the state location to avoid cwd issues.
 
 ### Bug #2: MOCK mode appearing in diff output
 **Severity:** Medium  
@@ -34,7 +27,7 @@ ERROR    Error output: unable to create CT 201 - zfs error: filesystem successfu
 - The error message "filesystem successfully created, but not mounted" is misleading
 - Both immich (201) and jellyfin (200) were created and started
 - **Root Cause**: pct returns exit 255 but actually succeeds
-- **Fix Needed**: Better error handling - check if container exists after "failure"
+- **Fix:** LXC backend now re-checks with `pct status` and treats the container as created when Proxmox returns a false-negative error.
 
 ### Bug #4: Wrong container selected for syncthing mount
 **Severity:** High  
@@ -46,7 +39,18 @@ INFO     Adding mount point to container 202: mp1=/tank/syncthing,mp=/var/lib/sy
 INFO     ✓ Mounted /tank/syncthing → jellyfin-oci:/var/lib/syncthing
 ```
 **Root Cause:** VMID 202 is jellyfin-oci (old test container), not syncthing  
-**Impact:** Mounts go to wrong containers when VMIDs don't match names
+**Impact:** Mounts go to wrong containers when VMIDs don't match names  
+**Fix:** Mount orchestration now aborts if the vmid's hostname doesn't match the requested container name, preventing accidental mounts to the wrong CT.
 
 ---
 *More bugs will be added as testing continues*
+
+### Bug #5: Config file search path incorrect
+**Severity:** Critical  
+**Status:** ✅ Fixed (search order) / 🔍 Pending (debug warning)  
+**Found:** Running `tg diff` without `--config` flag  
+**Symptom:** Loads wrong/old config despite `/root/tengil.yml` being present and recent  
+**Workaround (old):** Must use `tg diff --config /root/tengil.yml`  
+**Root Cause:** Config file discovery didn't prioritize CWD `tengil.yml`  
+**Fix:** Config search order is now `./tengil.yml` → `~/tengil-configs/tengil.yml` → `/etc/tengil/tengil.yml`.  
+**TODO:** Add debug logging showing which config file was loaded and warn when multiple `tengil.yml` files exist.

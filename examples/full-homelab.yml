@@ -1,0 +1,240 @@
+---
+# Full Homelab Deployment - Testing all Tengil features
+# This config tests: multi-app deployment, different backends, GPU passthrough,
+# mounts, auto_create, profiles, and all package specs
+
+pool: tank
+node: pve
+
+# Infrastructure datasets - foundational services
+datasets:
+  # Reverse proxy & web services
+  tank/nginx:
+    profile: appdata
+    zfs:
+      compression: lz4
+    containers:
+      - name: nginx
+        vmid: 300
+        auto_create: true
+        backend: oci
+        cpu: 2
+        memory: 1024
+        disk: 4G
+        network:
+          bridge: vmbr0
+          ip: dhcp
+
+  # Databases
+  tank/postgres:
+    profile: appdata
+    zfs:
+      compression: lz4
+      recordsize: 8K  # Optimized for databases
+    containers:
+      - name: postgres
+        vmid: 301
+        auto_create: true
+        backend: oci
+        cpu: 2
+        memory: 2048
+        disk: 20G
+        network:
+          bridge: vmbr0
+          ip: dhcp
+
+  tank/mariadb:
+    profile: appdata
+    zfs:
+      compression: lz4
+      recordsize: 8K
+    containers:
+      - name: mariadb
+        vmid: 302
+        auto_create: true
+        backend: oci
+        cpu: 2
+        memory: 2048
+        disk: 20G
+        network:
+          bridge: vmbr0
+          ip: dhcp
+
+  tank/redis:
+    profile: appdata
+    zfs:
+      compression: lz4
+    containers:
+      - name: redis
+        vmid: 303
+        auto_create: true
+        backend: oci
+        cpu: 1
+        memory: 512
+        disk: 2G
+        network:
+          bridge: vmbr0
+          ip: dhcp
+
+  # Media services
+  tank/jellyfin:
+    profile: media
+    zfs:
+      compression: lz4
+    containers:
+      - name: jellyfin
+        vmid: 310
+        auto_create: true
+        backend: oci
+        cpu: 4
+        memory: 4096
+        disk: 8G
+        network:
+          bridge: vmbr0
+          ip: dhcp
+        gpu:
+          passthrough: true
+        mounts:
+          - source: /tank/media-movies
+            target: /movies
+            readonly: true
+          - source: /tank/media-tv
+            target: /tv
+            readonly: true
+          - source: /tank/music
+            target: /music
+            readonly: true
+
+  tank/immich:
+    profile: photos
+    zfs:
+      compression: lz4
+    containers:
+      - name: immich
+        vmid: 311
+        auto_create: true
+        backend: oci
+        cpu: 4
+        memory: 4096
+        disk: 16G
+        network:
+          bridge: vmbr0
+          ip: dhcp
+        mounts:
+          - source: /tank/photos
+            target: /photos
+            readonly: false
+
+  # Monitoring stack
+  tank/prometheus:
+    profile: appdata
+    zfs:
+      compression: lz4
+    containers:
+      - name: prometheus
+        vmid: 320
+        auto_create: true
+        backend: oci
+        cpu: 2
+        memory: 2048
+        disk: 20G
+        network:
+          bridge: vmbr0
+          ip: dhcp
+
+  tank/grafana:
+    profile: appdata
+    zfs:
+      compression: lz4
+    containers:
+      - name: grafana
+        vmid: 321
+        auto_create: true
+        backend: oci
+        cpu: 2
+        memory: 1024
+        disk: 4G
+        network:
+          bridge: vmbr0
+          ip: dhcp
+
+  # Development tools
+  tank/gitea:
+    profile: dev
+    zfs:
+      compression: lz4
+    containers:
+      - name: gitea
+        vmid: 330
+        auto_create: true
+        backend: oci
+        cpu: 2
+        memory: 2048
+        disk: 10G
+        network:
+          bridge: vmbr0
+          ip: dhcp
+
+  # Productivity apps
+  tank/nextcloud:
+    profile: documents
+    zfs:
+      compression: lz4
+    containers:
+      - name: nextcloud
+        vmid: 340
+        auto_create: true
+        backend: oci
+        cpu: 2
+        memory: 2048
+        disk: 8G
+        network:
+          bridge: vmbr0
+          ip: dhcp
+
+  # Home automation (existing mosquitto at 220)
+  tank/home-assistant:
+    profile: appdata
+    zfs:
+      compression: lz4
+    containers:
+      - name: homeassistant
+        vmid: 350
+        auto_create: true
+        backend: oci
+        cpu: 2
+        memory: 1024
+        disk: 8G
+        network:
+          bridge: vmbr0
+          ip: dhcp
+        features:
+          nesting: true
+
+  # Media datasets for content storage
+  tank/media-movies:
+    profile: media
+    zfs:
+      compression: off  # Don't compress video files
+      recordsize: 1M    # Large recordsize for streaming
+
+  tank/media-tv:
+    profile: media
+    zfs:
+      compression: off
+      recordsize: 1M
+
+  tank/music:
+    profile: media
+    zfs:
+      compression: lz4  # Music can benefit from compression
+
+  tank/photos:
+    profile: photos
+    zfs:
+      compression: lz4
+
+  tank/backups:
+    profile: backups
+    zfs:
+      compression: zstd

@@ -366,7 +366,17 @@ class ContainerOrchestrator:
                     continue
                 # Get name for logging
                 info = self.discovery.get_container_info(vmid)
-                container_name = info['name'] if info else f"CT{vmid}"
+                info_name = info['name'] if info else None
+                if container_name and info_name and container_name != info_name:
+                    msg = (
+                        f"Container name mismatch for vmid {vmid}: "
+                        f"expected '{container_name}', found '{info_name}'"
+                    )
+                    logger.error(f"{msg} - skipping mount to avoid wrong target")
+                    results.append((vmid, False, "name mismatch"))
+                    continue
+
+                container_name = info_name or container_name or f"CT{vmid}"
             else:
                 # Name provided, look up vmid
                 vmid = self.discovery.find_container_by_name(container_name)
